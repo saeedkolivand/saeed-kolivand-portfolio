@@ -4,17 +4,16 @@ import { useFrame } from "@react-three/fiber";
 import { Text } from "@react-three/drei";
 import { Color, type Mesh } from "three";
 import { SCENE_COUNT } from "@/lib/spline";
+import { useScrollStore } from "@/lib/scrollStore";
 
 // TODO(asset): replace with the real scene geometry / GLTF. Deliberately a labeled
 // wireframe cage + glowing core so it reads as an obvious placeholder, but each region
 // gets its own hue and idle life so the journey is varied instead of identical boxes.
 export function PlaceholderScene({
   label,
-  position,
   index,
 }: {
   label: string;
-  position: [number, number, number];
   index: number;
 }) {
   const cage = useRef<Mesh>(null);
@@ -28,6 +27,8 @@ export function PlaceholderScene({
 
   // Idle motion, independent of scroll, so a scene still feels alive when paused.
   useFrame((state, delta) => {
+    // Honor prefers-reduced-motion: no autonomous idle spin/pulse when the user opts out.
+    if (useScrollStore.getState().reducedMotion) return;
     if (cage.current) cage.current.rotation.y += delta * 0.2;
     if (core.current) {
       core.current.rotation.x += delta * 0.5;
@@ -38,7 +39,7 @@ export function PlaceholderScene({
   });
 
   return (
-    <group position={position}>
+    <>
       <mesh ref={cage}>
         <boxGeometry args={[6, 6, 6]} />
         <meshBasicMaterial wireframe color={color} />
@@ -64,6 +65,6 @@ export function PlaceholderScene({
       >
         {label}
       </Text>
-    </group>
+    </>
   );
 }
