@@ -3,36 +3,31 @@ import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Group } from "three";
 import { useScrollStore } from "@/lib/scrollStore";
+import { insideBuilding } from "@/lib/insideBuilding";
 import { COLOR, LAYOUT } from "./config";
 import { Monitor } from "./Monitor";
 import { useAssetTexture } from "@/lib/useAssetTexture";
 
-// DESK — the warm, lamp-lit room the OUTSIDE window belonged to. Camera flies in over the desk
-// toward the glowing monitor. ~12 draw calls. Camera flies +Z entry -> origin -> -Z.
-//
-// The interior (desk / monitor / lamp) is hidden until the camera actually enters the DESK region
-// on the scroll timeline — otherwise, because the ±1 mount budget co-mounts DESK while OUTSIDE is
-// active, the computer would be visible from OUTSIDE (before you've "entered the building"). The
-// dark room shell stays (it reads as near-black and never bleeds). Gated via t in one useFrame
-// (getState, no re-render); this is a visibility toggle, not autonomous motion, so no a11y gating.
+// DESK — the warm, lamp-lit room, shown only once the camera is inside the building (insideBuilding).
+// The room shell is an axis-aligned near-black box (occludes stars/exterior); the workspace is
+// parented to `revealAnchor` — the camera's own pose at the reveal moment — so the monitor lands
+// dead-centre and upright when the room appears, despite the camera's bank/pitch.
 export function DeskScene() {
-  const { room, desk, keyboard, lamp } = LAYOUT;
+  const { room, desk, keyboard, lamp, revealAnchor } = LAYOUT;
   const wood = useAssetTexture("/textures/desk-wood.png", { repeat: [4, 3] });
-  const interior = useRef<Group>(null);
+  const root = useRef<Group>(null);
   const wallMid = (room.ceiling + room.floor) / 2;
   const wallH = room.ceiling - room.floor;
   const zMid = (room.front + room.back) / 2;
   const depth = room.front - room.back;
 
   useFrame(() => {
-    // Reveal only once DESK (scene index 1) is the active scene — hidden while OUTSIDE is active,
-    // so the computer isn't seen through the co-mounted OUTSIDE scene before you've entered.
-    if (interior.current) interior.current.visible = useScrollStore.getState().activeIndex >= 1;
+    if (root.current) root.current.visible = insideBuilding(useScrollStore.getState().t);
   });
 
   return (
-    <>
-      {/* Dark enclosing room shell (near-black, never bleeds into OUTSIDE). */}
+    <group ref={root}>
+      {/* Dark enclosing room shell (near-black, axis-aligned). */}
       <mesh position={[0, wallMid, room.back]}>
         <planeGeometry args={[room.halfWidth * 2, wallH]} />
         <meshBasicMaterial color={COLOR.wall} />
@@ -54,9 +49,9 @@ export function DeskScene() {
         <meshBasicMaterial color={COLOR.wall} />
       </mesh>
 
-      {/* Interior — revealed only once the camera enters the DESK region (see useFrame above). */}
-      <group ref={interior}>
-        {/* Desk slab the camera skims over toward the monitor — real dark-walnut albedo. */}
+      {/* Workspace anchored to the camera's reveal pose so the monitor reads dead-centre. */}
+      <group position={[...revealAnchor.pos]} rotation={[...revealAnchor.rot]}>
+        {/* Desk slab the monitor sits on — real dark-walnut albedo. */}
         <mesh position={[0, desk.y, desk.z]}>
           <boxGeometry args={[desk.width, desk.thick, desk.depth]} />
           <meshStandardMaterial map={wood} roughness={0.65} metalness={0.05} />
@@ -67,7 +62,7 @@ export function DeskScene() {
           <meshStandardMaterial color={COLOR.keyboard} roughness={0.6} metalness={0.2} />
         </mesh>
 
-        {/* Desk lamp: warm bulb + warm point light — the OUTSIDE window's warmth, seen from within. */}
+        {/* Desk lamp: warm bulb + warm point light. */}
         <mesh position={[lamp.pos[0], lamp.pos[1], lamp.pos[2]]}>
           <sphereGeometry args={[lamp.size, 16, 16]} />
           <meshBasicMaterial color={COLOR.warm} toneMapped={false} />
@@ -76,6 +71,6 @@ export function DeskScene() {
 
         <Monitor />
       </group>
-    </>
+    </group>
   );
 }
