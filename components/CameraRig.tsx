@@ -1,7 +1,7 @@
 "use client";
 import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
-import { Vector3, type PerspectiveCamera } from "three";
+import { Vector3, PerspectiveCamera } from "three";
 import { curve, SCENE_COUNT } from "@/lib/spline";
 import { useScrollStore } from "@/lib/scrollStore";
 
@@ -10,8 +10,19 @@ const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v
 
 const BASE_FOV = 62;
 const TWO_PI = Math.PI * 2;
-// How strongly the camera dwells at scenes and accelerates between them (0 = uniform).
+
+// Camera feel tuning.
+// WHIP MUST stay < 1 to keep u monotonic: du/dt = 1 + WHIP·cos(2πN·t) ≥ 1 − WHIP.
+// WHIP = 1 freezes the camera at each scene edge; WHIP > 1 makes it briefly reverse.
 const WHIP = 0.7;
+const BANK_GAIN = 3.5;
+const MAX_BANK = 0.6; // rad
+const LOOK_AHEAD = 16; // world units ahead the camera aims
+const FOV_SPEED_GAIN = 0.35;
+const MAX_FOV_BOOST = 14; // deg above BASE_FOV
+const CORKSCREW_AMP = 0.1; // rad, peaks mid-transition, zero at scenes
+const SWAY_A = 0.02; // rad
+const SWAY_B = 0.025; // rad
 
 export function CameraRig() {
   const look = useRef(new Vector3(0, 0, -1));
@@ -25,27 +36,33 @@ export function CameraRig() {
   const ready = useRef(false);
 
   useFrame((state, delta) => {
-    // Read t via getState() (not a selector) so the rig never re-renders on scroll.
-    const t = clamp01(useScrollStore.getState().t);
+    // Read via getState() (not a selector) so the rig never re-renders on scroll.
+    const { t, reducedMotion } = useScrollStore.getState();
+    const scroll = clamp01(t);
 
-    // Dwell at each scene, whip between them: remap scroll -> path parameter so a
-    // constant scroll speed yields a rhythmic slow-fast-slow ride. u == t at every scene
-    // center and boundary (sin term is 0 there), so scene placement/mounting stay aligned.
-    const u = clamp01(t + (WHIP / (TWO_PI * SCENE_COUNT)) * Math.sin(TWO_PI * SCENE_COUNT * t));
+    // Dwell at each scene, whip between them: remap scroll -> path parameter so a constant
+    // scroll speed yields a rhythmic slow-fast-slow ride. u == t at every scene center and
+    // boundary (sin term is 0 there), so scene placement/mounting stay aligned.
+    const u = clamp01(
+      scroll + (WHIP / (TWO_PI * SCENE_COUNT)) * Math.sin(TWO_PI * SCENE_COUNT * scroll),
+    );
 
     curve.getPointAt(u, pos.current);
     curve.getTangentAt(u, tan.current);
     curve.getTangentAt(clamp01(u + 0.02), tanAhead.current);
 
     // Look ahead along the path so the camera leads into turns.
-    desiredLook.current.copy(pos.current).addScaledVector(tan.current, 16);
+    desiredLook.current.copy(pos.current).addScaledVector(tan.current, LOOK_AHEAD);
 
-    // Bank into horizontal turns: roll toward the inside of the curve.
+    // Bank into horizontal turns. Reduced motion keeps the (user-driven) forward flight
+    // but damps the autonomous vestibular triggers — bank, corkscrew, sway, FOV pulse —
+    // that cause motion sickness.
     const heading = Math.atan2(tan.current.x, -tan.current.z);
     const headingAhead = Math.atan2(tanAhead.current.x, -tanAhead.current.z);
     let dHeading = headingAhead - heading;
     dHeading = Math.atan2(Math.sin(dHeading), Math.cos(dHeading)); // wrap to [-π, π]
-    const targetRoll = clamp(-dHeading * 3.5, -0.6, 0.6);
+    const bankLimit = reducedMotion ? MAX_BANK * 0.25 : MAX_BANK;
+    const targetRoll = clamp(-dHeading * BANK_GAIN, -bankLimit, bankLimit);
 
     // Frame-rate-independent smoothing for position, look target, and bank.
     const a = 1 - Math.exp(-4 * delta);
@@ -61,26 +78,32 @@ export function CameraRig() {
       roll.current += (targetRoll - roll.current) * a;
     }
 
-    // Speed → FOV: widens during whips between scenes, settles at each scene.
+    // Speed → FOV: widens during whips, settles at scenes. Held flat under reduced motion.
     const speed = state.camera.position.distanceTo(prev.current) / Math.max(delta, 1e-3);
     prev.current.copy(state.camera.position);
-    const targetFov = BASE_FOV + clamp(speed * 0.35, 0, 14);
+    const targetFov = reducedMotion
+      ? BASE_FOV
+      : BASE_FOV + clamp(speed * FOV_SPEED_GAIN, 0, MAX_FOV_BOOST);
     fov.current += (targetFov - fov.current) * (1 - Math.exp(-4 * delta));
-    const cam = state.camera as PerspectiveCamera;
-    if (cam.isPerspectiveCamera) {
-      cam.fov = fov.current;
-      cam.updateProjectionMatrix();
+    // Only touch the projection matrix when the FOV has actually moved (it asymptotes).
+    if (state.camera instanceof PerspectiveCamera && Math.abs(state.camera.fov - fov.current) > 0.01) {
+      state.camera.fov = fov.current;
+      state.camera.updateProjectionMatrix();
     }
 
-    // Idle sway (scroll-independent) + a gentle corkscrew that peaks mid-transition and is
-    // flat at each scene, so whips feel kinetic without disorienting at the dwell points.
-    const time = state.clock.elapsedTime;
-    const sway = Math.sin(time * 0.35) * 0.02 + Math.sin(time * 0.13) * 0.025;
-    const corkscrew = Math.sin(u * TWO_PI * SCENE_COUNT) * 0.1;
+    // Idle sway + a gentle corkscrew that peaks mid-transition and is flat at each scene.
+    // Both off under reduced motion.
+    let extraRoll = 0;
+    if (!reducedMotion) {
+      const time = state.clock.elapsedTime;
+      const sway = Math.sin(time * 0.35) * SWAY_A + Math.sin(time * 0.13) * SWAY_B;
+      const corkscrew = Math.sin(u * TWO_PI * SCENE_COUNT) * CORKSCREW_AMP;
+      extraRoll = sway + corkscrew;
+    }
 
     state.camera.up.set(0, 1, 0);
     state.camera.lookAt(look.current);
-    state.camera.rotateZ(roll.current + sway + corkscrew);
+    state.camera.rotateZ(roll.current + extraRoll);
   });
 
   return null;

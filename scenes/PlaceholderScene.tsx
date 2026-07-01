@@ -3,6 +3,7 @@ import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Text } from "@react-three/drei";
 import { Color, type Mesh } from "three";
+import { SCENE_COUNT } from "@/lib/spline";
 
 // TODO(asset): replace with the real scene geometry / GLTF. Deliberately a labeled
 // wireframe cage + glowing core so it reads as an obvious placeholder, but each region
@@ -21,7 +22,7 @@ export function PlaceholderScene({
 
   // Hue sweeps across the journey so each region is visually distinct.
   const color = useMemo(
-    () => new Color().setHSL((index / 11) * 0.75 + 0.05, 0.7, 0.6),
+    () => new Color().setHSL((index / SCENE_COUNT) * 0.75 + 0.05, 0.7, 0.6),
     [index],
   );
 
