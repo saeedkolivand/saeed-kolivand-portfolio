@@ -153,7 +153,7 @@ function Signage({ count }: { count: number }) {
       );
       // face the corridor centre: +Z plane normal -> ∓X
       quat.setFromAxisAngle(up, side > 0 ? -Math.PI / 2 : Math.PI / 2);
-      scl.set(0.8 + rnd() * 1.6, 1.4 + rnd() * 2.6, 1); // taller quads for the vertical neon strips
+      scl.set(1.6 + rnd() * 2.6, 3.6 + rnd() * 5.4, 1); // bigger, taller quads so the neon reads
       m.compose(pos, quat, scl);
       m.toArray(matrixArray, i * 16);
       cells[i] = Math.floor(rnd() * (SIGN_GRID.cols * SIGN_GRID.rows));

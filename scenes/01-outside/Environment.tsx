@@ -14,7 +14,9 @@ export function SkyDome() {
   return (
     <mesh renderOrder={-1}>
       <sphereGeometry args={[LAYOUT.sky.radius, 48, 24]} />
-      <meshBasicMaterial map={tex} side={BackSide} depthWrite={false} toneMapped={false} fog={false} />
+      {/* color multiplies the map — darken the panorama to a moodier night (its bright horizon
+          band was reading blown-out now that the raised ground drops the camera toward it). */}
+      <meshBasicMaterial map={tex} color="#6f7784" side={BackSide} depthWrite={false} toneMapped={false} fog={false} />
     </mesh>
   );
 }

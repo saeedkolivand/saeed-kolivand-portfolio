@@ -16,8 +16,8 @@ export const PARTICLES = {
   count: { high: 16000, low: 6000 },
   radius: 30, // tube radius
   length: 60, // tube length along local z (shader wraps particles over this; half-length 30 < 34u gap)
-  size: 2.6,
-  maxPointPx: 14, // near-camera point-size cap — keeps additive overdraw in budget
+  size: 4,
+  maxPointPx: 26, // near-camera point-size cap — keeps additive overdraw in budget
   swirl: 0.5, // rad/sec angular drift (faster near the axis)
   stream: 26, // units/sec toward +z, so particles rush past the -z-diving camera
 } as const;

@@ -70,34 +70,6 @@ void main(){
 }
 `;
 
-// ---- Rain: GPU points stretched into slanted streaks, wrap-falling via uTime ----
-export const RAIN_VERT = /* glsl */ `
-uniform float uTime; uniform float uFall; uniform float uWind; uniform float uSpanY; uniform float uSize;
-attribute float aSeed;
-varying float vFade;
-void main(){
-  vec3 p = position;
-  float fall = mod(p.y - uTime*uFall + aSeed*uSpanY, uSpanY);
-  p.y = fall - uSpanY*0.5;
-  p.x += (uSpanY*0.5 - fall) * uWind * 0.015;
-  vFade = 0.6 + 0.4*aSeed;
-  vec4 mv = modelViewMatrix * vec4(p, 1.0);
-  gl_PointSize = clamp(uSize * (260.0 / -mv.z), 1.0, 28.0);
-  gl_Position = projectionMatrix * mv;
-}
-`;
-export const RAIN_FRAG = /* glsl */ `
-uniform vec3 uColor; uniform float uOpacity; uniform sampler2D uSprite;
-varying float vFade;
-void main(){
-  float t = texture2D(uSprite, gl_PointCoord).r; // white streak on black
-  float a = t * uOpacity * vFade;
-  if (a < 0.01) discard;
-  gl_FragColor = vec4(uColor, a);
-  #include <colorspace_fragment>
-}
-`;
-
 // ---- Rain-on-glass threshold pane: procedural rivulets + beads (transparent overlay) ----
 export const GLASS_VERT = /* glsl */ `
 varying vec2 vUv;
@@ -110,11 +82,11 @@ ${NOISE}
 void main(){
   vec2 uv = vUv;
   float trail = fbm(vec2(uv.x*26.0, uv.y*7.0 - uTime*uRivulet));
-  float rivulet = smoothstep(0.62, 0.95, trail);
-  float beads = smoothstep(0.75, 1.0, h21(floor(uv*vec2(34.0, 54.0))));
-  float wet = max(rivulet, beads*0.6);
-  vec3 col = uCool*wet*0.5 + uWarm*pow(wet, 3.0)*0.9;
-  float alpha = clamp(wet*0.55, 0.0, 0.8);
+  float rivulet = smoothstep(0.8, 0.96, trail); // tight threshold -> thin streaks, mostly dry glass
+  float beads = smoothstep(0.88, 1.0, h21(floor(uv*vec2(34.0, 54.0))));
+  float wet = max(rivulet, beads*0.5);
+  vec3 col = uCool*wet*0.4 + uWarm*pow(wet, 3.0)*0.7;
+  float alpha = clamp(wet*0.4, 0.0, 0.45); // mostly transparent so it never washes the whole view
   gl_FragColor = vec4(col, alpha);
   #include <colorspace_fragment>
 }
@@ -137,7 +109,9 @@ export const SIGN_FRAG = /* glsl */ `
 uniform sampler2D uAtlas;
 varying vec2 vUv;
 void main(){
-  vec3 c = texture2D(uAtlas, vUv).rgb; // neon glyphs on black; additive => black adds nothing
+  // sRGB->linear decode (custom-shader sampler gets no auto-decode) so the neon reads as
+  // saturated cyan instead of washed-pale white; * 1.6 keeps it bright enough to bloom.
+  vec3 c = pow(texture2D(uAtlas, vUv).rgb, vec3(2.2)) * 1.6; // neon on black; additive
   gl_FragColor = vec4(c, 1.0);
   #include <colorspace_fragment>
 }
@@ -178,15 +152,25 @@ export const STREET_FRAG = /* glsl */ `
 uniform float uTime; uniform sampler2D uAsphalt; uniform float uTile; uniform vec3 uCyan; uniform vec3 uWarm; uniform float uRipple;
 varying vec2 vUv;
 void main(){
-  vec3 col = texture2D(uAsphalt, vUv * uTile).rgb * 0.85; // real wet-asphalt albedo, tiled
+  // sRGB->linear decode: three does NOT auto-decode textures sampled in a custom shader (only
+  // built-in map slots). The asphalt albedo is a mid-gray charcoal, and since we output linear
+  // (colorspace_fragment re-encodes for display) it lifts to grey — which reads as "lit concrete"
+  // in this near-black scene. So crush it to a dark blue-black wet floor and let the neon
+  // reflection streaks + grazing sheen carry the interest; the texture rides as subtle grain.
+  vec3 asphalt = pow(texture2D(uAsphalt, vUv * uTile).rgb, vec3(2.2));
+  vec3 col = asphalt * vec3(0.11, 0.14, 0.19); // dark, faintly blue wet asphalt (grain still reads)
 
   float up = smoothstep(0.0, 1.0, vUv.y);
   float ripple = sin(length(vUv - 0.5)*60.0 - uTime*uRipple*10.0)*0.5 + 0.5;
-  float cyanSmear = smoothstep(0.5, 0.0, abs(vUv.x - 0.35)) * up * (0.5 + 0.5*ripple);
-  float warmSmear = smoothstep(0.5, 0.0, abs(vUv.x - 0.62)) * up;
-  col += uCyan * cyanSmear * 0.25;
-  col += uWarm * warmSmear * 0.12;
-  col += uCyan * pow(vUv.y, 4.0) * 0.06;
+  // Thin vertical neon reflection streaks that pop on the dark floor. vUv.x 0.5 is the flight
+  // corridor (whole-plane UV), so keep the brightest one centred there — it's what's under the camera.
+  float centerSmear = smoothstep(0.12, 0.0, abs(vUv.x - 0.5)) * up * (0.6 + 0.4*ripple);
+  float cyanSmear = smoothstep(0.07, 0.0, abs(vUv.x - 0.34)) * up * (0.6 + 0.4*ripple);
+  float warmSmear = smoothstep(0.05, 0.0, abs(vUv.x - 0.64)) * up;
+  col += uCyan * centerSmear * 0.5;
+  col += uCyan * cyanSmear * 0.45;
+  col += uWarm * warmSmear * 0.4;
+  col += uCyan * pow(vUv.y, 5.0) * 0.04; // faint grazing wet sheen toward the horizon
   gl_FragColor = vec4(col, 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
