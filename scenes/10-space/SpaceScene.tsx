@@ -5,11 +5,14 @@ import { AdditiveBlending, Group, Mesh } from "three";
 import { useScrollStore } from "@/lib/scrollStore";
 
 // SPACE — a quiet atmospheric breather between the ARCHITECTURE diagram and the TERMINAL closer: a
-// glowing star with slow, tilted orbital rings. Radially symmetric, so no leveling needed — just the
-// look-target anchor. All idle motion (spin + core pulse) is gated on reduced motion.
+// glowing star with slow, tilted orbital rings. The composition has no expected upright (the rings
+// tumble freely), so no leveling is needed — just the look-target anchor. All idle motion (spin +
+// core pulse) is gated on reduced motion.
 const CYAN = "#8fd4ff";
 const PALE = "#bfe6ff";
-const ANCHOR: [number, number, number] = [0, 1.93, -15.88]; // look-target at the dwell (measured)
+// Look-target at the dwell, measured off spline+whip; re-measure if the spline, scene WEIGHTS
+// (registry), or CameraRig bank change.
+const ANCHOR: [number, number, number] = [0, 1.93, -15.88];
 
 export function SpaceScene() {
   const rings = useRef<Group>(null);
