@@ -14,6 +14,7 @@ import { OpenSourceScene } from "@/scenes/06-open-source/OpenSourceScene";
 import { TimelineScene } from "@/scenes/07-timeline/TimelineScene";
 import { StreamingScene } from "@/scenes/08-streaming/StreamingScene";
 import { ArchitectureScene } from "@/scenes/09-architecture/ArchitectureScene";
+import { SpaceScene } from "@/scenes/10-space/SpaceScene";
 import { curve } from "@/lib/spline";
 
 // Real scene Components wired by registry id. Kept here — inside the Canvas-only, dynamically
@@ -29,6 +30,7 @@ const SCENE_COMPONENTS: Partial<Record<string, FC<SceneComponentProps>>> = {
   "07-timeline": TimelineScene,
   "08-streaming": StreamingScene,
   "09-architecture": ArchitectureScene,
+  "10-space": SpaceScene,
 };
 
 // Static per-scene placement on the spline, computed once (the curve never changes). Each
