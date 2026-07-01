@@ -9,7 +9,9 @@ const CYAN = "#8fd4ff";
 const DIM = "#a9c6da";
 const FAINT = "#6f97b5";
 
-const ANCHOR: [number, number, number] = [0, 0.84, -15.98]; // camera look-target at the dwell (measured)
+// Look-target at the dwell, measured off spline+whip; re-measure if the spline, scene WEIGHTS
+// (registry), or CameraRig bank change. Roll is handled by useLevelRoll, not here.
+const ANCHOR: [number, number, number] = [0, 0.84, -15.98];
 const BW = 8; // box width
 const BH = 2.4; // box height
 
