@@ -51,7 +51,8 @@ export function SceneManager() {
   return (
     <>
       {sceneItems.map(({ scene, index, position, quaternion }) => {
-        // Only current ± 1 scene is ever mounted — the biggest performance lever.
+        // Only current ± 1 scene is ever mounted — the biggest performance lever. (DESK's room
+        // window ends at EXIT_T ≈ 0.229, inside ENTER-MONITOR's region, so ±1 already covers it.)
         if (Math.abs(index - active) > 1) return null;
 
         const Component = SCENE_COMPONENTS[scene.id];

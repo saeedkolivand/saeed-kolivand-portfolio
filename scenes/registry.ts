@@ -39,9 +39,18 @@ const NAMES: ReadonlyArray<readonly [string, string]> = [
   ["11-terminal", "TERMINAL"],
 ];
 
-export const scenes: SceneDef[] = NAMES.map(([id, label], i) => ({
-  id,
-  label,
-  range: [i / NAMES.length, (i + 1) / NAMES.length],
-  preload: 0.05,
-}));
+// Per-scene pacing weights (order matches NAMES). All 1 == the original uniform grid; give a scene
+// a bigger weight to hand it more of the scroll timeline — more travel + a longer approach, so the
+// next scene is first seen from far. Editing these shifts the t-timeline, so re-tune the downstream
+// t-thresholds (lib/insideBuilding) and re-measure the DESK reveal anchor after any change.
+const WEIGHTS: readonly number[] = [1, 1, 1, 2.5, 1, 1, 1, 1, 1, 1, 1]; // ABOUT (idx 3) spread wide -> seen from far
+
+export const scenes: SceneDef[] = (() => {
+  const total = WEIGHTS.reduce((a, b) => a + b, 0);
+  let acc = 0;
+  return NAMES.map(([id, label], i) => {
+    const start = acc / total;
+    acc += WEIGHTS[i] ?? 1;
+    return { id, label, range: [start, acc / total] as [number, number], preload: 0.05 };
+  });
+})();

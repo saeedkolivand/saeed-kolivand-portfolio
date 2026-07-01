@@ -2,7 +2,8 @@
 import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Vector3, PerspectiveCamera } from "three";
-import { curve, SCENE_COUNT } from "@/lib/spline";
+import { curve } from "@/lib/spline";
+import { scenes } from "@/scenes/registry";
 import { useScrollStore } from "@/lib/scrollStore";
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
@@ -40,12 +41,16 @@ export function CameraRig() {
     const { t, reducedMotion } = useScrollStore.getState();
     const scroll = clamp01(t);
 
-    // Dwell at each scene, whip between them: remap scroll -> path parameter so a constant
-    // scroll speed yields a rhythmic slow-fast-slow ride. u == t at every scene center and
-    // boundary (sin term is 0 there), so scene placement/mounting stay aligned.
-    const u = clamp01(
-      scroll + (WHIP / (TWO_PI * SCENE_COUNT)) * Math.sin(TWO_PI * SCENE_COUNT * scroll),
-    );
+    // Dwell at each scene, whip between them: remap scroll -> path parameter so a constant scroll
+    // speed yields a rhythmic slow-fast-slow ride. The whip runs WITHIN each (possibly non-uniform)
+    // scene segment, so u == scroll at every scene center + boundary (sin term is 0 there) and scene
+    // placement/mounting stay aligned. With uniform ranges this is exactly the old single sinusoid.
+    let si = scenes.length - 1;
+    while (si > 0 && scroll < scenes[si]!.range[0]) si--;
+    const segStart = scenes[si]!.range[0];
+    const segLen = scenes[si]!.range[1] - segStart;
+    const segLocal = segLen > 1e-6 ? (scroll - segStart) / segLen : 0;
+    const u = clamp01(scroll + ((WHIP * segLen) / TWO_PI) * Math.sin(TWO_PI * segLocal));
 
     curve.getPointAt(u, pos.current);
     curve.getTangentAt(u, tan.current);
@@ -97,7 +102,7 @@ export function CameraRig() {
     if (!reducedMotion) {
       const time = state.clock.elapsedTime;
       const sway = Math.sin(time * 0.35) * SWAY_A + Math.sin(time * 0.13) * SWAY_B;
-      const corkscrew = Math.sin(u * TWO_PI * SCENE_COUNT) * CORKSCREW_AMP;
+      const corkscrew = Math.sin(TWO_PI * segLocal) * CORKSCREW_AMP;
       extraRoll = sway + corkscrew;
     }
 

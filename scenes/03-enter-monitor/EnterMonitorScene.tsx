@@ -1,7 +1,9 @@
 "use client";
 import { useMemo, useRef } from "react";
-import { AdditiveBlending, Color, ShaderMaterial } from "three";
+import { useFrame } from "@react-three/fiber";
+import { AdditiveBlending, Color, Group, ShaderMaterial } from "three";
 import { useScrollStore } from "@/lib/scrollStore";
+import { EXIT_T } from "@/lib/insideBuilding";
 import { useUniformClock } from "@/lib/useUniformClock";
 import { useAssetTexture } from "@/lib/useAssetTexture";
 import { mulberry32 } from "@/lib/rng";
@@ -44,10 +46,17 @@ void main(){
 
 export function EnterMonitorScene() {
   const matRef = useRef<ShaderMaterial>(null);
+  const root = useRef<Group>(null);
   useUniformClock(matRef);
   const sprite = useAssetTexture("/textures/particle-glow.png", { srgb: false }); // intensity mask
   const quality = useScrollStore((s) => s.quality);
   const count = pickCount(quality);
+
+  // Hidden until the DESK room hands off (t >= EXIT_T): its long particle tube is co-mounted as a
+  // ±1 neighbor of DESK and would otherwise stream backward into the canyon/room as loose dots.
+  useFrame(() => {
+    if (root.current) root.current.visible = useScrollStore.getState().t >= EXIT_T;
+  });
 
   const { positions, seeds } = useMemo(() => {
     const rnd = mulberry32(2024);
@@ -81,7 +90,7 @@ export function EnterMonitorScene() {
   );
 
   return (
-    <>
+    <group ref={root}>
       <points frustumCulled={false}>
         <bufferGeometry>
           <bufferAttribute attach="attributes-position" args={[positions, 3]} />
@@ -105,6 +114,6 @@ export function EnterMonitorScene() {
         <sphereGeometry args={[CORE.radius, CORE.segments, CORE.segments]} />
         <meshBasicMaterial color={COLOR.core} transparent opacity={CORE.opacity} blending={AdditiveBlending} depthWrite={false} toneMapped={false} />
       </mesh>
-    </>
+    </group>
   );
 }
