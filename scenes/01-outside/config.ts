@@ -22,9 +22,7 @@ export const COLOR = {
 export const COUNT = {
   towers: { high: 260, low: 90 },
   aerials: { high: 80, low: 0 },
-  signage: { high: 60, low: 24 },
-  rainNear: { high: 5000, low: 1500 },
-  rainFar: { high: 2000, low: 500 },
+  signage: { high: 130, low: 50 },
 } as const;
 
 export const pick = (tier: QualityTier, c: { high: number; low: number }) =>
@@ -40,16 +38,17 @@ export const LAYOUT = {
   hero: { pos: [-8, -24, -40] as const, size: [16, 46, 16] as const, yawDeg: 15 },
   warmWindow: { size: [1.6, 2.2] as const, glow: 22 },
   glass: { size: [46, 28] as const, tiltDeg: 8, z: 6 },
-  street: { y: -40, size: 900 },
+  // Ground/street level. Raised from -40 toward the flight corridor so the wet asphalt actually
+  // enters frame under the descending camera (was ~50u below and never seen). NOTE: only the
+  // INSTANCED city (towers/aerials/signage) grounds off this; the hero tower + warm window + glass
+  // are fixed local positions (hero.pos/glass), so the wet floor now sits just below the warm window.
+  street: { y: -22, size: 900 },
   sky: { radius: 340 },
 } as const;
 
 /** Motion in units/sec (or rad/sec) — every value is applied `* delta` via the shared
  *  uTime clock, which only advances when reduced motion is off. */
 export const MOTION = {
-  rainNearFall: 28,
-  rainFarFall: 14,
-  windShear: 4,
   rivulet: 1.0,
   ripple: 0.6,
 } as const;
