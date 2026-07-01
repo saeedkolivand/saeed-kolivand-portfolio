@@ -1,5 +1,5 @@
 "use client";
-import { Suspense, useMemo } from "react";
+import { useMemo } from "react";
 import { Canvas } from "@react-three/fiber";
 import { Stars, Sparkles } from "@react-three/drei";
 import { EffectComposer, Bloom, Vignette, ChromaticAberration } from "@react-three/postprocessing";
@@ -50,11 +50,9 @@ export function Canvas3D() {
         />
 
         <CameraRig />
-        {/* Suspense catches scene texture loading (drei useTexture) — scenes pop in when ready
-            while the ambient starfield stays up. */}
-        <Suspense fallback={null}>
-          <SceneManager />
-        </Suspense>
+        {/* Scene texture loading is caught by a per-scene <Suspense> inside SceneManager, so a
+            loading scene never blanks its neighbors. */}
+        <SceneManager />
         <PerfHUD />
 
         {/* Selective bloom is the scene's whole look — only emissives above threshold (the one

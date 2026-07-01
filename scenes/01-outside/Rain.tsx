@@ -27,7 +27,7 @@ function RainLayer({
 }) {
   const matRef = useRef<ShaderMaterial>(null);
   useUniformClock(matRef);
-  const sprite = useAssetTexture("/textures/rain-streak.png");
+  const sprite = useAssetTexture("/textures/rain-streak.png", { srgb: false }); // intensity mask
 
   const { positions, seeds } = useMemo(() => {
     const rnd = mulberry32(seed);

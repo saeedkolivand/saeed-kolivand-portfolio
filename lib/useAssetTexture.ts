@@ -14,7 +14,10 @@ export function useAssetTexture(
     const tex = Array.isArray(loaded) ? loaded[0] : loaded;
     if (!tex) return;
     if (opts?.srgb !== false) tex.colorSpace = SRGBColorSpace;
-    if (opts?.wrap || opts?.repeat) tex.wrapS = tex.wrapT = RepeatWrapping;
+    if (opts?.wrap || opts?.repeat) {
+      tex.wrapS = tex.wrapT = RepeatWrapping;
+      tex.anisotropy = 8; // tiled maps are viewed at grazing angles from the flying camera
+    }
     if (opts?.repeat) tex.repeat.set(opts.repeat[0], opts.repeat[1]);
-  }) as Texture;
+  });
 }

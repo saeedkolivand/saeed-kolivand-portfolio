@@ -45,7 +45,7 @@ void main(){
 export function EnterMonitorScene() {
   const matRef = useRef<ShaderMaterial>(null);
   useUniformClock(matRef);
-  const sprite = useAssetTexture("/textures/particle-glow.png");
+  const sprite = useAssetTexture("/textures/particle-glow.png", { srgb: false }); // intensity mask
   const quality = useScrollStore((s) => s.quality);
   const count = pickCount(quality);
 

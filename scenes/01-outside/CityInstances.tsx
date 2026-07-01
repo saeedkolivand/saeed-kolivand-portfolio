@@ -21,6 +21,8 @@ import { useUniformClock } from "@/lib/useUniformClock";
 import { useAssetTexture } from "@/lib/useAssetTexture";
 import type { QualityTier } from "@/lib/scrollStore";
 
+// MUST match the cell layout of public/textures/neon-atlas.png (9 columns × 5 rows = 45 signs).
+// Regenerating the atlas at a different grid requires updating these numbers.
 const SIGN_GRID = { cols: 9, rows: 5 };
 
 // The whole megacity is 3 InstancedMeshes (towers · rooftop aerials · cyan signage) — one draw
