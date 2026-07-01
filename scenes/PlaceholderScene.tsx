@@ -1,30 +1,57 @@
 "use client";
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Text } from "@react-three/drei";
-import type { Mesh } from "three";
+import { Color, type Mesh } from "three";
+import { SCENE_COUNT } from "@/lib/spline";
 
 // TODO(asset): replace with the real scene geometry / GLTF. Deliberately a labeled
-// wireframe so it can never be mistaken for finished art.
+// wireframe cage + glowing core so it reads as an obvious placeholder, but each region
+// gets its own hue and idle life so the journey is varied instead of identical boxes.
 export function PlaceholderScene({
   label,
   position,
+  index,
 }: {
   label: string;
   position: [number, number, number];
+  index: number;
 }) {
-  const ref = useRef<Mesh>(null);
+  const cage = useRef<Mesh>(null);
+  const core = useRef<Mesh>(null);
+
+  // Hue sweeps across the journey so each region is visually distinct.
+  const color = useMemo(
+    () => new Color().setHSL((index / SCENE_COUNT) * 0.75 + 0.05, 0.7, 0.6),
+    [index],
+  );
 
   // Idle motion, independent of scroll, so a scene still feels alive when paused.
-  useFrame((_, delta) => {
-    if (ref.current) ref.current.rotation.y += delta * 0.3;
+  useFrame((state, delta) => {
+    if (cage.current) cage.current.rotation.y += delta * 0.2;
+    if (core.current) {
+      core.current.rotation.x += delta * 0.5;
+      core.current.rotation.y -= delta * 0.35;
+      const s = 1 + Math.sin(state.clock.elapsedTime * 1.4 + index) * 0.15;
+      core.current.scale.setScalar(s);
+    }
   });
 
   return (
     <group position={position}>
-      <mesh ref={ref}>
+      <mesh ref={cage}>
         <boxGeometry args={[6, 6, 6]} />
-        <meshBasicMaterial wireframe color="#38bdf8" />
+        <meshBasicMaterial wireframe color={color} />
+      </mesh>
+      <mesh ref={core}>
+        <icosahedronGeometry args={[1.5, 0]} />
+        <meshStandardMaterial
+          color={color}
+          emissive={color}
+          emissiveIntensity={0.7}
+          roughness={0.35}
+          metalness={0.4}
+        />
       </mesh>
       <Text
         position={[0, 4.6, 0]}
