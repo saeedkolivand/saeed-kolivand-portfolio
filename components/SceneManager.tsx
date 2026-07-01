@@ -24,7 +24,7 @@ export function SceneManager() {
             {Component ? (
               <Component />
             ) : (
-              <PlaceholderScene label={scene.label} position={[p.x, p.y, p.z]} />
+              <PlaceholderScene label={scene.label} position={[p.x, p.y, p.z]} index={i} />
             )}
           </SceneShell>
         );
