@@ -8,6 +8,7 @@ import { PlaceholderScene } from "@/scenes/PlaceholderScene";
 import { OutsideScene } from "@/scenes/01-outside/OutsideScene";
 import { DeskScene } from "@/scenes/02-desk/DeskScene";
 import { EnterMonitorScene } from "@/scenes/03-enter-monitor/EnterMonitorScene";
+import { AboutScene } from "@/scenes/04-about/AboutScene";
 import { curve } from "@/lib/spline";
 
 // Real scene Components wired by registry id. Kept here — inside the Canvas-only, dynamically
@@ -17,6 +18,7 @@ const SCENE_COMPONENTS: Partial<Record<string, FC<SceneComponentProps>>> = {
   "01-outside": OutsideScene,
   "02-desk": DeskScene,
   "03-enter-monitor": EnterMonitorScene,
+  "04-about": AboutScene,
 };
 
 // Static per-scene placement on the spline, computed once (the curve never changes). Each
