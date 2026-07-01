@@ -9,8 +9,9 @@ import { Group, Vector3 } from "three";
 //
 // This spline section banks HARD and FAST (±34° across the region), so a static counter-roll only
 // levels one instant. Instead we read the camera's *current* roll each frame and cancel it, keeping
-// the spine horizontal throughout the fly-through — and doing nothing under reduced motion, where
-// CameraRig disables the bank and the measured roll is 0.
+// the spine horizontal throughout the fly-through. It reads the ACTUAL camera roll, so it self-
+// corrects for whatever bank remains — including under reduced motion, where CameraRig damps the
+// bank to 25% (not off, see CameraRig bankLimit). Do NOT gate this on reducedMotion.
 const CYAN = "#8fd4ff";
 const DIM = "#a9c6da";
 const FAINT = "#6f97b5";
@@ -64,7 +65,9 @@ export function TimelineScene() {
     if (!root.current) return;
     const cam = state.camera;
     cam.getWorldDirection(fwd);
-    levelRight.crossVectors(fwd, WORLD_UP).normalize(); // where "right" points with zero roll
+    levelRight.crossVectors(fwd, WORLD_UP); // where "right" points with zero roll
+    if (levelRight.lengthSq() < 1e-8) return; // fwd ∥ up — can't happen on this spline, but avoid NaN
+    levelRight.normalize();
     right.set(1, 0, 0).applyQuaternion(cam.quaternion); // camera's actual right
     const sin = cross.crossVectors(levelRight, right).dot(fwd);
     root.current.rotation.z = -Math.atan2(sin, levelRight.dot(right));
