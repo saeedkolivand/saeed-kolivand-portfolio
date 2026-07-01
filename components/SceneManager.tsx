@@ -1,5 +1,5 @@
 "use client";
-import type { FC } from "react";
+import { Suspense, type FC } from "react";
 import { Quaternion, Vector3 } from "three";
 import { useScrollStore } from "@/lib/scrollStore";
 import { scenes, type SceneComponentProps } from "@/scenes/registry";
@@ -56,14 +56,18 @@ export function SceneManager() {
 
         const Component = SCENE_COMPONENTS[scene.id];
 
+        // Per-scene Suspense: a scene loading its textures suspends only ITSELF, so it never
+        // blanks its already-rendered neighbors (the ±1 budget mounts up to 3 at once).
         return (
-          <SceneShell key={scene.id} position={position} quaternion={quaternion}>
-            {Component ? (
-              <Component index={index} />
-            ) : (
-              <PlaceholderScene label={scene.label} index={index} />
-            )}
-          </SceneShell>
+          <Suspense key={scene.id} fallback={null}>
+            <SceneShell position={position} quaternion={quaternion}>
+              {Component ? (
+                <Component index={index} />
+              ) : (
+                <PlaceholderScene label={scene.label} index={index} />
+              )}
+            </SceneShell>
+          </Suspense>
         );
       })}
     </>

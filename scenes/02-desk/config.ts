@@ -7,11 +7,9 @@
 export const COLOR = {
   wall: "#070709", // near-black room shell — reads as a dark room and vanishes into the
   // #05060a background when it briefly co-mounts with the OUTSIDE scene (no visible bleed).
-  desk: "#241a12", // dark wood
   bezel: "#070709", // monitor frame, near-black
   keyboard: "#14121a",
   warm: "#ffcf8a", // lamp glow — matches the OUTSIDE window (narrative continuity)
-  screenBg: "#0d1117", // editor background
   screenCool: "#9fd0ff", // cool light the monitor casts into the room
 } as const;
 

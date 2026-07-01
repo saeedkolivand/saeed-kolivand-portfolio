@@ -2,55 +2,40 @@
 import { useMemo, useRef } from "react";
 import { AdditiveBlending, BackSide, Color, DoubleSide, ShaderMaterial, UniformsLib, UniformsUtils } from "three";
 import { COLOR, LAYOUT, MOTION } from "./config";
-import {
-  GLASS_FRAG,
-  GLASS_VERT,
-  GLOW_FRAG,
-  GLOW_VERT,
-  SKY_FRAG,
-  SKY_VERT,
-  STREET_FRAG,
-  STREET_VERT,
-} from "./shaders";
+import { GLASS_FRAG, GLASS_VERT, GLOW_FRAG, GLOW_VERT, STREET_FRAG, STREET_VERT } from "./shaders";
 import { useUniformClock } from "@/lib/useUniformClock";
+import { useAssetTexture } from "@/lib/useAssetTexture";
 
-// Horizon-glow backdrop dome — renders behind the shared drei Stars; no fog (it IS the sky).
-// TODO(asset): swap the gradient+fbm material for an equirect night-smog HDR onto the same dome.
+// Night-sky backdrop dome — an equirectangular rainy-night panorama (which also carries a
+// distant city-light horizon) on a BackSide sphere behind the shared drei Stars. No fog: it IS
+// the sky; toneMapped off so the far city lights stay bright enough to bloom.
 export function SkyDome() {
-  const matRef = useRef<ShaderMaterial>(null);
-  useUniformClock(matRef);
-  const uniforms = useMemo(
-    () => ({
-      uTime: { value: 0 },
-      uDrift: { value: MOTION.smogDrift },
-      uZenith: { value: new Color(COLOR.skyZenith) },
-      uHorizon: { value: new Color(COLOR.skyHorizon) },
-    }),
-    [],
-  );
+  const tex = useAssetTexture("/textures/sky-night.png");
   return (
     <mesh renderOrder={-1}>
-      <sphereGeometry args={[LAYOUT.sky.radius, 32, 16]} />
-      <shaderMaterial ref={matRef} vertexShader={SKY_VERT} fragmentShader={SKY_FRAG} uniforms={uniforms} side={BackSide} depthWrite={false} />
+      <sphereGeometry args={[LAYOUT.sky.radius, 48, 24]} />
+      <meshBasicMaterial map={tex} side={BackSide} depthWrite={false} toneMapped={false} fog={false} />
     </mesh>
   );
 }
 
-// Wet asphalt below the corridor — analytic accent reflections + fresnel sheen, no render pass.
-// TODO(asset): real wet-asphalt normal + roughness maps drop onto this same plane.
+// Wet asphalt below the corridor — a real seamless asphalt albedo (tiled) under analytic neon
+// reflections + fresnel sheen + ripples (no extra render pass).
 export function WetStreet() {
   const matRef = useRef<ShaderMaterial>(null);
   useUniformClock(matRef);
+  const asphalt = useAssetTexture("/textures/wet-asphalt.png", { wrap: true });
   const uniforms = useMemo(
     () => ({
       ...UniformsUtils.clone(UniformsLib.fog),
       uTime: { value: 0 },
-      uAsphalt: { value: new Color(COLOR.asphalt) },
+      uAsphalt: { value: asphalt },
+      uTile: { value: 26 },
       uCyan: { value: new Color(COLOR.cyan) },
       uWarm: { value: new Color(COLOR.warm) },
       uRipple: { value: MOTION.ripple },
     }),
-    [],
+    [asphalt],
   );
   return (
     <mesh position={[0, LAYOUT.street.y, 0]} rotation={[-Math.PI / 2, 0, 0]}>

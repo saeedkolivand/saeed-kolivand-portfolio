@@ -1,6 +1,7 @@
 "use client";
 import { useLayoutEffect, useMemo, useRef } from "react";
 import {
+  AdditiveBlending,
   Color,
   DoubleSide,
   InstancedBufferAttribute,
@@ -10,13 +11,19 @@ import {
   ShaderMaterial,
   UniformsLib,
   UniformsUtils,
+  Vector2,
   Vector3,
 } from "three";
 import { COLOR, COUNT, LAYOUT, pick } from "./config";
-import { TOWER_VERT, TOWER_FRAG } from "./shaders";
+import { TOWER_VERT, TOWER_FRAG, SIGN_VERT, SIGN_FRAG } from "./shaders";
 import { mulberry32 } from "@/lib/rng";
 import { useUniformClock } from "@/lib/useUniformClock";
+import { useAssetTexture } from "@/lib/useAssetTexture";
 import type { QualityTier } from "@/lib/scrollStore";
+
+// MUST match the cell layout of public/textures/neon-atlas.png (9 columns × 5 rows = 45 signs).
+// Regenerating the atlas at a different grid requires updating these numbers.
+const SIGN_GRID = { cols: 9, rows: 5 };
 
 // The whole megacity is 3 InstancedMeshes (towers · rooftop aerials · cyan signage) — one draw
 // call each, thousands of lit windows baked into the tower fragment shader. Layouts are built
@@ -125,14 +132,17 @@ function Aerials({ count }: { count: number }) {
 
 function Signage({ count }: { count: number }) {
   const ref = useRef<InstancedMesh>(null);
-  const matrixArray = useMemo(() => {
+  const atlas = useAssetTexture("/textures/neon-atlas.png");
+
+  const { matrixArray, cells } = useMemo(() => {
     const rnd = mulberry32(4242);
     const m = new Matrix4();
     const pos = new Vector3();
     const quat = new Quaternion();
     const scl = new Vector3();
     const up = new Vector3(0, 1, 0);
-    const arr = new Float32Array(count * 16);
+    const matrixArray = new Float32Array(count * 16);
+    const cells = new Float32Array(count);
     const { minX, zFront, zBack } = LAYOUT.corridor;
     for (let i = 0; i < count; i++) {
       const side = rnd() < 0.5 ? -1 : 1;
@@ -143,11 +153,12 @@ function Signage({ count }: { count: number }) {
       );
       // face the corridor centre: +Z plane normal -> ∓X
       quat.setFromAxisAngle(up, side > 0 ? -Math.PI / 2 : Math.PI / 2);
-      scl.set(0.6 + rnd() * 1.4, 0.5 + rnd() * 1.2, 1);
+      scl.set(0.8 + rnd() * 1.6, 1.4 + rnd() * 2.6, 1); // taller quads for the vertical neon strips
       m.compose(pos, quat, scl);
-      m.toArray(arr, i * 16);
+      m.toArray(matrixArray, i * 16);
+      cells[i] = Math.floor(rnd() * (SIGN_GRID.cols * SIGN_GRID.rows));
     }
-    return arr;
+    return { matrixArray, cells };
   }, [count]);
 
   useLayoutEffect(() => {
@@ -155,13 +166,18 @@ function Signage({ count }: { count: number }) {
     if (!mesh) return;
     mesh.instanceMatrix.array.set(matrixArray);
     mesh.instanceMatrix.needsUpdate = true;
-  }, [matrixArray]);
+    mesh.geometry.setAttribute("aCell", new InstancedBufferAttribute(cells, 1));
+  }, [matrixArray, cells]);
+
+  const uniforms = useMemo(
+    () => ({ uAtlas: { value: atlas }, uGrid: { value: new Vector2(SIGN_GRID.cols, SIGN_GRID.rows) } }),
+    [atlas],
+  );
 
   return (
-    // TODO(asset): swap for a neon-sign SDF/MSDF atlas sampled per-instance; procedural cyan for now.
     <instancedMesh ref={ref} args={[undefined, undefined, count]} frustumCulled={false}>
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial color={COLOR.cyan} toneMapped={false} fog side={DoubleSide} />
+      <shaderMaterial vertexShader={SIGN_VERT} fragmentShader={SIGN_FRAG} uniforms={uniforms} transparent depthWrite={false} blending={AdditiveBlending} toneMapped={false} side={DoubleSide} />
     </instancedMesh>
   );
 }

@@ -3,6 +3,7 @@ import { useMemo, useRef } from "react";
 import { AdditiveBlending, Color, ShaderMaterial } from "three";
 import { useScrollStore } from "@/lib/scrollStore";
 import { useUniformClock } from "@/lib/useUniformClock";
+import { useAssetTexture } from "@/lib/useAssetTexture";
 import { mulberry32 } from "@/lib/rng";
 import { COLOR, CORE, PARTICLES, pickCount } from "./config";
 
@@ -30,15 +31,13 @@ void main(){
 }
 `;
 const FRAG = /* glsl */ `
-uniform vec3 uColorA; uniform vec3 uColorB;
+uniform vec3 uColorA; uniform vec3 uColorB; uniform sampler2D uSprite;
 varying float vSeed;
 void main(){
-  vec2 c = gl_PointCoord - 0.5;
-  float d = length(c);
-  if (d > 0.5) discard;
-  float alpha = smoothstep(0.5, 0.0, d);
+  float a = texture2D(uSprite, gl_PointCoord).r; // soft radial glow on black
+  if (a < 0.01) discard;
   vec3 col = mix(uColorA, uColorB, vSeed);
-  gl_FragColor = vec4(col, alpha * alpha);
+  gl_FragColor = vec4(col, a);
   #include <colorspace_fragment>
 }
 `;
@@ -46,6 +45,7 @@ void main(){
 export function EnterMonitorScene() {
   const matRef = useRef<ShaderMaterial>(null);
   useUniformClock(matRef);
+  const sprite = useAssetTexture("/textures/particle-glow.png", { srgb: false }); // intensity mask
   const quality = useScrollStore((s) => s.quality);
   const count = pickCount(quality);
 
@@ -75,8 +75,9 @@ export function EnterMonitorScene() {
       uStream: { value: PARTICLES.stream },
       uColorA: { value: new Color(COLOR.particleA) },
       uColorB: { value: new Color(COLOR.particleB) },
+      uSprite: { value: sprite },
     }),
-    [],
+    [sprite],
   );
 
   return (
@@ -86,7 +87,6 @@ export function EnterMonitorScene() {
           <bufferAttribute attach="attributes-position" args={[positions, 3]} />
           <bufferAttribute attach="attributes-aSeed" args={[seeds, 1]} />
         </bufferGeometry>
-        {/* TODO(asset): a soft particle sprite texture could replace the procedural round point. */}
         <shaderMaterial
           ref={matRef}
           vertexShader={VERT}

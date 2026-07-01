@@ -50,6 +50,8 @@ export function Canvas3D() {
         />
 
         <CameraRig />
+        {/* Scene texture loading is caught by a per-scene <Suspense> inside SceneManager, so a
+            loading scene never blanks its neighbors. */}
         <SceneManager />
         <PerfHUD />
 

@@ -1,12 +1,14 @@
 "use client";
 import { COLOR, LAYOUT } from "./config";
 import { Monitor } from "./Monitor";
+import { useAssetTexture } from "@/lib/useAssetTexture";
 
 // DESK — the warm, lamp-lit room the OUTSIDE window belonged to. Camera flies in over the desk
 // toward the glowing monitor. No autonomous animation (motion is the scroll-driven camera), so
 // nothing to gate for reduced motion. ~12 draw calls. Camera flies +Z entry -> origin -> -Z.
 export function DeskScene() {
   const { room, desk, keyboard, lamp } = LAYOUT;
+  const wood = useAssetTexture("/textures/desk-wood.png", { repeat: [4, 3] });
   const wallMid = (room.ceiling + room.floor) / 2;
   const wallH = room.ceiling - room.floor;
   const zMid = (room.front + room.back) / 2;
@@ -36,11 +38,10 @@ export function DeskScene() {
         <meshBasicMaterial color={COLOR.wall} />
       </mesh>
 
-      {/* Desk slab the camera skims over toward the monitor. */}
-      {/* TODO(asset): real wood albedo/normal/roughness maps for the desk surface. */}
+      {/* Desk slab the camera skims over toward the monitor — real dark-walnut albedo. */}
       <mesh position={[0, desk.y, desk.z]}>
         <boxGeometry args={[desk.width, desk.thick, desk.depth]} />
-        <meshStandardMaterial color={COLOR.desk} roughness={0.7} metalness={0.05} />
+        <meshStandardMaterial map={wood} roughness={0.65} metalness={0.05} />
       </mesh>
 
       <mesh position={[keyboard.pos[0], keyboard.pos[1], keyboard.pos[2]]}>
