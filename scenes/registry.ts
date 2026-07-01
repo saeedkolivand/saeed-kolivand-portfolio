@@ -1,12 +1,19 @@
-import type { FC } from "react";
-
-/** Props every real scene Component receives from the SceneManager. */
+/** Props every real scene Component (wired by id in SceneManager's SCENE_COMPONENTS map)
+ *  receives. Real scenes are authored in a local frame placed on the spline by SceneShell:
+ *  the camera flies in along local -Z, +Y is world up, origin is the scene's spline center.
+ *  The camera passes THROUGH the origin (a fly-through, not a framed tableau) entering from
+ *  the +Z side, so arrange content around the approach rather than piling it at the origin;
+ *  and its view can pitch up to ~±24° relative to this level frame, since orientation is
+ *  yaw-only. */
 export interface SceneComponentProps {
   /** Registry index of this scene (0-based). */
   index: number;
 }
 
-/** The contract every scene implements (spec §3). */
+/** The contract every scene region implements (spec §3). This is a pure data module (labels
+ *  + ranges) so label-only consumers like UIOverlay never pull in the 3D bundle. Real scene
+ *  Components are wired by `id` in SceneManager; a region with no mapped Component renders a
+ *  labeled placeholder. */
 export interface SceneDef {
   id: string;
   label: string;
@@ -14,13 +21,6 @@ export interface SceneDef {
   range: [number, number];
   /** Extra t-margin to mount early. */
   preload?: number;
-  /** Real scene component; when absent, a labeled placeholder is rendered (Phase 0).
-   *  Authored in a local frame placed on the spline by SceneShell: camera flies in along
-   *  local -Z, +Y is world up, origin is the scene's spline center. Note the camera passes
-   *  THROUGH the origin (a fly-through, not a framed tableau) entering from the +Z side, so
-   *  arrange content around the approach rather than piling it at the origin; and its view
-   *  can pitch up to ~±24° relative to this level frame, since orientation is yaw-only. */
-  Component?: FC<SceneComponentProps>;
 }
 
 // TODO(asset): each scene gets a real Component in later phases. Phase 0 renders every
