@@ -1,15 +1,12 @@
 "use client";
-import { useEffect, useMemo } from "react";
 import { COLOR, LAYOUT } from "./config";
-import { makeCodeEditorTexture } from "./codeEditorTexture";
+import { useAssetTexture } from "@/lib/useAssetTexture";
 
-// The monitor: dark bezel + a live code-editor screen (emissive, faces +Z toward the incoming
-// camera) + stand, plus a cool light spill onto the room. The screen is the hero the camera
-// dives into for the ENTER MONITOR scene. The CanvasTexture is imperative, so it's disposed on
-// unmount (R3F can't track it) to respect the ±1 mount budget.
+// The monitor: dark bezel + a code-editor screen (real editor screenshot, emissive, faces +Z
+// toward the incoming camera), plus a cool light spill onto the room. The screen is the hero the
+// camera dives into for the ENTER MONITOR scene.
 export function Monitor() {
-  const texture = useMemo(() => makeCodeEditorTexture(), []);
-  useEffect(() => () => texture.dispose(), [texture]);
+  const screen = useAssetTexture("/textures/code-editor.png");
 
   const [mx, my, mz] = LAYOUT.monitor.pos;
   const [sw, sh] = LAYOUT.monitor.screen;
@@ -25,7 +22,7 @@ export function Monitor() {
       </mesh>
       <mesh position={[0, 0, 0.07]}>
         <planeGeometry args={[sw, sh]} />
-        <meshBasicMaterial map={texture} toneMapped={false} />
+        <meshBasicMaterial map={screen} toneMapped={false} />
       </mesh>
 
       {/* Cool light the screen casts into the dark room (warm lamp is the counterweight). */}

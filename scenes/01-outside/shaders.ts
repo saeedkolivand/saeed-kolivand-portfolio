@@ -15,30 +15,7 @@ float n2(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
 float fbm(vec2 p){ float s=0.0, a=0.5; for(int i=0;i<2;i++){ s+=a*n2(p); p*=2.0; a*=0.5; } return s; }
 `;
 
-// ---- Sky dome: vertical gradient + slow low-horizon smog drift (backdrop, no fog) ----
-export const SKY_VERT = /* glsl */ `
-varying vec3 vDir;
-void main(){ vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
-`;
-export const SKY_FRAG = /* glsl */ `
-#include <common>
-#include <tonemapping_pars_fragment>
-uniform float uTime; uniform float uDrift; uniform vec3 uZenith; uniform vec3 uHorizon;
-varying vec3 vDir;
-${NOISE}
-void main(){
-  vec3 d = normalize(vDir);
-  float h = clamp(d.y*0.5 + 0.5, 0.0, 1.0);
-  vec3 col = mix(uHorizon, uZenith, smoothstep(0.05, 0.55, h));
-  float lowMask = 1.0 - smoothstep(0.0, 0.4, h);
-  // +1e-6 keeps atan defined at the exact zenith/nadir pole vertices (d.x==d.z==0).
-  float smog = fbm(vec2(atan(d.z, d.x + 1e-6)*2.0, h*3.0) + uTime*uDrift);
-  col += uHorizon * smog * lowMask * 0.4;
-  gl_FragColor = vec4(col, 1.0);
-  #include <tonemapping_fragment>
-  #include <colorspace_fragment>
-}
-`;
+// (The sky dome now uses a real equirect night-sky texture — see Environment.tsx.)
 
 // ---- City / hero towers: instanced, in-shader window grid + fresnel edge, fogged ----
 // USE_INSTANCING is defined by three only for InstancedMesh, so this one shader serves both
@@ -110,14 +87,11 @@ void main(){
 }
 `;
 export const RAIN_FRAG = /* glsl */ `
-uniform vec3 uColor; uniform float uOpacity;
+uniform vec3 uColor; uniform float uOpacity; uniform sampler2D uSprite;
 varying float vFade;
 void main(){
-  vec2 c = gl_PointCoord - 0.5;
-  float x = abs(c.x + c.y*0.12);
-  float streak = smoothstep(0.5, 0.0, x*8.0);
-  float yg = smoothstep(0.5, 0.05, abs(c.y));
-  float a = streak*yg*uOpacity*vFade;
+  float t = texture2D(uSprite, gl_PointCoord).r; // white streak on black
+  float a = t * uOpacity * vFade;
   if (a < 0.01) discard;
   gl_FragColor = vec4(uColor, a);
   #include <colorspace_fragment>
@@ -142,6 +116,29 @@ void main(){
   vec3 col = uCool*wet*0.5 + uWarm*pow(wet, 3.0)*0.9;
   float alpha = clamp(wet*0.55, 0.0, 0.8);
   gl_FragColor = vec4(col, alpha);
+  #include <colorspace_fragment>
+}
+`;
+
+// ---- Neon signage: instanced quads, each showing one cell of the neon atlas (additive) ----
+export const SIGN_VERT = /* glsl */ `
+uniform vec2 uGrid;
+attribute float aCell;
+varying vec2 vUv;
+void main(){
+  float col = mod(aCell, uGrid.x);
+  float row = floor(aCell / uGrid.x);
+  vec2 cell = vec2(col, uGrid.y - 1.0 - row); // flip row so cell 0 is top-left of the atlas
+  vUv = (uv + cell) / uGrid;
+  gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+}
+`;
+export const SIGN_FRAG = /* glsl */ `
+uniform sampler2D uAtlas;
+varying vec2 vUv;
+void main(){
+  vec3 c = texture2D(uAtlas, vUv).rgb; // neon glyphs on black; additive => black adds nothing
+  gl_FragColor = vec4(c, 1.0);
   #include <colorspace_fragment>
 }
 `;
@@ -178,10 +175,11 @@ export const STREET_FRAG = /* glsl */ `
 #include <common>
 #include <tonemapping_pars_fragment>
 #include <fog_pars_fragment>
-uniform float uTime; uniform vec3 uAsphalt; uniform vec3 uCyan; uniform vec3 uWarm; uniform float uRipple;
+uniform float uTime; uniform sampler2D uAsphalt; uniform float uTile; uniform vec3 uCyan; uniform vec3 uWarm; uniform float uRipple;
 varying vec2 vUv;
 void main(){
-  vec3 col = uAsphalt;
+  vec3 col = texture2D(uAsphalt, vUv * uTile).rgb * 0.85; // real wet-asphalt albedo, tiled
+
   float up = smoothstep(0.0, 1.0, vUv.y);
   float ripple = sin(length(vUv - 0.5)*60.0 - uTime*uRipple*10.0)*0.5 + 0.5;
   float cyanSmear = smoothstep(0.5, 0.0, abs(vUv.x - 0.35)) * up * (0.5 + 0.5*ripple);

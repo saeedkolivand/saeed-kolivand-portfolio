@@ -5,6 +5,7 @@ import { COLOR, COUNT, MOTION, pick } from "./config";
 import { RAIN_VERT, RAIN_FRAG } from "./shaders";
 import { mulberry32 } from "@/lib/rng";
 import { useUniformClock } from "@/lib/useUniformClock";
+import { useAssetTexture } from "@/lib/useAssetTexture";
 import type { QualityTier } from "@/lib/scrollStore";
 
 // The rain box hugs the flight corridor; points wrap-fall in the vertex shader (mod over
@@ -26,6 +27,7 @@ function RainLayer({
 }) {
   const matRef = useRef<ShaderMaterial>(null);
   useUniformClock(matRef);
+  const sprite = useAssetTexture("/textures/rain-streak.png");
 
   const { positions, seeds } = useMemo(() => {
     const rnd = mulberry32(seed);
@@ -49,8 +51,9 @@ function RainLayer({
       uSize: { value: size },
       uColor: { value: new Color(COLOR.rain) },
       uOpacity: { value: opacity },
+      uSprite: { value: sprite },
     }),
-    [fall, size, opacity],
+    [fall, size, opacity, sprite],
   );
 
   return (
@@ -59,7 +62,6 @@ function RainLayer({
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
         <bufferAttribute attach="attributes-aSeed" args={[seeds, 1]} />
       </bufferGeometry>
-      {/* TODO(asset): rain-streak sprite texture could replace the procedural point smear. */}
       <shaderMaterial
         ref={matRef}
         vertexShader={RAIN_VERT}

@@ -10,15 +10,11 @@ import type { QualityTier } from "@/lib/scrollStore";
 /** Palette (exact hexes from the art direction). THREE.Color reads these as sRGB and
  *  converts to linear for the shaders — the whole scene works in linear space. */
 export const COLOR = {
-  skyZenith: "#070b14",
-  skyHorizon: "#14243d",
   towerBody: "#0a1018",
   edge: "#1b2c44",
   windowDim: "#2a3d55",
   cyan: "#8fd4ff",
-  cyanCore: "#bfe9ff",
   rain: "#6f8598",
-  asphalt: "#060a10",
   warm: "#ffcf8a",
 } as const;
 
@@ -54,7 +50,6 @@ export const MOTION = {
   rainNearFall: 28,
   rainFarFall: 14,
   windShear: 4,
-  smogDrift: 0.05,
   rivulet: 1.0,
   ripple: 0.6,
 } as const;
