@@ -4,7 +4,7 @@ import { Color, ShaderMaterial, UniformsLib, UniformsUtils } from "three";
 import { COLOR, LAYOUT } from "./config";
 import { TOWER_VERT, TOWER_FRAG } from "./shaders";
 import { GlowQuad } from "./Environment";
-import { useUniformClock } from "./useSceneClock";
+import { useUniformClock } from "@/lib/useUniformClock";
 
 // The developer's building — a near-black monolith the descending camera aims down, carrying
 // the ONE warm window (the desk) that is the sole warm mark and the bloom handoff into DESK.
