@@ -6,6 +6,7 @@ import { scenes, type SceneComponentProps } from "@/scenes/registry";
 import { SceneShell } from "@/scenes/_SceneShell";
 import { PlaceholderScene } from "@/scenes/PlaceholderScene";
 import { OutsideScene } from "@/scenes/01-outside/OutsideScene";
+import { DeskScene } from "@/scenes/02-desk/DeskScene";
 import { curve } from "@/lib/spline";
 
 // Real scene Components wired by registry id. Kept here — inside the Canvas-only, dynamically
@@ -13,6 +14,7 @@ import { curve } from "@/lib/spline";
 // consumers of the registry (e.g. UIOverlay). Regions with no entry render a placeholder.
 const SCENE_COMPONENTS: Partial<Record<string, FC<SceneComponentProps>>> = {
   "01-outside": OutsideScene,
+  "02-desk": DeskScene,
 };
 
 // Static per-scene placement on the spline, computed once (the curve never changes). Each

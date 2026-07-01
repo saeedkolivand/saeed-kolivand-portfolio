@@ -36,7 +36,9 @@ export const pick = (tier: QualityTier, c: { high: number; low: number }) =>
 
 /** Local-frame placement (camera flies +Z entry -> origin -> -Z exit, +Y world up). */
 export const LAYOUT = {
-  corridor: { minX: 22, maxX: 60, zFront: 90, zBack: -260, spanY: 46 },
+  // minX 30 keeps a clear central flight tube (so the next scene's content isn't occluded by a
+  // tower); zBack -120 stops the city invading DESK's space downstream (scenes are ~30u apart).
+  corridor: { minX: 30, maxX: 62, zFront: 90, zBack: -120, spanY: 46 },
   // Hero z pulled inside the camera's actual local-Z reach (~-32 at scene-0 exit) so the warm
   // window is genuinely approached and grows into the DESK bloom-handoff, not viewed from afar.
   hero: { pos: [-8, -24, -40] as const, size: [16, 46, 16] as const, yawDeg: 15 },
