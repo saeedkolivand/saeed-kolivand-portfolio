@@ -1,9 +1,10 @@
 "use client";
 import { useMemo, useRef } from "react";
 import { AdditiveBlending, Color, ShaderMaterial } from "three";
-import { COLOR, COUNT, MOTION, mulberry32, pick } from "./config";
+import { COLOR, COUNT, MOTION, pick } from "./config";
 import { RAIN_VERT, RAIN_FRAG } from "./shaders";
-import { useUniformClock } from "./useSceneClock";
+import { mulberry32 } from "@/lib/rng";
+import { useUniformClock } from "@/lib/useUniformClock";
 import type { QualityTier } from "@/lib/scrollStore";
 
 // The rain box hugs the flight corridor; points wrap-fall in the vertex shader (mod over

@@ -12,9 +12,10 @@ import {
   UniformsUtils,
   Vector3,
 } from "three";
-import { COLOR, COUNT, LAYOUT, mulberry32, pick } from "./config";
+import { COLOR, COUNT, LAYOUT, pick } from "./config";
 import { TOWER_VERT, TOWER_FRAG } from "./shaders";
-import { useUniformClock } from "./useSceneClock";
+import { mulberry32 } from "@/lib/rng";
+import { useUniformClock } from "@/lib/useUniformClock";
 import type { QualityTier } from "@/lib/scrollStore";
 
 // The whole megacity is 3 InstancedMeshes (towers · rooftop aerials · cyan signage) — one draw

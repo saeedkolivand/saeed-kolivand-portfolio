@@ -12,7 +12,7 @@ import {
   STREET_FRAG,
   STREET_VERT,
 } from "./shaders";
-import { useUniformClock } from "./useSceneClock";
+import { useUniformClock } from "@/lib/useUniformClock";
 
 // Horizon-glow backdrop dome — renders behind the shared drei Stars; no fog (it IS the sky).
 // TODO(asset): swap the gradient+fbm material for an equirect night-smog HDR onto the same dome.
