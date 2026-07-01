@@ -24,6 +24,11 @@ const CONTACTS: readonly string[] = [
   "linkedin.com/in/saeedkolivand",
 ];
 
+const RULE_PTS: [number, number, number][] = [
+  [-8, 2.8, 0],
+  [8, 2.8, 0],
+]; // separator under the prompt — hoisted so drei builds the Line geometry once
+
 export function TerminalScene() {
   const root = useLevelRoll();
   const cursor = useRef<Mesh>(null);
@@ -39,12 +44,13 @@ export function TerminalScene() {
       <Text position={[0, 3.5, 0]} fontSize={0.55} color={CYAN} anchorX="center" anchorY="middle" letterSpacing={0.05}>
         saeed@dev ~ %  contact
       </Text>
+      {/* x hand-tuned to the right edge of the centered prompt above; re-measure if that text changes */}
       <mesh ref={cursor} position={[3.4, 3.42, 0]}>
         <planeGeometry args={[0.32, 0.62]} />
         <meshBasicMaterial color={CYAN} toneMapped={false} />
       </mesh>
 
-      <Line points={[[-8, 2.8, 0], [8, 2.8, 0]]} color={CYAN} lineWidth={1} transparent opacity={0.3} toneMapped={false} />
+      <Line points={RULE_PTS} color={CYAN} lineWidth={1} transparent opacity={0.3} toneMapped={false} />
 
       {CONTACTS.map((c, i) => (
         <Text key={c} position={[0, 1.9 - i * 0.9, 0]} fontSize={0.62} color={DIM} anchorX="center" anchorY="middle">
