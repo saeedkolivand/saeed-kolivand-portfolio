@@ -40,6 +40,19 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# local agent tooling caches / locks (not part of the project)
-.claude/
+# Claude Code: commit shared project agents/commands/skills/settings, ignore local state
+.claude/*
+!.claude/agents/
+!.claude/commands/
+!.claude/skills/
+!.claude/settings.json
+.claude/settings.local.json
+
+# Knowledge-graph & codegraph indexes — generated locally by graphify / codegraph, not shared
+graphify-out/
+.codegraph/
+
+# Personal Claude Code instruction override (machine-specific, never shared)
+CLAUDE.local.md
+
 .impeccable/
