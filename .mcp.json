@@ -5,7 +5,7 @@
       "command": "npx",
       "args": [
         "-y",
-        "chrome-devtools-mcp@latest"
+        "chrome-devtools-mcp@1.4.0"
       ],
       "env": {}
     },
@@ -14,7 +14,7 @@
       "command": "npx",
       "args": [
         "-y",
-        "@upstash/context7-mcp@latest"
+        "@upstash/context7-mcp@3.2.2"
       ],
       "env": {}
     }
