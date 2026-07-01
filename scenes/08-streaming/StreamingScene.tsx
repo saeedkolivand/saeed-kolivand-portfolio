@@ -16,7 +16,7 @@ const FAINT = "#6f97b5";
 const ANCHOR: [number, number, number] = [0, 4.02, -15.49]; // camera look-target at the dwell (measured)
 const LEFT = -11; // left margin for the terminal-style block
 const RATE = 11; // tokens revealed per second
-const HOLD = 24; // tokens-worth of pause at full before looping (~1.8s at RATE)
+const HOLD = 24; // tokens-worth of pause at full before looping (~2.2s at RATE)
 
 const PROMPT = "▸ describe: Saeed Kolivand";
 const RESPONSE =
@@ -31,7 +31,8 @@ export function StreamingScene() {
   const acc = useRef(0);
   const shown = useRef(-1);
 
-  // Reveal the response token by token off a clock, imperatively (no React re-render / no allocation).
+  // Reveal the response token by token off a clock, imperatively (no React re-render; allocates a
+  // string only when a token is added, never on the hot path).
   useFrame((_, delta) => {
     if (!body.current) return;
     let count: number;
@@ -53,6 +54,8 @@ export function StreamingScene() {
       <Text position={[LEFT, 3.4, 0]} fontSize={0.62} color={CYAN} anchorX="left" anchorY="middle" outlineWidth={0.02} outlineColor="#05060a">
         {PROMPT}
       </Text>
+      {/* children MUST stay constant "" — we own .text imperatively above; a changing child would
+          make R3F diff `text` and clobber the stream every re-render. */}
       <Text ref={body} position={[LEFT, 2.2, 0]} fontSize={0.72} color={DIM} anchorX="left" anchorY="top" maxWidth={22} textAlign="left" lineHeight={1.35}>
         {""}
       </Text>
