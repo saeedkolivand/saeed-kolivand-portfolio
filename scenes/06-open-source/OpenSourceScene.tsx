@@ -8,6 +8,8 @@ import { Text, Line } from "@react-three/drei";
 const CYAN = "#8fd4ff";
 const DIM = "#a9c6da";
 const FAINT = "#6f97b5";
+// ANCHOR/ROLL are measured off the spline+whip+bank at the scene centre — re-measure if the spline,
+// scene WEIGHTS (registry), or CameraRig bank change, or the cards drift off-centre / re-tilt.
 const ANCHOR: [number, number, number] = [0, 1.98, -15.88]; // camera look-target, scene-local
 const ROLL = 0.4452; // camera roll at the dwell — counter-rotate to level the cards
 
