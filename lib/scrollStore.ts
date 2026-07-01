@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { SCENE_COUNT } from "@/lib/spline";
+import { scenes } from "@/scenes/registry";
 
 export type QualityTier = "high" | "low";
 
@@ -17,8 +17,11 @@ interface ScrollState {
   setAudio: (v: boolean) => void;
 }
 
-const indexFromT = (t: number): number =>
-  Math.min(SCENE_COUNT - 1, Math.max(0, Math.floor(t * SCENE_COUNT)));
+// Derive the active scene from the (possibly non-uniform) registry ranges, not floor(t*N).
+const indexFromT = (t: number): number => {
+  for (let i = scenes.length - 1; i > 0; i--) if (t >= scenes[i]!.range[0]) return i;
+  return 0;
+};
 
 export const useScrollStore = create<ScrollState>((set) => ({
   t: 0,
@@ -26,8 +29,6 @@ export const useScrollStore = create<ScrollState>((set) => ({
   quality: "high",
   reducedMotion: false,
   audio: false,
-  // ponytail: activeIndex assumes scenes evenly tile [0,1]. When real scenes get uneven
-  // ranges, derive the index from the registry ranges instead of floor(t * SCENE_COUNT).
   setT: (t) =>
     set((s) => {
       const activeIndex = indexFromT(t);

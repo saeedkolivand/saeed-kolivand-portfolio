@@ -23,8 +23,8 @@ export const LAYOUT = {
   // Camera's pose at the reveal moment (t≈0.172) — anchoring the workspace here lands the monitor
   // dead-centre + upright the instant the room appears.
   revealAnchor: {
-    pos: [0.51, -1.79, -10.92] as const,
-    rot: [-0.1133, -0.1791, -0.3808] as const,
+    pos: [-0.79, -1.81, -9.46] as const,
+    rot: [-0.1799, 0.1041, -0.5811] as const,
   },
   monitor: { pos: [0, 0.6, -32] as const, screen: [18, 10] as const, bezel: 0.5 },
   desk: { y: -5, z: -32, depth: 14, width: 52, thick: 1.2 }, // near edge ~25u from camera at reveal
