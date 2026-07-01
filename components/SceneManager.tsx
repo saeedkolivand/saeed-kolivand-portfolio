@@ -51,11 +51,9 @@ export function SceneManager() {
   return (
     <>
       {sceneItems.map(({ scene, index, position, quaternion }) => {
-        // Only current ± 1 scene is ever mounted — the biggest performance lever. Exception: DESK
-        // lingers one scene longer downstream (active up to index+2) so its room can stay rendered
-        // past its own region, up to EXIT_T (lib/insideBuilding); it's near-black + gated so cheap.
-        const trailing = scene.id === "02-desk" ? 2 : 1;
-        if (index - active > 1 || active - index > trailing) return null;
+        // Only current ± 1 scene is ever mounted — the biggest performance lever. (DESK's room
+        // window ends at EXIT_T ≈ 0.229, inside ENTER-MONITOR's region, so ±1 already covers it.)
+        if (Math.abs(index - active) > 1) return null;
 
         const Component = SCENE_COMPONENTS[scene.id];
 

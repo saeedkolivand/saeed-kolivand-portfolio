@@ -14,13 +14,13 @@ export const COLOR = {
 } as const;
 
 // The workspace (desk / keyboard / lamp / monitor) is parented to a group anchored to the CAMERA's
-// pose at the reveal moment (t≈0.172, measured from the spline + bank in CameraRig), so the monitor
+// pose at the reveal moment (t≈0.151, measured from the spline + bank in CameraRig), so the monitor
 // sits dead-centre and upright the instant the room appears — regardless of the camera's bank/pitch.
 // Positions under `monitor/desk/keyboard/lamp` are in that anchored frame: local -Z is straight
 // ahead of the camera, +Y is up in the frame, origin is at the camera. Re-measure revealAnchor if
 // ENTER_T (lib/insideBuilding) or the spline/bank constants change.
 export const LAYOUT = {
-  // Camera's pose at the reveal moment (t≈0.172) — anchoring the workspace here lands the monitor
+  // Camera's pose at the reveal moment (t≈0.151) — anchoring the workspace here lands the monitor
   // dead-centre + upright the instant the room appears.
   revealAnchor: {
     pos: [-0.79, -1.81, -9.46] as const,
