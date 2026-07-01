@@ -24,16 +24,16 @@ const CLUSTERS: ReadonlyArray<readonly [string, number, readonly string[]]> = [
 ];
 
 function Cluster({ title, x, skills }: { title: string; x: number; skills: readonly string[] }) {
-  const bottom = SKILL0 - (skills.length - 1) * LINE - 0.9;
+  const bottom = SKILL0 - (skills.length - 1) * LINE - 0.9; // last skill y, plus foot padding
   return (
     <group position={[x, 0, 0]}>
-      {/* accent plumb line down the column */}
+      {/* accent plumb line, from just under the heading down past the last skill */}
       <Line points={[[0, TOP - 1, 0], [0, bottom, 0]]} color={CYAN} lineWidth={1} transparent opacity={0.35} toneMapped={false} />
       <Text position={[0, TOP, 0]} fontSize={1.05} color={CYAN} anchorX="center" anchorY="middle" outlineWidth={0.03} outlineColor="#05060a">
         {title}
       </Text>
       {skills.map((s, i) => (
-        <Text key={s} position={[0, SKILL0 - i * LINE, 0]} fontSize={0.6} color={DIM} anchorX="center" anchorY="middle" outlineWidth={0.015} outlineColor="#05060a">
+        <Text key={i} position={[0, SKILL0 - i * LINE, 0]} fontSize={0.6} color={DIM} anchorX="center" anchorY="middle" outlineWidth={0.015} outlineColor="#05060a">
           {s}
         </Text>
       ))}
