@@ -1,0 +1,71 @@
+// The main tunables for the OUTSIDE hero scene — "The One Warm Window", a restrained noir
+// descent: palette, instance counts, layout, and motion speeds. (Some purely-procedural art
+// constants — window-grid density, per-tower size ranges — still live inline in shaders.ts /
+// CityInstances.tsx.) Art direction: a cold desaturated cyan rain-city dissolving into the
+// shared #05060a fog, with exactly ONE warm amber window (the developer's desk) as the sole
+// warm mark.
+
+import type { QualityTier } from "@/lib/scrollStore";
+
+/** Palette (exact hexes from the art direction). THREE.Color reads these as sRGB and
+ *  converts to linear for the shaders — the whole scene works in linear space. */
+export const COLOR = {
+  skyZenith: "#070b14",
+  skyHorizon: "#14243d",
+  towerBody: "#0a1018",
+  edge: "#1b2c44",
+  windowDim: "#2a3d55",
+  cyan: "#8fd4ff",
+  cyanCore: "#bfe9ff",
+  rain: "#6f8598",
+  asphalt: "#060a10",
+  warm: "#ffcf8a",
+} as const;
+
+/** Per-instance counts by quality tier — low tier thins the fill-heavy systems. */
+export const COUNT = {
+  towers: { high: 260, low: 90 },
+  aerials: { high: 80, low: 0 },
+  signage: { high: 60, low: 24 },
+  rainNear: { high: 5000, low: 1500 },
+  rainFar: { high: 2000, low: 500 },
+} as const;
+
+export const pick = (tier: QualityTier, c: { high: number; low: number }) =>
+  tier === "low" ? c.low : c.high;
+
+/** Local-frame placement (camera flies +Z entry -> origin -> -Z exit, +Y world up). */
+export const LAYOUT = {
+  corridor: { minX: 22, maxX: 60, zFront: 90, zBack: -260, spanY: 46 },
+  // Hero z pulled inside the camera's actual local-Z reach (~-32 at scene-0 exit) so the warm
+  // window is genuinely approached and grows into the DESK bloom-handoff, not viewed from afar.
+  hero: { pos: [-8, -24, -40] as const, size: [16, 46, 16] as const, yawDeg: 15 },
+  warmWindow: { size: [1.6, 2.2] as const, glow: 22 },
+  glass: { size: [46, 28] as const, tiltDeg: 8, z: 6 },
+  street: { y: -40, size: 900 },
+  sky: { radius: 340 },
+} as const;
+
+/** Seeded PRNG (mulberry32). Instance layouts are built from a fixed seed so the city is
+ *  identical every time the scene mounts — no reshuffle when it leaves/re-enters the ±1
+ *  mount window (Math.random would jitter the skyline on every remount). */
+export function mulberry32(seed: number): () => number {
+  let s = seed >>> 0;
+  return () => {
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Motion in units/sec (or rad/sec) — every value is applied `* delta` via the shared
+ *  uTime clock, which only advances when reduced motion is off. */
+export const MOTION = {
+  rainNearFall: 28,
+  rainFarFall: 14,
+  windShear: 4,
+  smogDrift: 0.05,
+  rivulet: 1.0,
+  ripple: 0.6,
+} as const;

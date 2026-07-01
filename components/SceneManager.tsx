@@ -1,10 +1,19 @@
 "use client";
+import type { FC } from "react";
 import { Quaternion, Vector3 } from "three";
 import { useScrollStore } from "@/lib/scrollStore";
-import { scenes } from "@/scenes/registry";
+import { scenes, type SceneComponentProps } from "@/scenes/registry";
 import { SceneShell } from "@/scenes/_SceneShell";
 import { PlaceholderScene } from "@/scenes/PlaceholderScene";
+import { OutsideScene } from "@/scenes/01-outside/OutsideScene";
 import { curve } from "@/lib/spline";
+
+// Real scene Components wired by registry id. Kept here — inside the Canvas-only, dynamically
+// imported (ssr:false) subtree — so the 3D bundle stays lazy and never leaks into label-only
+// consumers of the registry (e.g. UIOverlay). Regions with no entry render a placeholder.
+const SCENE_COMPONENTS: Partial<Record<string, FC<SceneComponentProps>>> = {
+  "01-outside": OutsideScene,
+};
 
 // Static per-scene placement on the spline, computed once (the curve never changes). Each
 // scene sits at its region's center point, yaw-oriented so its local -Z faces the flight
@@ -41,7 +50,7 @@ export function SceneManager() {
         // Only current ± 1 scene is ever mounted — the biggest performance lever.
         if (Math.abs(index - active) > 1) return null;
 
-        const Component = scene.Component;
+        const Component = SCENE_COMPONENTS[scene.id];
 
         return (
           <SceneShell key={scene.id} position={position} quaternion={quaternion}>
