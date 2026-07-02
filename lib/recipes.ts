@@ -23,6 +23,10 @@ export interface PrintRecipe {
   vignette: number;
   /** line-boil amplitude 0..1 */
   boil: number;
+  /** crosshatch shadow shading 0..1 (noir/sketch looks) */
+  hatch: number;
+  /** hatch stroke pitch in px */
+  hatchScale: number;
 }
 
 const base: Omit<PrintRecipe, "paper" | "ink" | "bg"> = {
@@ -35,18 +39,26 @@ const base: Omit<PrintRecipe, "paper" | "ink" | "bg"> = {
   paperTex: 0.1,
   vignette: 0.25,
   boil: 0.5,
+  hatch: 0,
+  hatchScale: 7,
 };
 
 /** One recipe per registry entry, S0.4 palettes. Visibly distinct per S7 Phase 0 gate. */
 export const RECIPES: PrintRecipe[] = [
   // 0 Cover -- printed cover, mid halftone
   { ...base, paper: "#F2EAD9", ink: "#201D18", bg: "#F2EAD9", halftone: 0.45, halftoneScale: 7 },
-  // 1 Noir -- B&W hatched ink, dark paper, light ink
-  { ...base, paper: "#0E0E10", ink: "#F5F1E8", bg: "#0E0E10", mono: 1, edge: 0.95, edgeColor: "#F5F1E8", halftone: 0.2, halftoneScale: 4, vignette: 0.45 },
+  // 1 Noir -- B&W hatched ink: crosshatch carries the shadow shading now,
+  // halftone drops to a whisper so dots and strokes never fight.
+  // Dark paper flips halftone/hatch polarity inside PrintEffect (derived
+  // from paper luminance): white ink lands on lit forms, deep shadow stays
+  // paper-black silhouette (ruling 2026-07-02, gate fix attempt 1)
+  { ...base, paper: "#0E0E10", ink: "#F5F1E8", bg: "#0E0E10", mono: 1, edge: 0.95, edgeColor: "#F5F1E8", halftone: 0.12, halftoneScale: 4, vignette: 0.45, hatch: 1, hatchScale: 6 },
   // 2 Desk -- warm full-color halftone
   { ...base, paper: "#F6EFE3", ink: "#1C1B1A", bg: "#F6EFE3", halftone: 0.6, halftoneScale: 8, grain: 0.08 },
-  // 3 Neon Ink -- flat neon on black, razor edges, barely any dots
-  { ...base, paper: "#060608", ink: "#EDEDF2", bg: "#060608", edge: 1, edgeColor: "#EDEDF2", halftone: 0.08, halftoneScale: 4, vignette: 0.4, boil: 0.7 },
+  // 3 Neon Ink -- flat neon on black, razor edges, barely any dots.
+  // grain/paperTex lowered: 10Hz grain flicker on a max-contrast black
+  // world edged toward strobe territory (S2.16 check, 2026-07-02)
+  { ...base, paper: "#060608", ink: "#EDEDF2", bg: "#060608", edge: 1, edgeColor: "#EDEDF2", halftone: 0.08, halftoneScale: 4, grain: 0.03, paperTex: 0.05, vignette: 0.4, boil: 0.7 },
   // 4 Origin -- muted valley
   { ...base, paper: "#EDE7DB", ink: "#2A2722", bg: "#EDE7DB", halftone: 0.3, edge: 0.5, boil: 0.3 },
   // 5 Press -- dark factory, strong ink

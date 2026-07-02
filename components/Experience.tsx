@@ -4,6 +4,7 @@ import { Canvas } from "@react-three/fiber";
 import ShotDirector from "./ShotDirector";
 import SceneManager from "./SceneManager";
 import PostPipeline from "./PostPipeline";
+import Onomatopoeia from "./Onomatopoeia";
 import PerfHUD from "./PerfHUD";
 import { useScrollStore } from "@/lib/scrollStore";
 
@@ -24,6 +25,8 @@ export default function Experience() {
         <ShotDirector />
         <SceneManager />
         <PostPipeline />
+        {/* post-exempt comic words, drawn after the composer (S2.16) */}
+        <Onomatopoeia />
       </Canvas>
       <PerfHUD />
     </div>

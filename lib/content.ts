@@ -26,3 +26,34 @@ export const links = {
   blogUrl: "", // optional -- `blog` command hidden until set
   resumePdf: "", // path in /public; empty => `resume` prints an "out of stock" gag page
 };
+
+// Phase 1 lettering & copy -- cover, title drop, onomatopoeia pools, captions, signage.
+// PURE ASCII (Turbopack rope bug); no franchise vocabulary (SPEC S1). Pool the words at runtime.
+export const lettering = {
+  cover: {
+    masthead: "SAEED KOLIVAND",
+    issueLine: "ISSUE #1 - JUL 2026 - FIRST PRINTING",
+    priceBox: "STILL ONLY 200 OK",
+    blurb: "The origin issue: one dev, three worlds, zero ghosting.",
+    barcode: "saeedkolivand", // GitHub handle, set as the cover barcode digits
+    attractPrompt: "SCROLL TO CRACK THE SPINE",
+  },
+  titleDrop: {
+    name: "SAEED KOLIVAND",
+    sub: "SENIOR FRONTEND ENGINEER - AI & AGENTIC TOOLS",
+  },
+  onomatopoeia: {
+    keycaps: ["CLACK", "CLACK-CLACK", "CLAK", "KACHUNK", "TAK-TAK", "CLICK"],
+    whip: ["WHOOSH", "FWISH", "SWISH", "VWOOO", "FWOOSH", "WHIP"],
+    impact: ["WHAM", "THOOM", "KRAKA-THOOM", "BADOOM", "SLAM", "KRUNCH"],
+    neonPowerOn: ["BZZT", "VNNN", "ZAP", "KRZZT", "TZAK", "HMMMM"],
+    rain: ["TAP TAP", "DRIP", "PATTER", "TIK TIK", "PLINK", "DRIP-DRIP"],
+    cat: ["MEW", "PRRR", "MRRP", "THUMP", "PADD", "MROW"],
+  },
+  noirCaptions: [
+    "Rain again. The kind that gets into your commits.",
+    "One window lit on the whole dead block. Mine.",
+    "Then the cat jumped. Cats always know the cut.",
+  ],
+  neonSigns: ["REACT", "TYPESCRIPT", "RUST", "NEXT.JS", "GRAPHQL", "NODE.JS", "TAURI", "AI OPEN 24H"],
+} as const;

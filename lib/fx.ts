@@ -6,4 +6,6 @@
 export const fx = {
   /** 0..1 impact-frame flash (flash-budget guarded at the beat that drives it) */
   impact: 0,
+  /** 0..1(+overshoot) title-drop card presence, driven by the title-drop beat */
+  title: 0,
 };
