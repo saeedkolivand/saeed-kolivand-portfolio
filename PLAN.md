@@ -21,17 +21,36 @@ Session protocol (S0.9): one phase per session. Kickoff every session with
 - [x] Gate: see DECISIONS.md 2026-07-02 (2 self-reported items -> re-trace
       with DevTools MCP at Phase 1 gate)
 
-## Phase 1 - Vertical slice: Cover + Issues 1-3 fully real -- NEXT
-Cover + attract mode + crash-through; Noir (rain, color window, cat leap);
-title-drop beat; Desk (cat lands, RT 3-panel composite, keycap CLACKs);
-dot-zoom via cat dot-bat; Neon city (dive, power-on cascade).
-Also: lettering layer exempt from post (S2.16 known deviation), first real
-shots.md files (S0.8), onomatopoeia pool, DevTools-MCP traces for the gate.
+## Phase 1 - Vertical slice: Cover + Issues 1-3 fully real -- DONE (2026-07-02)
+- [x] Cover: printed cover (masthead SAEED KOLIVAND, price gag, barcode),
+      attract mode, parallax break, crash-through-cover transition
+- [x] Noir: hatched B&W + dark-paper polarity fix, instanced rain, CMYK
+      color window (zero-RT depth-reconstruction mask), 4 S0.8 shots,
+      cat leap motivated cut
+- [x] Title-drop beat (authored speed, re-arm verified) + whip smear
+- [x] Desk: cat landing continuity, RT 3-panel composite (3->2 ladder),
+      keycap CLACKs, dot-bat motivated dot-zoom
+- [x] Neon: code city, krackle, power-on cascade (10-ring, scrub-safe) + beat
+- [x] Lettering layer post-exempt (DOM + Hud pool), onomatopoeia pool (GC-clean)
+- [x] Gate: all 12 checks PASS via DevTools MCP (1 fix loop);
+      Phase 0 self-reported items re-traced closed; see DECISIONS 2026-07-02
+- [x] Asset prompt queued: assets/prompts/noir-window-figure.md
+- Ships as PR (new workflow): branch phase-1-vertical-slice
 
 ## Phase 2 - Framework hardening
 Full transition library (page-flip, tear, panel-wipe, match-cut, stamp),
 recipe API extraction, balloon/word pooling, snapshot pool generalization,
 jaw-drop trigger helper. Gate: new issue = component + registry entry + recipe.
+Also: scroll pacing pass (user 2026-07-02: one wheel scroll moves scenes too
+fast) - grow the 1200vh ScrollProxy spacer and/or tune Lenis duration/
+wheelMultiplier; pure t-space means zero scene re-authoring; user judges feel.
+Also: SceneManager mount latency on discrete deep jumps (gate 2026-07-02:
+~1s cream blank jumping straight into neon; continuous scrub unaffected by
+active+/-1 premounts) - premount on large t deltas or cheap loading treatment.
+Also: extract shared CatModel component (user 2026-07-02: no more
+shapes-taped-together cats) from the approved cover/desk cats - organic
+primitives, palette + pose + material-mode params - before Issues 4-11 reuse
+the mascot.
 
 ## Phase 3 - Issues 4-11, one commit each (styled placeholders -> real)
 

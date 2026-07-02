@@ -25,16 +25,16 @@ export type TransitionKind =
   | "ink-flood"
   | "dot-match";
 
-/** What the TransitionEffect can render in Phase 0. */
-export type TransitionMode = "cut" | "whip" | "dot-zoom";
+/** What the TransitionEffect can render (Phase 1: + crash-through). */
+export type TransitionMode = "cut" | "whip" | "dot-zoom" | "crash-through";
 
-// ponytail: Phase 0 ships 3 transition modes; unbuilt kinds map to nearest analog (S0.1),
-// swapped for real implementations in Phases 1-2 without touching the registry.
+// ponytail: unbuilt kinds map to nearest analog (S0.1), swapped for real
+// implementations in Phases 1-2 without touching the registry.
 export const TRANSITION_FALLBACK: Record<TransitionKind, TransitionMode> = {
   cut: "cut",
   whip: "whip",
   "dot-zoom": "dot-zoom",
-  "crash-through": "whip",
+  "crash-through": "crash-through",
   "title-drop": "whip",
   "panel-wipe": "cut",
   "panel-portal": "cut",
@@ -101,9 +101,9 @@ export function poseAt(shot: Shot, p: number): Pose {
 
 /** Where within a gutter the camera jumps from the outgoing to the incoming shot. */
 function cutPoint(mode: TransitionMode): number {
-  // dot-zoom films the incoming issue for the whole gutter -- the outgoing
-  // issue is only present as its collapsing snapshot overlay.
-  return mode === "dot-zoom" ? 0 : 0.5;
+  // dot-zoom and crash-through film the incoming issue for the whole
+  // gutter -- the outgoing issue is only present as its snapshot overlay.
+  return mode === "dot-zoom" || mode === "crash-through" ? 0 : 0.5;
 }
 
 export interface TransitionSample {

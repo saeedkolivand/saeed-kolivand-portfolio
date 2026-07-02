@@ -1,4 +1,5 @@
 import Experience from "@/components/Experience";
+import Lettering from "@/components/Lettering";
 import ScrollProxy from "@/components/ScrollProxy";
 import { content } from "@/lib/content";
 
@@ -11,6 +12,7 @@ export default function Home() {
       </h1>
       <p className="sr-only">{content.tagline}</p>
       <Experience />
+      <Lettering />
       <ScrollProxy />
     </main>
   );

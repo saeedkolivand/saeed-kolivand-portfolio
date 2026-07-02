@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { EffectComposer, EffectPass, NormalPass, RenderPass } from "postprocessing";
-import { Color, HalfFloatType, type Texture } from "three";
+import { Color, HalfFloatType, Matrix4, Vector3, type Texture } from "three";
 import { PrintEffect } from "@/shaders/PrintEffect";
 import { TransitionEffect } from "@/shaders/TransitionEffect";
-import { evaluateTimeline, lerp } from "@/lib/shots";
+import { colorWindow } from "@/shaders/colorWindow";
+import { evaluateTimeline, lerp, poseAt, type Pose, type Vec3 } from "@/lib/shots";
 import { ISSUES, SEGMENTS } from "@/issues/registry";
 import { useScrollStore } from "@/lib/scrollStore";
 import { fx } from "@/lib/fx";
@@ -22,6 +23,40 @@ import { stepNoise } from "@/lib/steppedClock";
  * verified 2026-07 (R3F v9 docs): a numeric useFrame priority disables
  * R3F's automatic render; the composer owns the frame at priority 1.
  */
+
+const sub3 = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const dot3 = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const cross3 = (a: Vec3, b: Vec3): Vec3 => [
+  a[1] * b[2] - a[2] * b[1],
+  a[2] * b[0] - a[0] * b[2],
+  a[0] * b[1] - a[1] * b[0],
+];
+const norm3 = (a: Vec3): Vec3 => {
+  const l = Math.hypot(a[0], a[1], a[2]);
+  return l < 1e-6 ? [1, 0, 0] : [a[0] / l, a[1] / l, a[2] / l];
+};
+const wrapPi = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
+
+/**
+ * Screen-space whip axis for the directional smear: yaw/pitch delta between
+ * the outgoing and incoming poses; falls back to the position delta
+ * projected onto the camera basis for purely translational whips.
+ */
+function whipAxis(a: Pose, b: Pose): [number, number] {
+  const fa = norm3(sub3(a.target, a.position));
+  const fb = norm3(sub3(b.target, b.position));
+  let x = wrapPi(Math.atan2(fb[0], -fb[2]) - Math.atan2(fa[0], -fa[2]));
+  let y = Math.asin(Math.max(-1, Math.min(1, fb[1]))) - Math.asin(Math.max(-1, Math.min(1, fa[1])));
+  if (Math.hypot(x, y) < 1e-3) {
+    const dp = sub3(b.position, a.position);
+    const right = norm3(cross3(fa, [0, 1, 0]));
+    x = dot3(dp, right);
+    y = dot3(dp, cross3(right, fa));
+  }
+  const l = Math.hypot(x, y);
+  return l < 1e-4 ? [1, 0] : [x / l, y / l];
+}
+
 export default function PostPipeline() {
   const gl = useThree((s) => s.gl);
   const scene = useThree((s) => s.scene);
@@ -81,6 +116,8 @@ export default function PostPipeline() {
     c.paperTex = lerp(c.paperTex, recipe.paperTex, k);
     c.vignette = lerp(c.vignette, recipe.vignette, k);
     c.boil = lerp(c.boil, recipe.boil, k);
+    c.hatch = lerp(c.hatch, recipe.hatch, k);
+    c.hatchScale = lerp(c.hatchScale, recipe.hatchScale, k);
     paper.current.lerp(target.current.paper.set(recipe.paper), k);
     edgeColor.current.lerp(target.current.edgeColor.set(recipe.edgeColor), k);
 
@@ -94,6 +131,22 @@ export default function PostPipeline() {
     print.u<number>("uPaperTex").value = c.paperTex;
     print.u<number>("uVignette").value = c.vignette;
     print.u<number>("uImpact").value = fx.impact;
+    print.u<number>("uHatch").value = c.hatch;
+    print.u<number>("uHatchScale").value = c.hatchScale;
+
+    // color window (noir): world-space rect positioned by the issue via
+    // shaders/colorWindow.ts; mask reconstructs world pos from depth
+    print.u<number>("uWindow").value = colorWindow.enabled;
+    if (colorWindow.enabled > 0) {
+      print.u<Vector3>("uWinCenter").value.fromArray(colorWindow.center);
+      print.u<Vector3>("uWinU").value.fromArray(colorWindow.halfU);
+      print.u<Vector3>("uWinV").value.fromArray(colorWindow.halfV);
+      print.u<number>("uWinDepth").value = colorWindow.depth;
+      camera.updateMatrixWorld();
+      print
+        .u<Matrix4>("uInvViewProjection")
+        .value.multiplyMatrices(camera.matrixWorld, camera.projectionMatrixInverse);
+    }
 
     // S2.9 line boil: quantized jitter, amplitude grows with scroll speed
     const el = state.clock.elapsedTime;
@@ -106,13 +159,21 @@ export default function PostPipeline() {
     // transition layer
     const tr = sample.transition;
     transition.u<number>("uVelocity").value = velocity;
+    transition.u<number>("uSmearMono").value = c.mono;
     if (tr) {
       transition.setMode(tr.mode);
       transition.u<number>("uP").value = tr.p;
       transition
         .u<Color>("uFallback")
         .value.set(ISSUES[tr.fromIssue]!.recipe.paper);
-      if (tr.mode === "dot-zoom") {
+      if (tr.mode === "whip" && sample.segment.type === "gutter") {
+        const g = sample.segment;
+        const [wx, wy] = whipAxis(poseAt(g.fromShot, 1), poseAt(g.toShot, 0));
+        const wd = transition.u<{ x: number; y: number }>("uWhipDir").value;
+        wd.x = wx;
+        wd.y = wy;
+      }
+      if (tr.mode === "dot-zoom" || tr.mode === "crash-through") {
         const snap = snapshots.get(tr.fromIssue);
         transition.u<Texture | null>("uSnapshot").value = snap;
         transition.u<number>("uHasSnapshot").value = snap ? 1 : 0;
@@ -124,10 +185,14 @@ export default function PostPipeline() {
     composer.render(delta);
 
     // S2.11 -- refresh the outgoing issue's snapshot in the tail of a shot
-    // that exits through a snapshot-driven transition (dot-zoom for now)
+    // that exits through a snapshot-driven transition
     if (sample.segment.type === "shot" && sample.shotP > 0.85) {
       const next = SEGMENTS[SEGMENTS.indexOf(sample.segment) + 1];
-      if (next?.type === "gutter" && next.interIssue && next.mode === "dot-zoom") {
+      if (
+        next?.type === "gutter" &&
+        next.interIssue &&
+        (next.mode === "dot-zoom" || next.mode === "crash-through")
+      ) {
         snapshots.capture(gl, sample.segment.shot.issue);
       }
     }

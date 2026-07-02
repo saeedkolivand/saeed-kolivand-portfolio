@@ -1,6 +1,5 @@
 "use client";
 
-import PlaceholderIssue from "@/issues/PlaceholderIssue";
 import { ISSUES } from "@/issues/registry";
 import { useScrollStore } from "@/lib/scrollStore";
 
@@ -15,9 +14,11 @@ export default function SceneManager() {
   );
   return (
     <>
-      {mounted.map((i) => (
-        <PlaceholderIssue key={ISSUES[i]!.id} index={i} />
-      ))}
+      {mounted.map((i) => {
+        const issue = ISSUES[i]!;
+        const IssueScene = issue.component;
+        return <IssueScene key={issue.id} index={i} />;
+      })}
     </>
   );
 }
