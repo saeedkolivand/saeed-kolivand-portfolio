@@ -145,8 +145,15 @@ const fragment = /* glsl */ `
     float hm = pjHatch(fragPx, shade) * uHatch * (1.0 - win);
     col = mix(col, uEdgeColor, hm * 0.85);
 
-    // 3 -- one uniform ink line for the whole frame, boiling at step rate
-    float e = pjEdge(uv + uBoilJitter * texelSize, texelSize * (1.0 + uBoilJitter.x * 2.0));
+    // 3 -- one uniform ink line for the whole frame, boiling at step rate.
+    // Boil is POSITION-only: jittering the Sobel radius as well (the old
+    // texelSize * (1.0 + uBoilJitter.x * 2.0)) rescaled dn/dd globally every
+    // step, so any near-threshold region (grazing floors at wheel height)
+    // flipped between fully inked and clean -- 30%-frame flicker at rest in
+    // the Issue 7 whip gutter (gate check-4, measured 2026-07-03). A fixed
+    // 1-texel radius is the old modulation's mean, so line weight is
+    // unchanged; the sub-texel offset keeps the hand-drawn wobble.
+    float e = pjEdge(uv + uBoilJitter * texelSize, texelSize);
     col = mix(col, uEdgeColor, e * uEdge);
 
     // 4 -- paper fiber + stepped grain, multiplicative (never a color fringe)

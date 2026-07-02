@@ -101,6 +101,10 @@ export default function PostPipeline() {
     lastT.current = t;
     const kv = 1 - Math.exp(-(Math.abs(rawVel) > Math.abs(vel.current) ? 10 : 4) * dt);
     vel.current += (Math.max(-1.5, Math.min(1.5, rawVel)) - vel.current) * kv;
+    // deterministic settle: the decay is asymptotic, so snap the residual to
+    // a hard 0 once it is sub-visual -- rest frames are then bit-identical
+    // from either scrub direction (mirrors the ScrollProxy velocity ruling)
+    if (Math.abs(vel.current) < 1e-3) vel.current = 0;
     const velocity = vel.current;
     const sample = evaluateTimeline(t, SEGMENTS);
     const recipe = ISSUES[sample.filmIssue]!.recipe;

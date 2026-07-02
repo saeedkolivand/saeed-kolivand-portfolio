@@ -44,7 +44,20 @@ export default function ScrollProxy() {
     const lenis = new Lenis({ wheelMultiplier: WHEEL_MULTIPLIER });
     activeLenis = lenis;
     lenis.on("scroll", ScrollTrigger.update);
-    const tick = (time: number) => lenis.raf(time * 1000);
+    // scroll-velocity settle: ScrollTrigger only fires onUpdate while scroll
+    // events arrive, so the store's velocity would otherwise LATCH its last
+    // fling value (sign and all) forever at rest. Snap it to the canonical 0
+    // after a fixed quiet window -- pure f(rest), same from either scrub
+    // direction (Issue 7 gate check-4 hygiene).
+    let lastScrollUpdate = 0;
+    const VELOCITY_SETTLE_MS = 200;
+    const tick = (time: number) => {
+      lenis.raf(time * 1000);
+      const s = useScrollStore.getState();
+      if (s.velocity !== 0 && performance.now() - lastScrollUpdate > VELOCITY_SETTLE_MS) {
+        s.setT(s.t, 0);
+      }
+    };
     gsap.ticker.add(tick);
     gsap.ticker.lagSmoothing(0);
 
@@ -55,6 +68,7 @@ export default function ScrollProxy() {
       onUpdate: (self) => {
         // ~[-1,1] at a fast wheel fling; the boil/speed-line uniforms want this
         const v = gsap.utils.clamp(-1.5, 1.5, self.getVelocity() / 4000);
+        lastScrollUpdate = performance.now();
         useScrollStore.getState().setT(self.progress, v);
       },
     });
