@@ -7,10 +7,12 @@ import Cover from "./00-cover/Cover";
 import Noir from "./01-noir/Noir";
 import Desk from "./02-desk/Desk";
 import Neon from "./03-neon/Neon";
+import Origin from "./04-origin/Origin";
 import { COVER_SHOTS } from "./00-cover/shots";
 import { NOIR_SHOTS } from "./01-noir/shots";
 import { DESK_SHOTS } from "./02-desk/shots";
 import { NEON_SHOTS } from "./03-neon/shots";
+import { ORIGIN_RECIPE, ORIGIN_SHOTS } from "./04-origin/shots";
 
 // Timeline numbers live in ./timeline (leaf); re-exported here for consumers.
 export { ISSUE_SPACING, issueCenter };
@@ -73,7 +75,10 @@ export const ISSUES: IssueEntry[] = [
   row("noir", "ISSUE 1 - NOIR", 1, 2, "title-drop", Noir, { shots: NOIR_SHOTS }),
   row("desk", "ISSUE 2 - DESK", 2, 2, "dot-zoom", Desk, { shots: DESK_SHOTS }),
   row("neon", "ISSUE 3 - NEON INK", 3, 5, "panel-wipe", Neon, { shots: NEON_SHOTS }),
-  row("origin", "ISSUE 4 - ORIGIN PAGE", 4, 1, "panel-portal", PlaceholderIssue),
+  row("origin", "ISSUE 4 - ORIGIN PAGE", 4, 1, "panel-portal", Origin, {
+    recipe: ORIGIN_RECIPE,
+    shots: ORIGIN_SHOTS,
+  }),
   row("press", "ISSUE 5 - THE PRESS", 5, 3, "stamp", PlaceholderIssue),
   row("newsprint", "ISSUE 6 - NEWSPRINT", 6, 3, "paper-tear", PlaceholderIssue),
   row("screentone", "ISSUE 7 - SCREENTONE", 7, 4, "page-flip", PlaceholderIssue),
