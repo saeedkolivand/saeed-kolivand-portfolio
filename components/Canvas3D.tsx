@@ -31,15 +31,12 @@ export function Canvas3D() {
         gl={{ antialias: false, powerPreference: "high-performance" }}
         camera={{ fov: 62, near: 0.1, far: 1000, position: [0, 0, 5] }}
       >
-        {/* Adaptive GPU tiering: drop to the low tier when the *measured* frame rate can't hold the
-            budget (better than a static GPU guess). flipflops caps the incline/decline oscillation,
-            then onFallback locks to low so a genuinely weak GPU settles instead of flickering. */}
-        <PerformanceMonitor
-          onDecline={() => setQuality("low")}
-          onIncline={() => setQuality("high")}
-          flipflops={3}
-          onFallback={() => setQuality("low")}
-        />
+        {/* Adaptive GPU tiering: if the *measured* frame rate can't hold the budget, drop to the low
+            tier — ONE-WAY. No onIncline/flipflops/onFallback on purpose: drei counts inclines toward
+            the flip limit, so a fast (or vsync-capped) GPU spams inclines and onFallback would lock
+            it to low — the opposite of the goal. One-way means a fast GPU never downgrades and a weak
+            one settles on low without oscillating. Better than a static GPU guess (detect-gpu). */}
+        <PerformanceMonitor onDecline={() => setQuality("low")} />
 
         <color attach="background" args={["#05060a"]} />
         <fog attach="fog" args={["#05060a", 60, 400]} />
