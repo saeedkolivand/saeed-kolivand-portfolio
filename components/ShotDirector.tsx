@@ -6,7 +6,7 @@ import { Color, Vector3, type PerspectiveCamera } from "three";
 import { evaluateTimeline, type TimelineSample } from "@/lib/shots";
 import { SEGMENTS, ISSUES } from "@/issues/registry";
 import { useScrollStore } from "@/lib/scrollStore";
-import { BeatRunner, makeBeats } from "@/lib/beats";
+import { allBeats, BeatRunner } from "@/lib/beats";
 
 /**
  * S2.3 -- evaluates the shot list from t and drives the camera: pose lerp
@@ -20,7 +20,7 @@ export default function ShotDirector({
 }) {
   const camera = useThree((s) => s.camera);
   const scene = useThree((s) => s.scene);
-  const beats = useMemo(() => new BeatRunner(makeBeats()), []);
+  const beats = useMemo(() => new BeatRunner(allBeats), []);
 
   const pos = useRef(new Vector3());
   const tgt = useRef(new Vector3());

@@ -1,4 +1,5 @@
 import Experience from "@/components/Experience";
+import JumpCover from "@/components/JumpCover";
 import Lettering from "@/components/Lettering";
 import ScrollProxy from "@/components/ScrollProxy";
 import { content } from "@/lib/content";
@@ -13,6 +14,7 @@ export default function Home() {
       <p className="sr-only">{content.tagline}</p>
       <Experience />
       <Lettering />
+      <JumpCover />
       <ScrollProxy />
     </main>
   );

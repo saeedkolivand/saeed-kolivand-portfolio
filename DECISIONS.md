@@ -223,3 +223,68 @@ pinned 5.9.3, an external edit bumped it - kept, builds clean),
   library. (4) Neon diegetic drei-Text signs are environmental art, not
   "readable lettering" under S2.16 - whip smear may touch them; avoid
   centering a sign in frame at a whip gutter when authoring future shots.
+
+## 2026-07-02 - Phase 2 (framework hardening)
+
+- Transition library complete: TransitionEffect modes panel-wipe=5,
+  paper-tear=6, page-flip=7, stamp=8, dot-match=9, ink-flood=10; all pure
+  f(uP), single-layer, zero new RTs; TransitionEffect remains the pass's
+  single CONVOLUTION effect. New uniforms uSmearHalftone/uSmearScale/
+  uSmearPaper feed pjtPrint(), an in-shader mono+halftone+paper approximation
+  of PrintEffect applied to displaced taps - closes PR #22 ruling 3
+  (crash-through pre-print flash) at zero cost; stamp uses the same handoff.
+- Fallback map remainder (reasoning logged in lib/shots.ts): title-drop->whip
+  (the slam is an authored-time BEAT per S5b.3; the gutter only carries the
+  whip) and panel-portal->panel-wipe (portal fly-through is scene/camera work,
+  not a post op; nearest native analog for the Issue 4 exit). cutPoint now
+  derives from usesSnapshot(): snapshot modes film incoming at p=0; cut/whip/
+  ink-flood jump at 0.5 (ink-flood full-cover window p .375-.625 hides it).
+- Scroll pacing (user 2026-07-02: too fast per wheel): docs-researcher
+  verified Lenis 1.3.25 - lerp (default .1) and duration are mutually
+  exclusive (lerp wins), neither changes distance-per-notch; spacer growth is
+  the primary lever and survives reduced-motion. Applied SPACER_VH=2400 +
+  WHEEL_MULTIPLIER=0.7 (named constants in ScrollProxy.tsx for feel-tuning);
+  gate measured 0.478x t per notch vs the 1200vh baseline.
+- Deep-jump blank fix: SceneManager premount window centers on an anchor
+  state; on |active-anchor|>1 the new JumpCover paints an opaque target-paper
+  + ink-dot screen synchronously (zustand subscribe, pre-React-commit), the
+  target trio mounts one rAF later, reveal after a double-rAF so the first
+  compile frame lands under the cover; opacity-only .25s fade, instant under
+  reduced motion, mid-fade re-jump idempotent (S2.16 clean).
+- CatModel extraction: components/CatModel.tsx, params pose (sitting/crouch/
+  walking/leaping) x mode (flat/toon) x palette x optional rig refs; cover +
+  desk cats migrated with every numeric constant preserved (silhouette
+  equivalence re-verified visually at the gate). Noir's leaping cat NOT
+  migrated: it is a dimensional prop rotated ry 0->1.35 (a flat build
+  vanishes edge-on) and its proportions were NDC-verified against the
+  approved shot-4 leap framing - left byte-untouched. Unused pose presets are
+  authored-but-unused until Issues 4-11.
+- Framework APIs: printRecipe({paper, ink, ...overrides}) with
+  RECIPE_DEFAULTS (RECIPES rewritten byte-identical); PopPool<T> + popScale()
+  zero-alloc pop pool (onomatopoeia migrated, Issue 8 balloons / Issue 11
+  panels build on it); snapshots.retain/release/isRetained (tail-capture +
+  evict-proof, snapshots are not RTs so the RT budget is untouched);
+  registerJawDrop({id, t, flash?, animate?, hysteresis?}) with central
+  hysteresis (default .006) + requestFlash budget - title-drop and
+  neon-cascade migrated onto it with identical envelopes; registry row()
+  makes an issue entry self-contained (component + recipe + shots).
+- Live user fixes during the phase: noir shot shares 0.30/0.15/0.35/0.20 ->
+  0.35/0.23/0.22/0.20, share taken from the static dolly dwell only; shot-4
+  t-range bit-identical (leap invariants untouched); wide->close travel
+  +40% t. Noir caption fades 0.18 -> 0.30 in/out (~40% plateau), pure f(t).
+
+### Phase 2 gate result (Chrome DevTools MCP, formal)
+- 10/10 PASS, zero fix loops: console clean full scrub; all 7 new/polished
+  transitions styled + scrub-deterministic both directions; S2.16 comfort
+  (no chromatic split, no strobe, lettering crisp); CatModel silhouettes read
+  as the approved characters; JumpCover verified incl. mid-fade re-jump;
+  pacing 0.478x per notch; noir shot-4 leap + caption plateaus verified;
+  title-drop hysteresis re-arm (fireCount=2) + neon cascade fire; perf median
+  2.1ms / p95 2.5ms / 99.8% frames under 16.7ms; flash budget sole-path
+  verified (2 gated jaw-drops per full scrub).
+- Gate proof of the Phase 2 criterion: throwaway test issue rendered with
+  full print treatment + panel-wipe entry from exactly ONE component file +
+  ONE registry row + ONE printRecipe(), then deleted completely.
+- Advisory (non-blocking): reproducible single-frame ~58ms scene-mount hitch
+  at t~0.172 during fast desk-region scrubbing (0.2% of frames, warm-pass
+  confirmed one-off) - hand to perf-profiler if it worsens on the low tier.

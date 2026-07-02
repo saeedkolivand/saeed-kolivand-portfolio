@@ -3,9 +3,13 @@ import { issueCenter, RANGES } from "../timeline";
 
 /**
  * Issue 1 -- NOIR authored shot list (S0.8 canonical table, see shots.md):
- * hold 24mm 0.30 / whip 28mm 0.15 / dolly 50mm 0.35 / crash 85->35mm 0.20,
+ * hold 24mm 0.35 / whip 28mm 0.23 / dolly 50mm 0.22 / crash 85->35mm 0.20,
  * chained inside RANGES[1] with three intra-issue whip gutters. Everything
  * here is pure data; Lettering.tsx maps the 3 noir captions onto shots 1-3.
+ * Rebalanced 2026-07-02 (live feedback): the wide->close travel (hold dwell
+ * plus whip arrival) was too compressed; hold+whip grew at the dolly's
+ * expense. First three shares still sum to 0.80, so shot 4's t-range is
+ * bit-identical to the gate-verified leap framing (k-window is in-shot p).
  */
 
 /** vertical fov in degrees for a full-frame lens: 2*atan(12/mm) */
@@ -17,7 +21,7 @@ const easeInCubic: EaseFn = (x) => x * x * x;
 const [S, E] = RANGES[1]!;
 /** intra-issue whip gutters carved from the range (deadband-safe width) */
 const GUTTER = 0.003;
-const SHARES = [0.3, 0.15, 0.35, 0.2];
+const SHARES = [0.35, 0.23, 0.22, 0.2];
 const SPAN = E - S - GUTTER * (SHARES.length - 1);
 
 const seg = (i: number): [number, number] => {

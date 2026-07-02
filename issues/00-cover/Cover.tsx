@@ -7,6 +7,7 @@ import type { Group, Mesh } from "three";
 import IssueShell from "../_IssueShell";
 import { ISSUES } from "../registry";
 import { RANGES } from "../timeline";
+import CatModel, { type CatPalette } from "@/components/CatModel";
 import { toonRamp } from "@/lib/toon";
 import { stepTime } from "@/lib/steppedClock";
 import { useScrollStore } from "@/lib/scrollStore";
@@ -35,6 +36,9 @@ const TEAL = "#2BB3A3";
 
 const BANGERS = "/fonts/Bangers-Regular.ttf";
 const COVER_END = RANGES[0]![1];
+
+// mascot identity marks shared with the Desk cat: teal collar, red tag
+const CAT_PALETTE: CatPalette = { ink: INK, paper: PAPER, collar: TEAL, tag: RED, accent: RED };
 
 // Masthead splits into a small kicker line + a big main line so long names
 // ("SAEED KOLIVAND", 14 chars) never clip or collide with the price box.
@@ -198,126 +202,10 @@ export default function Cover({ index }: { index: number }) {
             <meshToonMaterial color={INK} gradientMap={ramp} />
           </mesh>
           <group scale={1.3} rotation={[0, 0, 0.42]}>
-            {/* torso ellipse + haunch keep every limb rooted in one silhouette */}
-            <mesh scale={[1.5, 0.82, 1]}>
-              <circleGeometry args={[0.55, 40]} />
-              <meshToonMaterial color={INK} gradientMap={ramp} />
-            </mesh>
-            <mesh position={[-0.6, -0.05, 0.0005]}>
-              <circleGeometry args={[0.4, 40]} />
-              <meshToonMaterial color={INK} gradientMap={ramp} />
-            </mesh>
-
-            {/* front legs stretched at the masthead (rounded caps = paws).
-                Shoulder ends must land INSIDE the torso ellipse (rx 0.825,
-                ry 0.451) so the limbs stay rooted in the silhouette. */}
-            <mesh position={[0.88, -0.14, 0.0008]} rotation={[0, 0, -1.05]}>
-              <capsuleGeometry args={[0.08, 0.5, 4, 10]} />
-              <meshToonMaterial color={INK} gradientMap={ramp} />
-            </mesh>
-            <mesh position={[1.08, 0.06, 0.002]} rotation={[0, 0, -1.25]}>
-              <capsuleGeometry args={[0.08, 0.55, 4, 10]} />
-              <meshToonMaterial color={INK} gradientMap={ramp} />
-            </mesh>
-            {/* paper socks sit ON the capsule tips (Desk cat identity echo) */}
-            <mesh position={[1.42, 0.17, 0.004]}>
-              <circleGeometry args={[0.08, 16]} />
-              <meshToonMaterial color={PAPER} gradientMap={ramp} />
-            </mesh>
-            <mesh position={[1.17, 0.01, 0.004]}>
-              <circleGeometry args={[0.075, 16]} />
-              <meshToonMaterial color={PAPER} gradientMap={ramp} />
-            </mesh>
-
-            {/* hind legs trailing the pounce */}
-            <mesh position={[-0.68, -0.34, 0.0008]} rotation={[0, 0, -0.35]}>
-              <capsuleGeometry args={[0.085, 0.48, 4, 10]} />
-              <meshToonMaterial color={INK} gradientMap={ramp} />
-            </mesh>
-            <mesh position={[-0.86, -0.3, 0.002]} rotation={[0, 0, -0.75]}>
-              <capsuleGeometry args={[0.085, 0.55, 4, 10]} />
-              <meshToonMaterial color={INK} gradientMap={ramp} />
-            </mesh>
-
-            {/* head overlaps the torso front -- ears are 3-gon circles */}
-            <group position={[0.85, 0.36, 0.003]}>
-              <mesh>
-                <circleGeometry args={[0.37, 40]} />
-                <meshToonMaterial color={INK} gradientMap={ramp} />
-              </mesh>
-              <mesh position={[-0.17, 0.36, 0]} rotation={[0, 0, Math.PI / 2 + 0.15]}>
-                <circleGeometry args={[0.16, 3]} />
-                <meshToonMaterial color={INK} gradientMap={ramp} />
-              </mesh>
-              <mesh position={[0.17, 0.37, 0]} rotation={[0, 0, Math.PI / 2 - 0.15]}>
-                <circleGeometry args={[0.16, 3]} />
-                <meshToonMaterial color={INK} gradientMap={ramp} />
-              </mesh>
-              {/* eyes: paper almonds + ink pupils -- reads at 200px */}
-              <mesh position={[-0.13, 0.02, 0.002]} scale={[0.8, 1.15, 1]}>
-                <circleGeometry args={[0.085, 20]} />
-                <meshToonMaterial color={PAPER} gradientMap={ramp} />
-              </mesh>
-              <mesh position={[0.15, 0.04, 0.002]} scale={[0.8, 1.15, 1]}>
-                <circleGeometry args={[0.085, 20]} />
-                <meshToonMaterial color={PAPER} gradientMap={ramp} />
-              </mesh>
-              <mesh position={[-0.12, 0.01, 0.004]}>
-                <circleGeometry args={[0.035, 12]} />
-                <meshToonMaterial color={INK} gradientMap={ramp} />
-              </mesh>
-              <mesh position={[0.16, 0.03, 0.004]}>
-                <circleGeometry args={[0.035, 12]} />
-                <meshToonMaterial color={INK} gradientMap={ramp} />
-              </mesh>
-              {/* red 3-gon nose, point down */}
-              <mesh position={[0.02, -0.13, 0.002]} rotation={[0, 0, -Math.PI / 2]}>
-                <circleGeometry args={[0.055, 3]} />
-                <meshToonMaterial color={RED} gradientMap={ramp} />
-              </mesh>
-              {/* whiskers -- thin paper strokes */}
-              <mesh position={[-0.31, -0.09, 0.002]} rotation={[0, 0, 0.12]}>
-                <planeGeometry args={[0.26, 0.018]} />
-                <meshToonMaterial color={PAPER} gradientMap={ramp} />
-              </mesh>
-              <mesh position={[-0.32, -0.16, 0.002]} rotation={[0, 0, -0.06]}>
-                <planeGeometry args={[0.24, 0.018]} />
-                <meshToonMaterial color={PAPER} gradientMap={ramp} />
-              </mesh>
-              <mesh position={[0.34, -0.07, 0.002]} rotation={[0, 0, -0.12]}>
-                <planeGeometry args={[0.26, 0.018]} />
-                <meshToonMaterial color={PAPER} gradientMap={ramp} />
-              </mesh>
-              <mesh position={[0.35, -0.14, 0.002]} rotation={[0, 0, 0.06]}>
-                <planeGeometry args={[0.24, 0.018]} />
-                <meshToonMaterial color={PAPER} gradientMap={ramp} />
-              </mesh>
-            </group>
-
-            {/* teal collar band across the neck + red tag */}
-            <mesh position={[0.6, 0.05, 0.005]} rotation={[0, 0, -1.15]}>
-              <planeGeometry args={[0.46, 0.1]} />
-              <meshToonMaterial color={TEAL} gradientMap={ramp} />
-            </mesh>
-            <mesh position={[0.68, -0.1, 0.006]}>
-              <circleGeometry args={[0.06, 12]} />
-              <meshToonMaterial color={RED} gradientMap={ramp} />
-            </mesh>
-
-            {/* tail -- torus arc pivoting at its base, flicked on stepped
-                time. The arc's base end sits AT the group origin, so the
-                pivot must be INSIDE the haunch circle (center -0.6,-0.05
-                r 0.4) or the flick reads as a detached floating arc. */}
-            <group ref={tail} position={[-0.9, 0.15, 0.001]}>
-              <mesh position={[-0.42, 0, 0]}>
-                <torusGeometry args={[0.42, 0.07, 8, 24, 2.05]} />
-                <meshToonMaterial color={INK} gradientMap={ramp} />
-              </mesh>
-              <mesh position={[-0.614, 0.373, 0.002]}>
-                <circleGeometry args={[0.075, 12]} />
-                <meshToonMaterial color={RED} gradientMap={ramp} />
-              </mesh>
-            </group>
+            {/* shared mascot (components/CatModel): flat-print pounce build;
+                tail rig ref is flicked on stepped time in the useFrame above,
+                its pivot sits INSIDE the haunch (Phase 1 invariant) */}
+            <CatModel mode="flat" pose="leaping" palette={CAT_PALETTE} rig={{ tail }} />
 
             {/* speed dashes trailing the pounce (technique vocabulary, S1) */}
             <mesh position={[-1.8, -0.55, 0.001]}>

@@ -17,28 +17,26 @@ export interface Beat {
   fire: () => void;
 }
 
-interface BeatState {
-  armed: boolean;
-}
-
 export class BeatRunner {
-  private states = new Map<string, BeatState>();
+  private states = new Map<string, { armed: boolean }>();
   private lastT: number | null = null;
 
-  constructor(private beats: Beat[]) {
-    for (const b of beats) this.states.set(b.id, { armed: true });
-  }
+  /** `beats` is a provider so late registerJawDrop() calls are picked up. */
+  constructor(private beats: () => readonly Beat[]) {}
 
   update(t: number, reducedMotion: boolean) {
     const last = this.lastT;
     this.lastT = t;
-    if (last === null) {
-      // First sample (page may load mid-timeline): disarm anything already passed.
-      for (const b of this.beats) this.states.get(b.id)!.armed = t < b.trigger;
-      return;
-    }
-    for (const b of this.beats) {
-      const st = this.states.get(b.id)!;
+    for (const b of this.beats()) {
+      let st = this.states.get(b.id);
+      if (!st) {
+        // first sighting (page may load mid-timeline; issues may register
+        // their jaw-drop after construction): arm only if not already passed
+        st = { armed: t < b.trigger };
+        this.states.set(b.id, st);
+        continue;
+      }
+      if (last === null) continue;
       if (st.armed && last < b.trigger && t >= b.trigger) {
         st.armed = false;
         if (!reducedMotion) b.fire();
@@ -49,55 +47,94 @@ export class BeatRunner {
   }
 }
 
+/**
+ * S5b jaw-drop helper (Phase 2/3 authoring surface) -- every issue registers
+ * its one designed jaw-drop declaratively; trigger crossing, hysteresis
+ * re-arm and the flash budget are enforced HERE, never per issue. The
+ * scroll-driven part of a jaw-drop stays pure f(t) inside the issue
+ * (scrub-safe); only authored-time motion goes through `animate`.
+ *
+ *   // in the issue's shots.ts or component module scope:
+ *   registerJawDrop({ id: "press-stamp", t: PRESS_STAMP_T, flash: 1,
+ *     animate: () => { myTl?.kill(); myTl = gsap.timeline()... } });
+ */
+export interface JawDropSpec {
+  id: string;
+  /** global t that fires the drop */
+  t: number;
+  /**
+   * impact-frame intensity 0..1: the flash, granted through the central
+   * requestFlash() budget (S2.13). Plays the standard double pop + sub-thump
+   * on fx.impact. Omit (or 0) for quiet-valley jaw-drops (Issues 4, 9).
+   */
+  flash?: number;
+  /**
+   * authored-time hook (own GSAP timeline, 0.4-1.5s per S2.14). Runs even
+   * when the flash is denied; kill your previous timeline before rebuilding
+   * so hysteresis re-fires stay clean.
+   */
+  animate?: () => void;
+  /** re-arm distance below t, default 0.006 */
+  hysteresis?: number;
+}
+
+const jawDrops = new Map<string, Beat>();
+let beatList: Beat[] | null = null;
+
+/** flash-budget-guarded impact double pop + sub-thump, shared by all drops */
+function impactPop(intensity: number) {
+  if (!requestFlash()) return;
+  gsap
+    .timeline()
+    .to(fx, { impact: intensity, duration: 0.05, ease: "none" })
+    .to(fx, { impact: 0, duration: 0.12, ease: "power2.out" })
+    .to(fx, { impact: 0.7 * intensity, duration: 0.04, ease: "none" }, "+=0.06") // sub-thump
+    .to(fx, { impact: 0, duration: 0.18, ease: "power2.out" });
+}
+
+/** Idempotent by id (HMR/StrictMode safe): re-registering replaces the drop. */
+export function registerJawDrop(spec: JawDropSpec): void {
+  jawDrops.set(spec.id, {
+    id: spec.id,
+    trigger: spec.t,
+    hysteresis: spec.hysteresis ?? 0.006,
+    fire: () => {
+      spec.animate?.();
+      if (spec.flash) impactPop(spec.flash);
+    },
+  });
+  beatList = null;
+}
+
+/** Live beat list for BeatRunner -- cached, rebuilt on registration (no per-frame alloc). */
+export function allBeats(): readonly Beat[] {
+  return (beatList ??= [...jawDrops.values()]);
+}
+
 /** Issue 1 -> Issue 2 gutter entry (noir range end, S0.3): the title drop. */
 const TITLE_DROP_T = RANGES[1]![1];
 
 let titleTl: gsap.core.Timeline | null = null;
 
-/**
- * S5b.3 title drop -- the name card slams in as a full-frame comic title at
- * authored speed (the card itself lives in components/Lettering.tsx and reads
- * fx.title), with a flash-budget-guarded impact double pop as the sub-thump.
- * Re-fires cleanly after hysteresis re-arm: the previous timeline is killed.
- */
-export function makeBeats(): Beat[] {
-  return [
-    {
-      id: "title-drop",
-      trigger: TITLE_DROP_T,
-      hysteresis: 0.006,
-      fire: () => {
-        titleTl?.kill();
-        titleTl = gsap
-          .timeline()
-          .set(fx, { title: 0 })
-          .to(fx, { title: 1, duration: 0.22, ease: "back.out(2.5)" })
-          .to(fx, { title: 0, duration: 0.16, ease: "power3.in" }, "+=0.72");
-        if (!requestFlash()) return; // card still plays; only the flashes are budgeted
-        gsap
-          .timeline()
-          .to(fx, { impact: 1, duration: 0.05, ease: "none" })
-          .to(fx, { impact: 0, duration: 0.12, ease: "power2.out" })
-          .to(fx, { impact: 0.7, duration: 0.04, ease: "none" }, "+=0.06") // sub-thump
-          .to(fx, { impact: 0, duration: 0.18, ease: "power2.out" });
-      },
-    },
-    {
-      // Issue 3 jaw-drop: the power-on cascade sub-thump. The cascade itself
-      // is pure f(t) in issues/03-neon (scrub-safe); only this authored-time
-      // impact double pop rides the beat engine. Same trigger t as the wave.
-      id: "neon-cascade",
-      trigger: NEON_CASCADE_T,
-      hysteresis: 0.006,
-      fire: () => {
-        if (!requestFlash()) return; // flash budget (S2.13); wave plays regardless
-        gsap
-          .timeline()
-          .to(fx, { impact: 1, duration: 0.05, ease: "none" })
-          .to(fx, { impact: 0, duration: 0.12, ease: "power2.out" })
-          .to(fx, { impact: 0.7, duration: 0.04, ease: "none" }, "+=0.06") // sub-thump
-          .to(fx, { impact: 0, duration: 0.18, ease: "power2.out" });
-      },
-    },
-  ];
-}
+// S5b.3 title drop -- the name card slams in as a full-frame comic title at
+// authored speed (the card itself lives in components/Lettering.tsx and reads
+// fx.title); the budgeted impact pop is the sub-thump. Re-fires cleanly after
+// hysteresis re-arm: the previous timeline is killed.
+registerJawDrop({
+  id: "title-drop",
+  t: TITLE_DROP_T,
+  flash: 1,
+  animate: () => {
+    titleTl?.kill();
+    titleTl = gsap
+      .timeline()
+      .set(fx, { title: 0 })
+      .to(fx, { title: 1, duration: 0.22, ease: "back.out(2.5)" })
+      .to(fx, { title: 0, duration: 0.16, ease: "power3.in" }, "+=0.72");
+  },
+});
+
+// Issue 3 jaw-drop: the power-on cascade sub-thump. The cascade itself is
+// pure f(t) in issues/03-neon (scrub-safe); only this budgeted impact pop
+// rides the beat engine. Same trigger t as the wave.
+registerJawDrop({ id: "neon-cascade", t: NEON_CASCADE_T, flash: 1 });

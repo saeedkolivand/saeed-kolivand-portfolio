@@ -37,20 +37,31 @@ Session protocol (S0.9): one phase per session. Kickoff every session with
 - [x] Asset prompt queued: assets/prompts/noir-window-figure.md
 - Ships as PR (new workflow): branch phase-1-vertical-slice
 
-## Phase 2 - Framework hardening
-Full transition library (page-flip, tear, panel-wipe, match-cut, stamp),
-recipe API extraction, balloon/word pooling, snapshot pool generalization,
-jaw-drop trigger helper. Gate: new issue = component + registry entry + recipe.
-Also: scroll pacing pass (user 2026-07-02: one wheel scroll moves scenes too
-fast) - grow the 1200vh ScrollProxy spacer and/or tune Lenis duration/
-wheelMultiplier; pure t-space means zero scene re-authoring; user judges feel.
-Also: SceneManager mount latency on discrete deep jumps (gate 2026-07-02:
-~1s cream blank jumping straight into neon; continuous scrub unaffected by
-active+/-1 premounts) - premount on large t deltas or cheap loading treatment.
-Also: extract shared CatModel component (user 2026-07-02: no more
-shapes-taped-together cats) from the approved cover/desk cats - organic
-primitives, palette + pose + material-mode params - before Issues 4-11 reuse
-the mascot.
+## Phase 2 - Framework hardening -- DONE (2026-07-02)
+- [x] Transition library complete: native panel-wipe/paper-tear/page-flip/
+      stamp/dot-match/ink-flood (modes 5-10) + in-shader pre-print polish for
+      crash-through/stamp (closes PR #22 ruling 3). Fallback map remainder:
+      title-drop->whip (beat by design), panel-portal->panel-wipe (scene work)
+- [x] printRecipe() one-object recipe API; RECIPES byte-identical rewrite
+- [x] PopPool<T> generic pooled lettering/balloons (onomatopoeia migrated;
+      Issue 8 balloons / Issue 11 panels build on it)
+- [x] snapshots.retain/release/isRetained - snapshot pool requestable by any
+      consumer; RT budget rules intact
+- [x] registerJawDrop() declarative beat helper (hysteresis + flash budget
+      centralized); title-drop + neon-cascade migrated
+- [x] Scroll pacing: SPACER_VH=2400, WHEEL_MULTIPLIER=0.7 (docs-verified
+      levers; ~0.48x t per wheel notch); user-tunable named constants
+- [x] Deep-jump fix: JumpCover paper-dot screen, sync paint + double-rAF
+      reveal; no cream blank, re-jump idempotent
+- [x] CatModel extraction (pose x mode x palette x rig); cover + desk
+      migrated constant-identical; noir cat deliberately left (dimensional
+      prop, approved leap framing risk)
+- [x] Live user fixes: noir shares 0.30/0.15/0.35/0.20 -> 0.35/0.23/0.22/0.20
+      (wide->close travel +40%); caption fades 0.18 -> 0.30 in/out
+- [x] Gate: 10/10 PASS (DevTools MCP, zero fix loops); gate proof: test issue
+      = 1 component + 1 registry row + 1 recipe, then deleted. Advisory: 58ms
+      one-off mount hitch t~0.172 (0.2% frames) - perf-profiler if it worsens
+- Ships as PR: branch phase-2-framework-hardening
 
 ## Phase 3 - Issues 4-11, one commit each (styled placeholders -> real)
 

@@ -16,8 +16,11 @@ interface ScrollState {
   reducedMotion: boolean;
   audioOn: boolean;
   meowCount: number;
+  /** Issue index a deep jump is loading toward (JumpCover fill up); null when idle. */
+  jumpCover: number | null;
   setT: (t: number, velocity: number) => void;
   setActiveIssue: (i: number) => void;
+  setJumpCover: (i: number | null) => void;
   setPointer: (x: number, y: number) => void;
   setQuality: (q: Quality) => void;
   setReducedMotion: (v: boolean) => void;
@@ -34,8 +37,10 @@ export const useScrollStore = create<ScrollState>()((set) => ({
   reducedMotion: false,
   audioOn: false,
   meowCount: 0,
+  jumpCover: null,
   setT: (t, velocity) => set({ t, velocity }),
   setActiveIssue: (activeIssue) => set({ activeIssue }),
+  setJumpCover: (jumpCover) => set({ jumpCover }),
   setPointer: (pointerX, pointerY) => set({ pointerX, pointerY }),
   setQuality: (quality) => set({ quality }),
   setReducedMotion: (reducedMotion) => set({ reducedMotion }),

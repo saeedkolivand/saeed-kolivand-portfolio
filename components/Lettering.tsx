@@ -30,11 +30,15 @@ const CAPTION_WINDOWS: [number, number][] =
         return [NOIR_RANGE[0] + i * w, NOIR_RANGE[0] + (i + 1) * w];
       });
 
-/** fade in over the first 18% of a window, out over the last 18% -- pure f(t) */
+/**
+ * fade in over the first 30% of a window, out over the last 30% (~40%
+ * full-opacity plateau) -- pure f(t), opacity only (S2.16). Was 18%/18%;
+ * slowed per user feedback 2026-07-02 (captions entered/exited too fast).
+ */
 function windowOpacity(t: number, a: number, b: number): number {
   const p = (t - a) / (b - a);
   if (p <= 0 || p >= 1) return 0;
-  return Math.min(1, p / 0.18, (1 - p) / 0.18);
+  return Math.min(1, p / 0.3, (1 - p) / 0.3);
 }
 
 const INK = "#14110E";

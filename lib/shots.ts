@@ -25,25 +25,51 @@ export type TransitionKind =
   | "ink-flood"
   | "dot-match";
 
-/** What the TransitionEffect can render (Phase 1: + crash-through). */
-export type TransitionMode = "cut" | "whip" | "dot-zoom" | "crash-through";
+/** What the TransitionEffect can render (Phase 2: full S5 library). */
+export type TransitionMode =
+  | "cut"
+  | "whip"
+  | "dot-zoom"
+  | "crash-through"
+  | "panel-wipe"
+  | "paper-tear"
+  | "page-flip"
+  | "stamp"
+  | "dot-match"
+  | "ink-flood";
 
-// ponytail: unbuilt kinds map to nearest analog (S0.1), swapped for real
-// implementations in Phases 1-2 without touching the registry.
+// Phase 2: every S5 transition is native. Two kinds stay mapped by design:
+// title-drop -> whip (S5b.3: the slam is an authored-time BEAT via
+// lib/beats.ts; the gutter itself only carries the whip into Issue 2), and
+// panel-portal -> panel-wipe (a portal fly-through is scene/camera work,
+// not a post op; "panel grows to full bleed" is the nearest native analog
+// and reads correctly for the Issue 4 quiet-valley exit).
 export const TRANSITION_FALLBACK: Record<TransitionKind, TransitionMode> = {
   cut: "cut",
   whip: "whip",
   "dot-zoom": "dot-zoom",
   "crash-through": "crash-through",
   "title-drop": "whip",
-  "panel-wipe": "cut",
-  "panel-portal": "cut",
-  stamp: "cut",
-  "paper-tear": "cut",
-  "page-flip": "cut",
-  "ink-flood": "cut",
-  "dot-match": "cut",
+  "panel-wipe": "panel-wipe",
+  "panel-portal": "panel-wipe",
+  stamp: "stamp",
+  "paper-tear": "paper-tear",
+  "page-flip": "page-flip",
+  "ink-flood": "ink-flood",
+  "dot-match": "dot-match",
 };
+
+/** Modes that overlay the outgoing issue's snapshot on the incoming live frame. */
+const SNAPSHOT_MODES = new Set<TransitionMode>([
+  "dot-zoom",
+  "crash-through",
+  "panel-wipe",
+  "paper-tear",
+  "page-flip",
+  "stamp",
+  "dot-match",
+]);
+export const usesSnapshot = (mode: TransitionMode) => SNAPSHOT_MODES.has(mode);
 
 export type EaseFn = (x: number) => number;
 
@@ -101,9 +127,10 @@ export function poseAt(shot: Shot, p: number): Pose {
 
 /** Where within a gutter the camera jumps from the outgoing to the incoming shot. */
 function cutPoint(mode: TransitionMode): number {
-  // dot-zoom and crash-through film the incoming issue for the whole
-  // gutter -- the outgoing issue is only present as its snapshot overlay.
-  return mode === "dot-zoom" || mode === "crash-through" ? 0 : 0.5;
+  // snapshot modes film the incoming issue for the whole gutter -- the
+  // outgoing issue is only present as its snapshot overlay. cut, whip and
+  // ink-flood jump mid-gutter (ink-flood's full cover hides the jump).
+  return usesSnapshot(mode) ? 0 : 0.5;
 }
 
 export interface TransitionSample {
