@@ -28,8 +28,23 @@ export interface IssueEntry {
   outTransition: TransitionKind;
   recipe: PrintRecipe;
   accents: string[];
+  /** this issue's shot list, in timeline order (SHOTS below is derived from these) */
+  shots: Shot[];
   /** scene set rendered by SceneManager (entries 4-11 stay on the placeholder) */
   component: IssueComponent;
+}
+
+/**
+ * Phase 2 gate: a new issue = ONE component file (exporting its component +
+ * printRecipe() + shot list + optional registerJawDrop at module scope) +
+ * ONE row here. Omitted opts fall back to the S0.4 tables / placeholder
+ * shots -- nothing else in the engine changes.
+ */
+interface RowOpts {
+  /** the issue's full look -- one printRecipe() object (lib/recipes.ts) */
+  recipe?: PrintRecipe;
+  shots?: Shot[];
+  accents?: string[];
 }
 
 const row = (
@@ -39,23 +54,25 @@ const row = (
   intensity: number,
   outTransition: TransitionKind,
   component: IssueComponent,
+  opts: RowOpts = {},
 ): IssueEntry => ({
   id,
   title,
   range: [RANGES[index]![0], RANGES[index]![1]],
   intensity,
   outTransition,
-  recipe: RECIPES[index]!,
-  accents: ACCENTS[index]!,
+  recipe: opts.recipe ?? RECIPES[index]!,
+  accents: opts.accents ?? ACCENTS[index]!,
+  shots: opts.shots ?? placeholderShots(id, index),
   component,
 });
 
 /** S0.3 locked timeline -- ranges + gutters chain exactly to 1.000. Do not re-balance. */
 export const ISSUES: IssueEntry[] = [
-  row("cover", "PANEL JUMP", 0, 1, "crash-through", Cover),
-  row("noir", "ISSUE 1 - NOIR", 1, 2, "title-drop", Noir),
-  row("desk", "ISSUE 2 - DESK", 2, 2, "dot-zoom", Desk),
-  row("neon", "ISSUE 3 - NEON INK", 3, 5, "panel-wipe", Neon),
+  row("cover", "PANEL JUMP", 0, 1, "crash-through", Cover, { shots: COVER_SHOTS }),
+  row("noir", "ISSUE 1 - NOIR", 1, 2, "title-drop", Noir, { shots: NOIR_SHOTS }),
+  row("desk", "ISSUE 2 - DESK", 2, 2, "dot-zoom", Desk, { shots: DESK_SHOTS }),
+  row("neon", "ISSUE 3 - NEON INK", 3, 5, "panel-wipe", Neon, { shots: NEON_SHOTS }),
   row("origin", "ISSUE 4 - ORIGIN PAGE", 4, 1, "panel-portal", PlaceholderIssue),
   row("press", "ISSUE 5 - THE PRESS", 5, 3, "stamp", PlaceholderIssue),
   row("newsprint", "ISSUE 6 - NEWSPRINT", 6, 3, "paper-tear", PlaceholderIssue),
@@ -66,14 +83,8 @@ export const ISSUES: IssueEntry[] = [
   row("terminal", "ISSUE 11 - LETTERS PAGE", 11, 1, "cut", PlaceholderIssue),
 ];
 
-// Entries 0-3 own their shot lists (issues/XX-*/shots.ts); 4-11 stay placeholder.
-export const SHOTS: Shot[] = [
-  ...COVER_SHOTS,
-  ...NOIR_SHOTS,
-  ...DESK_SHOTS,
-  ...NEON_SHOTS,
-  ...ISSUES.slice(4).flatMap((issue, i) => placeholderShots(issue.id, i + 4)),
-];
+/** Flat shot list in timeline order, derived from the rows above. */
+export const SHOTS: Shot[] = ISSUES.flatMap((issue) => issue.shots);
 
 export const SEGMENTS: Segment[] = compileSegments(
   SHOTS,

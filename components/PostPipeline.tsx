@@ -7,7 +7,7 @@ import { Color, HalfFloatType, Matrix4, Vector3, type Texture } from "three";
 import { PrintEffect } from "@/shaders/PrintEffect";
 import { TransitionEffect } from "@/shaders/TransitionEffect";
 import { colorWindow } from "@/shaders/colorWindow";
-import { evaluateTimeline, lerp, poseAt, type Pose, type Vec3 } from "@/lib/shots";
+import { evaluateTimeline, lerp, poseAt, usesSnapshot, type Pose, type Vec3 } from "@/lib/shots";
 import { ISSUES, SEGMENTS } from "@/issues/registry";
 import { useScrollStore } from "@/lib/scrollStore";
 import { fx } from "@/lib/fx";
@@ -156,10 +156,14 @@ export default function PostPipeline() {
     jitter.y = stepNoise(el, 10, 2) * boilAmp;
     print.u<number>("uStepSeed").value = stepNoise(el, 10, 3);
 
-    // transition layer
+    // transition layer -- uSmear* feed the shader's pjtPrint approximation
+    // of the print pass for displaced inputBuffer taps (PR #22 ruling 3)
     const tr = sample.transition;
     transition.u<number>("uVelocity").value = velocity;
     transition.u<number>("uSmearMono").value = c.mono;
+    transition.u<number>("uSmearHalftone").value = c.halftone;
+    transition.u<number>("uSmearScale").value = c.halftoneScale;
+    transition.u<Color>("uSmearPaper").value.copy(paper.current);
     if (tr) {
       transition.setMode(tr.mode);
       transition.u<number>("uP").value = tr.p;
@@ -173,7 +177,7 @@ export default function PostPipeline() {
         wd.x = wx;
         wd.y = wy;
       }
-      if (tr.mode === "dot-zoom" || tr.mode === "crash-through") {
+      if (usesSnapshot(tr.mode)) {
         const snap = snapshots.get(tr.fromIssue);
         transition.u<Texture | null>("uSnapshot").value = snap;
         transition.u<number>("uHasSnapshot").value = snap ? 1 : 0;
@@ -185,16 +189,14 @@ export default function PostPipeline() {
     composer.render(delta);
 
     // S2.11 -- refresh the outgoing issue's snapshot in the tail of a shot
-    // that exits through a snapshot-driven transition
+    // that exits through a snapshot-driven transition, or whenever any
+    // consumer has retained this issue's snapshot (lib/snapshots.ts)
     if (sample.segment.type === "shot" && sample.shotP > 0.85) {
+      const issue = sample.segment.shot.issue;
       const next = SEGMENTS[SEGMENTS.indexOf(sample.segment) + 1];
-      if (
-        next?.type === "gutter" &&
-        next.interIssue &&
-        (next.mode === "dot-zoom" || next.mode === "crash-through")
-      ) {
-        snapshots.capture(gl, sample.segment.shot.issue);
-      }
+      const gutterWants =
+        next?.type === "gutter" && next.interIssue && usesSnapshot(next.mode);
+      if (gutterWants || snapshots.isRetained(issue)) snapshots.capture(gl, issue);
     }
   }, 1);
 

@@ -3,7 +3,8 @@
 import { useLayoutEffect, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { PerspectiveCamera, RenderTexture } from "@react-three/drei";
-import { BackSide, Color, Matrix4, Vector3, type Group, type InstancedMesh, type Mesh } from "three";
+import { Color, Matrix4, Vector3, type Group, type InstancedMesh, type Mesh } from "three";
+import CatModel, { type CatPalette } from "@/components/CatModel";
 import { toonRamp } from "@/lib/toon";
 import { stepTime } from "@/lib/steppedClock";
 import { useScrollStore } from "@/lib/scrollStore";
@@ -30,6 +31,9 @@ const WOOD = "#D9A967";
 
 const CENTER = issueCenter(2);
 const CX = CENTER[0];
+
+// mascot identity marks shared with the Cover cat: teal collar, red tag
+const CAT_PALETTE: CatPalette = { ink: INK, paper: PAPER, collar: TEAL, tag: RED, accent: ORANGE };
 
 // -- shared scratch (zero per-frame allocation) ------------------------------
 const MAT = new Matrix4();
@@ -217,7 +221,6 @@ function DeskCat({ say = false }: { say?: boolean }) {
   const paw = useRef<Group>(null);
   const lines = useRef<Group>(null);
   const lastT = useRef<number | null>(null);
-  const ramp = toonRamp();
 
   useFrame(({ clock }) => {
     const g = grp.current;
@@ -292,104 +295,9 @@ function DeskCat({ say = false }: { say?: boolean }) {
 
   return (
     <group ref={grp}>
-      {/* body + paper rim outline (inverted hull) so ink reads against the
-          ink monitor bezel and dark screen, not just the wood */}
-      <mesh position={[0, 0.3, 0]}>
-        <boxGeometry args={[0.95, 0.5, 0.48]} />
-        <meshToonMaterial color={INK} gradientMap={ramp} />
-      </mesh>
-      <mesh position={[0, 0.3, 0]}>
-        <boxGeometry args={[1.01, 0.56, 0.54]} />
-        <meshBasicMaterial color={PAPER} side={BackSide} />
-      </mesh>
-      {/* chest patch */}
-      <mesh position={[0.44, 0.26, 0]}>
-        <boxGeometry args={[0.08, 0.26, 0.2]} />
-        <meshToonMaterial color={PAPER} gradientMap={ramp} />
-      </mesh>
-      {/* collar + tag */}
-      <mesh position={[0.42, 0.5, 0]}>
-        <boxGeometry args={[0.12, 0.07, 0.4]} />
-        <meshToonMaterial color={TEAL} gradientMap={ramp} />
-      </mesh>
-      <mesh position={[0.48, 0.43, 0]}>
-        <boxGeometry args={[0.05, 0.08, 0.08]} />
-        <meshToonMaterial color={RED} gradientMap={ramp} />
-      </mesh>
-      <group ref={head} position={[0.5, 0.62, 0]}>
-        <mesh>
-          <boxGeometry args={[0.44, 0.42, 0.42]} />
-          <meshToonMaterial color={INK} gradientMap={ramp} />
-        </mesh>
-        <mesh>
-          <boxGeometry args={[0.5, 0.48, 0.48]} />
-          <meshBasicMaterial color={PAPER} side={BackSide} />
-        </mesh>
-        {/* ears + orange inner ears */}
-        <mesh position={[0.08, 0.28, 0.12]} rotation={[0, 0, 0.25]}>
-          <coneGeometry args={[0.09, 0.22, 4]} />
-          <meshToonMaterial color={INK} gradientMap={ramp} />
-        </mesh>
-        <mesh position={[0.08, 0.28, -0.12]} rotation={[0, 0, -0.25]}>
-          <coneGeometry args={[0.09, 0.22, 4]} />
-          <meshToonMaterial color={INK} gradientMap={ramp} />
-        </mesh>
-        <mesh position={[0.1, 0.27, 0.12]} rotation={[0, 0, 0.25]}>
-          <coneGeometry args={[0.05, 0.14, 4]} />
-          <meshBasicMaterial color={ORANGE} />
-        </mesh>
-        <mesh position={[0.1, 0.27, -0.12]} rotation={[0, 0, -0.25]}>
-          <coneGeometry args={[0.05, 0.14, 4]} />
-          <meshBasicMaterial color={ORANGE} />
-        </mesh>
-        {/* eyes: flat orange + ink pupils (comic cat stare) */}
-        <mesh position={[0.225, 0.06, 0.11]}>
-          <boxGeometry args={[0.035, 0.11, 0.1]} />
-          <meshBasicMaterial color={ORANGE} />
-        </mesh>
-        <mesh position={[0.225, 0.06, -0.11]}>
-          <boxGeometry args={[0.035, 0.11, 0.1]} />
-          <meshBasicMaterial color={ORANGE} />
-        </mesh>
-        <mesh position={[0.235, 0.04, 0.11]}>
-          <boxGeometry args={[0.03, 0.06, 0.035]} />
-          <meshBasicMaterial color={INK} />
-        </mesh>
-        <mesh position={[0.235, 0.04, -0.11]}>
-          <boxGeometry args={[0.03, 0.06, 0.035]} />
-          <meshBasicMaterial color={INK} />
-        </mesh>
-        {/* paper muzzle + red nose */}
-        <mesh position={[0.225, -0.12, 0]}>
-          <boxGeometry args={[0.05, 0.13, 0.15]} />
-          <meshToonMaterial color={PAPER} gradientMap={ramp} />
-        </mesh>
-        <mesh position={[0.245, -0.05, 0]}>
-          <boxGeometry args={[0.03, 0.04, 0.05]} />
-          <meshBasicMaterial color={RED} />
-        </mesh>
-      </group>
-      <group ref={paw} position={[0.5, 0.42, 0.16]}>
-        <mesh position={[0, -0.18, 0]}>
-          <cylinderGeometry args={[0.055, 0.06, 0.36, 8]} />
-          <meshToonMaterial color={INK} gradientMap={ramp} />
-        </mesh>
-        {/* paper sock on the batting paw */}
-        <mesh position={[0, -0.33, 0]}>
-          <cylinderGeometry args={[0.06, 0.065, 0.1, 8]} />
-          <meshToonMaterial color={PAPER} gradientMap={ramp} />
-        </mesh>
-      </group>
-      <group ref={tail} position={[-0.48, 0.4, 0]}>
-        <mesh position={[-0.18, 0.18, 0]} rotation={[0, 0, 0.9]}>
-          <cylinderGeometry args={[0.05, 0.07, 0.55, 8]} />
-          <meshToonMaterial color={INK} gradientMap={ramp} />
-        </mesh>
-        <mesh position={[-0.37, 0.34, 0]} rotation={[0, 0, 0.9]}>
-          <cylinderGeometry args={[0.042, 0.05, 0.16, 8]} />
-          <meshToonMaterial color={ORANGE} gradientMap={ramp} />
-        </mesh>
-      </group>
+      {/* shared mascot (components/CatModel): lit-toon build, neutral perch;
+          head/paw/tail are driven per frame through the rig refs above */}
+      <CatModel mode="toon" pose="sitting" palette={CAT_PALETTE} rig={{ head, paw, tail }} />
       {/* bat motion lines: speed-line fan at the strike arc, scale = f(p4) */}
       <group ref={lines} position={[1.32, 0.95, 0.2]} scale={0.0001}>
         <mesh position={[0, 0.12, 0]} rotation={[0, 0, 0.5]}>

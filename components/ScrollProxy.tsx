@@ -8,17 +8,23 @@ import { useScrollStore } from "@/lib/scrollStore";
 
 /**
  * S2.2 scroll model: Lenis -> one ScrollTrigger -> normalized t in the store.
- * The 1200vh spacer below is the entire scrollable document.
+ * The SPACER_VH spacer below is the entire scrollable document.
  *
  * verified 2026-07 (lenis 1.3.25 README): drive vanilla Lenis from
  * gsap.ticker with lenis.raf(time * 1000), lagSmoothing(0), and
  * lenis.on('scroll', ScrollTrigger.update); no scrollerProxy needed on
  * window, and vanilla autoRaf already defaults to false.
  */
+
+/** Total scroll length (vh). A wheel notch is fixed px, so more height = less t per notch -- primary pacing knob. */
+const SPACER_VH = 2400;
+/** Lenis wheel gain (default 1). Below 1 softens each notch a bit more -- secondary pacing knob. */
+const WHEEL_MULTIPLIER = 0.7;
+
 export default function ScrollProxy() {
   useEffect(() => {
     gsap.registerPlugin(ScrollTrigger);
-    const lenis = new Lenis();
+    const lenis = new Lenis({ wheelMultiplier: WHEEL_MULTIPLIER });
     lenis.on("scroll", ScrollTrigger.update);
     const tick = (time: number) => lenis.raf(time * 1000);
     gsap.ticker.add(tick);
@@ -57,6 +63,6 @@ export default function ScrollProxy() {
     };
   }, []);
 
-  // S0.3 -- total scroll length ~ 1200vh
-  return <div aria-hidden style={{ height: "1200vh" }} />;
+  // total scroll length (pacing ruling 2026-07-02: 2x the original ~1200vh)
+  return <div aria-hidden style={{ height: `${SPACER_VH}vh` }} />;
 }

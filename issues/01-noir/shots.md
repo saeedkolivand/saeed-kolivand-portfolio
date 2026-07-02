@@ -5,9 +5,9 @@ Shares apply to the span left after gutters (see shots.ts `seg`).
 
 | # | kind | lens | share of issue | framing |
 |---|---|---|---|---|
-| 1 | hold | 24mm | 0.30 | low dutch from street; window upper-third; FG railing, MG rain, BG facade |
-| 2 | whip | 28mm | 0.15 | vertical whip up the facade; speed lines |
-| 3 | dolly | 50mm | 0.35 | slow push to window; cat silhouette enters frame-left on rooftop FG |
+| 1 | hold | 24mm | 0.35 | low dutch from street; window upper-third; FG railing, MG rain, BG facade |
+| 2 | whip | 28mm | 0.23 | vertical whip up the facade; speed lines |
+| 3 | dolly | 50mm | 0.22 | slow push to window; cat silhouette enters frame-left on rooftop FG |
 | 4 | crash | 85->35mm | 0.20 | crash to window; cat leaps frame-right at p~0.8 -- motivated cut |
 
 Notes
@@ -23,3 +23,7 @@ Notes
   3 parapet+cat/rain/window; 4 cat/window/facade wall.
 - Lettering.tsx maps the 3 noir captions onto shots 1-3 automatically.
 - Screen direction: cat exits frame-right; Issue 2 opens on the landing.
+- Shares rebalanced 2026-07-02 (live feedback): wide->close travel was too
+  compressed, so hold/whip grew (0.30/0.15 -> 0.35/0.23) at the dolly's
+  expense (0.35 -> 0.22). Shots 1-3 still sum to 0.80, so shot 4's t-range
+  (0.0962-0.1080) and its NDC-verified leap framing are unchanged.
