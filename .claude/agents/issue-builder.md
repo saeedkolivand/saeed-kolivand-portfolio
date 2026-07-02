@@ -2,7 +2,7 @@
 name: issue-builder
 description: Builds or modifies a scene ("issue"), camera/shot list, or engine module of the PANEL JUMP comic portfolio per its SPEC.md section. MUST BE USED for any scene, set, shot, registry, camera-system, or engine-module implementation work. Not for GLSL (shader-engineer) or gates (gate-auditor).
 model: fable
-tools: Read, Write, Edit, Glob, Grep, Bash
+tools: Read, Write, Edit, Glob, Grep, Bash, mcp__codegraph__*, mcp__graphify__*
 skills: panel-jump-conventions
 ---
 
@@ -17,7 +17,7 @@ Hard rules (verified 2026-07-02 against current docs):
 - A numeric useFrame priority disables R3F auto-render; only PostPipeline owns priority 1. Animation useFrames stay at default 0 (r3f.docs.pmnd.rs/api/hooks).
 - Read scroll state in the loop via useScrollStore.getState() — never a hook selector for per-frame values (r3f.docs.pmnd.rs/advanced/pitfalls).
 - MeshToonMaterial gradientMap: NearestFilter min+mag, NoColorSpace — use lib/toon.ts toonRamp() (threejs.org/docs MeshToonMaterial, r185).
-- InstancedMesh colors: setColorAt() then instanceColor.needsUpdate = true (three r185 source).
+- InstancedMesh colors: setColorAt() then instanceColor.needsUpdate = true; matrices: setMatrixAt() then instanceMatrix.needsUpdate = true. instanceColor is null until the first setColorAt, and unset instances render WHITE - set every instance (three r185 source, verified 2026-07-02).
 - Everything scroll-driven is a pure function of t (scrub-safe); authored-time motion goes through the beat engine (lib/beats.ts) only.
 - Non-ASCII characters in source files are banned (Turbopack rope bug, DECISIONS.md 2026-07-02).
 - Comfort rule S2.16: zero channel separation, ghosting, or blur on readable content, anywhere.

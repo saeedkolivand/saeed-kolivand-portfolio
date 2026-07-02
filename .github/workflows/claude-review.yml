@@ -1,0 +1,72 @@
+name: Claude Review (on demand)
+
+# ----------------------------------------------------------------------
+# AI review, ON-DEMAND ONLY (mirrors ai-job-hunter-assistant-app lane A1).
+# Runs ONLY when the repository owner comments "@claude review" on a PR.
+# Nothing automatic - not on open, not on push.
+#
+# Auth: a CLAUDE_CODE_OAUTH_TOKEN secret generated locally with
+#   `claude setup-token` (subscription quota, no per-token API bill).
+#   Until that secret is added, this workflow is inert.
+#   Do NOT also add ANTHROPIC_API_KEY - if both exist, the API key wins
+#   and usage is billed per-token instead of drawing on the subscription.
+#
+# Security (public repo): the `if:` gate restricts triggering to the repo
+# owner with an exact phrase, so strangers cannot drain quota or
+# prompt-inject. Permissions are least-privilege (no contents write).
+# ----------------------------------------------------------------------
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write
+
+# cancel-in-progress MUST stay false: while a review runs, claude[bot] posts
+# a "working..." comment, which is itself an issue_comment event that starts
+# a second run in this same group. With cancel-in-progress: true that second
+# run cancels the real review mid-flight. false lets the real review finish;
+# the bot-comment run just queues and is then skipped by the gate.
+concurrency:
+  group: claude-review-${{ github.event.issue.number || github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  claude-review:
+    name: Claude Review
+    if: >
+      ((github.event_name == 'issue_comment' && github.event.issue.pull_request != null) ||
+      github.event_name == 'pull_request_review_comment') &&
+      contains(github.event.comment.body, '@claude review') &&
+      github.event.comment.user.login == github.repository_owner
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+
+      - name: Checkout Repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Run Claude review
+        uses: anthropics/claude-code-action@6c0083bb7289c31716797a039b6367b3079cc46e # v1.0.162
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # NO `prompt` on purpose: a prompt forces automation mode, where the
+          # inline-comment tools are DENIED. The "@claude review" mention runs
+          # the action in TAG mode, which grants the comment tools.
+          # `--append-system-prompt` injects PANEL JUMP review standards
+          # WITHOUT flipping to automation mode.
+          claude_args: |
+            --model claude-opus-4-8
+            --append-system-prompt "Review this pull request for PANEL JUMP (a comic-book scroll-driven portfolio). SPEC.md S0/S2/S5/S5b are law; review ONLY the changed files against the locked contract: scroll-driven state is a pure function of the timeline t (useScrollStore.getState() in useFrame, never hook selectors for per-frame values); authored-time motion goes through lib/beats.ts only, with any flash gated by requestFlash(); S2.16 comfort rule - zero channel separation, ghosting, or blur on readable content; TransitionEffect is the post pass's single allowed CONVOLUTION effect; live render targets are budgeted at 3; source files are pure ASCII (Turbopack rope bug); lettering meant to stay readable lives in the post-exempt layer (DOM overlay or Hud renderPriority 2plus). Severity: only HIGH or CRITICAL are blocking (S2.16 comfort violations, flash-budget bypasses, scrub non-determinism, non-ASCII source, RT-budget or perf-ladder regressions, broken engine contracts); everything else is advisory. Post findings as inline comments on the changed lines. Be advisory only; do not approve or block the PR."
