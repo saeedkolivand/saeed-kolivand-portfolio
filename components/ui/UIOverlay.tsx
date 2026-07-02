@@ -7,12 +7,13 @@ import { scenes } from "@/scenes/registry";
 export function UIOverlay() {
   const t = useScrollStore((s) => s.t);
   const active = useScrollStore((s) => s.activeIndex);
+  const quality = useScrollStore((s) => s.quality);
   if (process.env.NODE_ENV === "production") return null;
 
   const label = scenes[active]?.label ?? "—";
   return (
     <div className="pointer-events-none fixed left-3 top-3 z-50 rounded bg-black/60 px-2 py-1 font-mono text-xs text-sky-300">
-      t={t.toFixed(3)} · [{active}] {label}
+      t={t.toFixed(3)} · [{active}] {label} · {quality}
     </div>
   );
 }

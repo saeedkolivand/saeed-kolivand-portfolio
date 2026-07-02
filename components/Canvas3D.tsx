@@ -1,7 +1,7 @@
 "use client";
 import { useMemo } from "react";
 import { Canvas } from "@react-three/fiber";
-import { Stars, Sparkles } from "@react-three/drei";
+import { Stars, Sparkles, PerformanceMonitor } from "@react-three/drei";
 import { EffectComposer, Bloom, Vignette, ChromaticAberration } from "@react-three/postprocessing";
 import { Vector2 } from "three";
 import { CameraRig } from "./CameraRig";
@@ -14,6 +14,7 @@ export function Canvas3D() {
   // Scale ambient decoration by GPU tier and honor reduced motion.
   const lowTier = useScrollStore((s) => s.quality === "low");
   const reducedMotion = useScrollStore((s) => s.reducedMotion);
+  const setQuality = useScrollStore((s) => s.setQuality);
   const starCount = lowTier ? 1200 : 3500;
   const sparkleCount = lowTier || reducedMotion ? 120 : 260;
   const motion = reducedMotion ? 0 : 1;
@@ -30,6 +31,16 @@ export function Canvas3D() {
         gl={{ antialias: false, powerPreference: "high-performance" }}
         camera={{ fov: 62, near: 0.1, far: 1000, position: [0, 0, 5] }}
       >
+        {/* Adaptive GPU tiering: drop to the low tier when the *measured* frame rate can't hold the
+            budget (better than a static GPU guess). flipflops caps the incline/decline oscillation,
+            then onFallback locks to low so a genuinely weak GPU settles instead of flickering. */}
+        <PerformanceMonitor
+          onDecline={() => setQuality("low")}
+          onIncline={() => setQuality("high")}
+          flipflops={3}
+          onFallback={() => setQuality("low")}
+        />
+
         <color attach="background" args={["#05060a"]} />
         <fog attach="fog" args={["#05060a", 60, 400]} />
         <ambientLight intensity={0.4} />
