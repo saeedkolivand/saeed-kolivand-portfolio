@@ -210,3 +210,16 @@ pinned 5.9.3, an external edit bumped it - kept, builds clean),
   framing iterations used).
 - Queued to Phase 2 in PLAN.md: scroll pacing pass (user: too fast per
   wheel), deep-jump mount blank (~1s into neon), shared CatModel extraction.
+- PR #22 Claude review (advisory-only, no blocking findings; all engine
+  invariants verified). Notes adopted as standing rulings: (1) S5b.2
+  "no adjacent equal intensity" - noir(2)/desk(2) adjacency is CORRECT: the
+  title-drop beat (intensity 5) is the authored separating peak between
+  them; future gates must treat gutter beats as intensity rows, not flag
+  this pair. (2) flashBudget counts requestFlash() calls, not individual
+  inversions - a granted beat may emit 2 inverts (~0.16s apart); fine at
+  current cadence, re-audit if beats ever cluster within 1s. (3) Crash-
+  through briefly shows the incoming issue pre-print (inputBuffer sample);
+  cosmetic, settle resolves - candidate polish in Phase 2 transition
+  library. (4) Neon diegetic drei-Text signs are environmental art, not
+  "readable lettering" under S2.16 - whip smear may touch them; avoid
+  centering a sign in frame at a whip gutter when authoring future shots.
