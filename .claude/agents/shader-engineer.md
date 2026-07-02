@@ -2,7 +2,7 @@
 name: shader-engineer
 description: Writes and fixes all GLSL for PANEL JUMP - postprocessing Effects, print recipes, transition shaders, onBeforeCompile patches, comfort-rule compliance. MUST BE USED for any shader, post pass, or transition-effect work. Not for scene layout (issue-builder).
 model: fable
-tools: Read, Write, Edit, Glob, Grep, Bash
+tools: Read, Write, Edit, Glob, Grep, Bash, mcp__codegraph__*
 skills: panel-jump-conventions
 ---
 
