@@ -21,10 +21,28 @@ const SPACER_VH = 2400;
 /** Lenis wheel gain (default 1). Below 1 softens each notch a bit more -- secondary pacing knob. */
 const WHEEL_MULTIPLIER = 0.7;
 
+/** The live Lenis instance while ScrollProxy is mounted (module-scope so diegetic UI can drive it). */
+let activeLenis: Lenis | null = null;
+
+/**
+ * Programmatic scroll surface for diegetic UI (e.g. the Issue 5 "See
+ * projects" CTA): smooth-scroll the document so global progress lands on
+ * `t`. lenis.limit is the max scroll value (lenis 1.3.25 README), matching
+ * ScrollTrigger's 0->"max" progress mapping. Instant under reduced motion.
+ */
+export function scrollToT(t: number) {
+  const lenis = activeLenis;
+  if (!lenis) return;
+  const target = Math.min(Math.max(t, 0), 1) * lenis.limit;
+  if (useScrollStore.getState().reducedMotion) lenis.scrollTo(target, { immediate: true });
+  else lenis.scrollTo(target, { duration: 2.2 });
+}
+
 export default function ScrollProxy() {
   useEffect(() => {
     gsap.registerPlugin(ScrollTrigger);
     const lenis = new Lenis({ wheelMultiplier: WHEEL_MULTIPLIER });
+    activeLenis = lenis;
     lenis.on("scroll", ScrollTrigger.update);
     const tick = (time: number) => lenis.raf(time * 1000);
     gsap.ticker.add(tick);
@@ -59,6 +77,7 @@ export default function ScrollProxy() {
       mq.removeEventListener("change", onMq);
       st.kill();
       gsap.ticker.remove(tick);
+      if (activeLenis === lenis) activeLenis = null;
       lenis.destroy();
     };
   }, []);
