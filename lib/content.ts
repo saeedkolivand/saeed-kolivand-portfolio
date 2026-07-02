@@ -57,3 +57,138 @@ export const lettering = {
   ],
   neonSigns: ["REACT", "TYPESCRIPT", "RUST", "NEXT.JS", "GRAPHQL", "NODE.JS", "TAURI", "AI OPEN 24H"],
 } as const;
+
+// Phase 3 lettering & copy -- Issues 4-11. One content pass so issue-builders never invent strings.
+// PURE ASCII source (Turbopack rope bug); no franchise vocabulary (SPEC S1). Tone: dry, noir-adjacent,
+// first person, short (renders as lettering). CV facts trace to content above -- no invented biography.
+export const issueCopy = {
+  // Issue 4 -- Origin Page (quiet valley, intensity 1). Masthead already dropped; this page carries
+  // story beats drawn from content.timeline. First person.
+  origin: {
+    lead: "Every issue has an origin. Here's mine, in panels.",
+    beats: [
+      "A kid, a hand-me-down machine, one blinking cursor.",
+      "University taught me the words. The cursor taught me the rest.",
+      "First job. First paycheck for making the machine flinch.",
+      "Two suitcases and a one-way ticket. Cologne now.",
+      "Senior Frontend. Same curiosity, sharper tools.",
+      "Nights I leave the lights on in open source.",
+      "Then I built a robot to hunt the jobs for me.",
+    ],
+  },
+  // Issue 5 -- The Press (Skills factory). Department labels + one-line factory captions + the CTA
+  // the assembly line manufactures end to end (diegetic UI, SPEC 5b.5).
+  press: {
+    departments: [
+      { label: "REACT", caption: "The floor where the UI gets stamped out, part by part." },
+      { label: "TYPESCRIPT", caption: "Blueprints. Every wire labeled before it ships." },
+      { label: "RUST", caption: "Heavy machinery, orange sparks. Nothing rusts on my watch." },
+      { label: "AI", caption: "The thinking department. Wires itself while you wait." },
+    ],
+    cta: "See projects",
+  },
+  // Issue 6 -- Newsprint (Open Source). Spec-given headline + secondaries + reused flagship blurb
+  // as the front-page story + open-source ticker.
+  newsprint: {
+    headline: "LOCAL DEV SHIPS AGAIN",
+    secondaryHeadlines: [
+      "SOURCE STAYS OPEN, MAINTAINER STAYS AWAKE",
+      "MERGE CONFLICT ENDS PEACEFULLY, SOURCES SAY",
+      "COFFEE SUPPLY HOLDS THROUGH THIRD REWRITE",
+    ],
+    frontPageStory: content.flagship.title, // reuse locked flagship
+    frontPageBlurb: content.flagship.blurb, // reuse locked flagship copy
+    ticker: [
+      "PR MERGED",
+      "42 STARS OVERNIGHT",
+      "ISSUE CLOSED: WONTFIX",
+      "NEW RELEASE TAGGED",
+      "FORKED AGAIN",
+      "CI GREEN ACROSS THE BOARD",
+    ],
+  },
+  // Issue 7 -- Screentone (Timeline subway). One caption per station, aligned by index to
+  // content.timeline (8 entries). First person, subway flavor.
+  screentone: {
+    stationCaptions: [
+      "Boarded here. Didn't know the route yet.", // Started Programming
+      "Long stop. Learned to read the map.", // University
+      "First transfer. Somebody paid the fare.", // First Job
+      "Crossed a border in the dark. New line.", // Moved to Germany
+      "Express track now. They handed me the throttle.", // Senior Frontend Engineer
+      "Side platform I keep coming back to.", // Open Source
+      "Built my own car and hitched it on.", // AI Job Hunter
+      "Last stop's lit red. ON AIR.", // Streaming
+    ],
+  },
+  // Issue 8 -- Pop Print (Streaming). Short chat pool + donation alert + donation word-pop.
+  popPrint: {
+    chat: [
+      "first!!",
+      "pog",
+      "ship it already",
+      "clean code king",
+      "F in chat",
+      "he's locked in",
+      "that's a merge",
+      "no bugs today?",
+      "W stream",
+      "rustacean spotted",
+      "the cat! the cat!",
+      "60fps gang",
+    ],
+    donationAlert: "NEW SUPPORTER just bought the whole team pizza.",
+    // Donation alert spawns a giant word-pop (SPEC 2.12 / Issue 8 jaw-drop). ASCII, dev/streaming
+    // flavored, no franchise vocabulary (S1). (Persian onomatopoeia Easter egg omitted per direction.)
+    donationBoom: "KA-CHING!",
+  },
+  // Issue 9 -- Sketchbook (Architecture). Handwritten (Caveat) annotations along the chain
+  // Frontend -> API -> Workers -> AI -> DB -> Search -> Desktop.
+  sketchbook: {
+    annotations: [
+      "Frontend: where the user thinks it's simple.",
+      "API: the polite bouncer. Checks every request.",
+      "Workers: they do the boring parts, quietly.",
+      "AI: reads the room, writes the letter.",
+      "DB + Search: everything remembered, everything findable.",
+      "Desktop: runs on your machine. No cloud, no leaks.",
+    ],
+  },
+  // Issue 10 -- The Spread. One short constellation label per prior panel (Cover + Issues 1-9),
+  // plus the closing caption over the double-page climax.
+  spread: {
+    constellations: [
+      "The Cover", // Cover
+      "The Rain", // Issue 1 Noir
+      "The Desk", // Issue 2 Desk
+      "The City", // Issue 3 Neon
+      "The Origin", // Issue 4 Origin
+      "The Press", // Issue 5 Press
+      "The Headline", // Issue 6 Newsprint
+      "The Line", // Issue 7 Screentone
+      "The Signal", // Issue 8 Pop Print
+      "The Sketch", // Issue 9 Sketchbook
+    ],
+    closingCaption: "One reader, one thumb, the whole run in a single sky.",
+  },
+  // Issue 11 -- Letters Page (Terminal). One response per locked content.terminalCommands entry.
+  // `resume` is the out-of-stock gag (links.resumePdf empty); `blog` is written but stays hidden
+  // until links.blogUrl is set. Email is never printed here -- it renders assembled at runtime (S0.5).
+  lettersPage: {
+    responses: {
+      about: "Senior Frontend Developer. Cologne. I build AI-powered tools and ship them.",
+      projects: "Pulling the panels... AI Job Hunter up front. Scroll back up, they're all here.",
+      experience: "Years of React and TypeScript. Lately: Rust, Tauri, teaching machines to type.",
+      skills: "React, TypeScript, Next.js, Rust, Tauri, Node, GraphQL, and a stubborn amount of AI.",
+      contact: "The mailbox is on the desk. Assembled at runtime, so the bots stay hungry.",
+      resume: "OUT OF STOCK. This issue sold out its print run. Reprint pending.",
+      github: "Opening the archive. Every commit, every all-nighter, cataloged.",
+      linkedin: "Straightening the tie. Opening the professional record.",
+      blog: "No dispatches filed yet. Check back when the presses roll.",
+    },
+    backCover: {
+      nextIssue: "NEXT ISSUE: ???",
+      barcode: "200 OK | this issue never 404s | no refunds",
+    },
+  },
+} as const;
