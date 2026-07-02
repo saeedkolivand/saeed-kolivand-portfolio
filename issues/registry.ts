@@ -11,6 +11,7 @@ import Origin from "./04-origin/Origin";
 import Press from "./05-press/Press";
 import Newsprint from "./06-newsprint/Newsprint";
 import Screentone from "./07-screentone/Screentone";
+import Pop from "./08-pop/Pop";
 import { COVER_SHOTS } from "./00-cover/shots";
 import { NOIR_SHOTS } from "./01-noir/shots";
 import { DESK_SHOTS } from "./02-desk/shots";
@@ -19,6 +20,7 @@ import { ORIGIN_RECIPE, ORIGIN_SHOTS } from "./04-origin/shots";
 import { PRESS_RECIPE, PRESS_SHOTS } from "./05-press/shots";
 import { NEWSPRINT_RECIPE, NEWSPRINT_SHOTS } from "./06-newsprint/shots";
 import { SCREENTONE_RECIPE, SCREENTONE_SHOTS } from "./07-screentone/shots";
+import { POP_RECIPE, POP_SHOTS } from "./08-pop/shots";
 
 // Timeline numbers live in ./timeline (leaf); re-exported here for consumers.
 export { ISSUE_SPACING, issueCenter };
@@ -97,7 +99,10 @@ export const ISSUES: IssueEntry[] = [
     recipe: SCREENTONE_RECIPE,
     shots: SCREENTONE_SHOTS,
   }),
-  row("pop", "ISSUE 8 - POP PRINT", 8, 5, "whip", PlaceholderIssue),
+  row("pop", "ISSUE 8 - POP PRINT", 8, 5, "whip", Pop, {
+    recipe: POP_RECIPE,
+    shots: POP_SHOTS,
+  }),
   row("sketch", "ISSUE 9 - SKETCHBOOK", 9, 2, "ink-flood", PlaceholderIssue),
   row("spread", "ISSUE 10 - THE SPREAD", 10, 5, "dot-match", PlaceholderIssue),
   row("terminal", "ISSUE 11 - LETTERS PAGE", 11, 1, "cut", PlaceholderIssue),

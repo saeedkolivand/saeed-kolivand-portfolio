@@ -17,18 +17,32 @@ export const words = new PopPool<WordData>(12, 0.9, () => ({
   color: "#FFFFFF",
 }));
 
+/** Deterministic [0,1) hash of a string (FNV-ish), for scrub-stable seeds. */
+function strSeed(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = ((h ^ s.charCodeAt(i)) * 16777619) >>> 0;
+  return (h % 4096) / 4096;
+}
+
 /**
  * Fire a comic word at a world position. Round-robin over the pool -- the
  * oldest slot is recycled, nothing is allocated.
+ *
+ * The default seed is DETERMINISTIC (ruling 2026-07-03): derived from the
+ * word list's content hash, so identical scrubs produce identical words and
+ * jitter -- the Math.random default burned two issues' scrub-determinism
+ * gates. Callers that pass an explicit seed are unchanged; callers that want
+ * variety must derive their own deterministic seed (e.g. from stepped time
+ * or an event coordinate), never Math.random on a scrub path.
  */
 export function sayWord(
   list: readonly string[],
   worldPos: Vector3 | readonly [number, number, number],
-  seed: number = Math.random(),
+  seed?: number,
   color = "#FFFFFF",
 ): void {
   if (list.length === 0) return;
-  const slot = words.spawn(worldPos, seed);
+  const slot = words.spawn(worldPos, seed ?? strSeed(list.join("|")));
   slot.data.word = list[Math.floor(slot.seed * list.length) % list.length]!;
   slot.data.color = color;
 }
