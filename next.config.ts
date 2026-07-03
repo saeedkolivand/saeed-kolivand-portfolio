@@ -6,6 +6,10 @@ const nextConfig: NextConfig = {
   // GitHub-contribution data is baked at build time (scripts/bake-contributions.mjs),
   // so nothing needs a server. Served at the apex domain root, so no basePath.
   output: "export",
+  // Companion to `output: export` -- the default image optimizer needs a
+  // server. The app uses plain <img>, so this is defensive: it keeps the
+  // export build working if next/image is ever introduced.
+  images: { unoptimized: true },
 };
 
 export default nextConfig;
