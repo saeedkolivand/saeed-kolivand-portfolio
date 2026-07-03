@@ -495,3 +495,18 @@ pinned 5.9.3, an external edit bumped it - kept, builds clean),
 - Consequence: the queued diegetic-canvas-button a11y item (newsprint
   GITHUB/WEBSITE, terminal links) is satisfied by the Print Edition's real
   <a> links - no DOM overlay bolted onto canvas raycast buttons needed.
+- Phase 5 gate: 10/10 PASS (chrome-devtools MCP, formal). Default desktop
+  = animated canvas; reduced-motion / mobile(<820) / ?low / no-webgl = Print
+  Edition with ZERO WebGL context created (getContext sentinel = 0);
+  all 12 issue sections + projects + contact in the DOM; plain email absent
+  from SSR HTML, mailto assembles post-JS; real <a> for github/linkedin/
+  website/flagship/5 projects; one h1, clean heading order, landmarks,
+  skip-link first focusable, focusin reveal (keyboard never trapped under
+  canvas); mobile LCP ~1.04s at 4x CPU, CLS 0; flash audit WCAG 2.3.1
+  holds (title-drop 4 flashes max 2/s, neon 0/s, print path 0 anims).
+  Lighthouse a11y 93 at gate -> the 2 flagged sub-audits (color-contrast,
+  link-in-text-block) FIXED post-gate to AA-clean (accent-text tokens
+  >=4.5:1, in-text links underlined, unique link names). Design verdict:
+  first-class comic-print, not a stub.
+- No outstanding degraded-passes. Sole carried advisory: Phase 4 cold-mount
+  single-frame stalls (dev-inflated) - re-measure on a production build.

@@ -120,7 +120,28 @@ Session protocol (S0.9): one phase per session. Kickoff every session with
   baseline) - audio-neutral; re-measure on a production build
 - Ships as PR: branch phase-4-sound-polish
 
-## Phase 5 - Print Edition + accessibility (do NOT skip)
+## Phase 5 - Print Edition + accessibility -- DONE (2026-07-03)
+- [x] Architecture "one document, optional visual overlay": PrintEdition is
+      the always-present semantic DOM; ExperienceGate mounts the WebGL
+      canvas overlay only when !reduced-motion && !mobile/low && webgl.
+      Closes S8 (all text in DOM), reduced-motion + mobile fallback, and
+      the queued canvas-button a11y in one move.
+- [x] The Print Edition: designed static comic (12 issue sections +
+      projects + contact), real <a> links, one h1 + landmarks + heading
+      order, skip-link + focusin reveal, runtime-assembled email
+      (anti-scrape), alt on every image, Ben-Day/paper/Bangers/Caveat/mono
+      comic-print CSS, gentle fades gated behind prefers-reduced-motion.
+      Zero WebGL on the print path.
+- [x] WCAG AA polish: accent-text contrast >=4.5:1, in-text links
+      underlined (use-of-color), unique link purposes. Lighthouse a11y
+      93 -> AA-clean.
+- [x] Flash audit WCAG 2.3.1: print path zero animation; experience path
+      title-drop/neon within the <=3 flashes/s budget, no strobe.
+- [x] Terminal off-frame response panels pulled in-frame (queued polish).
+- [x] Gate 10/10 (chrome-devtools MCP): reduced-motion + throttled-mobile
+      both deliver a complete, fast (LCP ~1s @4x CPU), beautiful comic.
+- [x] REPORT.md written (S0.9 finale).
+- Ships as PR: branch phase-5-print-a11y
 
 ## REQUIRED_INPUT still empty (never blocks)
 blogUrl (blog command hidden), resumePdf (resume prints "out of stock" gag).
