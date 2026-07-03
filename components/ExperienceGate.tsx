@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { printEdition } from "@/lib/content";
+import { links, printEdition } from "@/lib/content";
 import { useScrollStore } from "@/lib/scrollStore";
 import AudioToggle from "./AudioToggle";
 import Experience from "./Experience";
@@ -31,6 +31,22 @@ import styles from "./PrintEdition.module.css";
 // Only ever called on the not-reduced, not-mobile path (the path that will
 // show the experience), so reduced-motion / mobile / low never create a
 // WebGL context (S8 print path stays zero-WebGL).
+// Module-level so it survives the StrictMode double-mount (dev) and any
+// remount: the console greeting logs exactly once per page load.
+let consoleEggLogged = false;
+
+function logConsoleEgg(): void {
+  if (consoleEggLogged) return;
+  consoleEggLogged = true;
+  const egg = printEdition.consoleEgg;
+  // console.log level ONLY (a Phase 5 gate requires the console stays error-free).
+  console.log(
+    "%c" + egg.headline,
+    "font-family:'Bangers',system-ui,sans-serif;font-size:38px;font-weight:700;color:#c63d2f;letter-spacing:2px;padding:8px 0;",
+  );
+  console.log(egg.lines.join("\n") + "\n" + links.githubUrl);
+}
+
 function probeWebGL(): boolean {
   try {
     const c = document.createElement("canvas");
@@ -64,6 +80,13 @@ export default function ExperienceGate() {
     setReduced(prefersReduced);
     setCapable(!mobileLow); // desktop-class hardware; gates the opt-in offer
     setShowExperience(!prefersReduced && !mobileLow && webgl);
+  }, []);
+
+  // Decorative DevTools console greeting. ExperienceGate always mounts, so this
+  // fires on EVERY load -- animated and reduced-motion/print paths alike. Client
+  // only (useEffect), guarded once, log level only. No engine/beat interaction.
+  useEffect(() => {
+    logConsoleEgg();
   }, []);
 
   const effectiveShow = !forceReader && (showExperience || forceExperience);

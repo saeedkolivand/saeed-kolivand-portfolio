@@ -276,4 +276,14 @@ export const printEdition = {
     backCoverHarley: "Back-cover portrait of Harley, the golden-brown tabby mascot.",
   },
   contactNote: "Write to the desk. The address assembles at runtime -- never set in plain ink.",
+  // Fires once in the DevTools console on every load (both paths). Headline logs styled;
+  // lines log plain, then the GitHub address (links.githubUrl -- never retyped here).
+  consoleEgg: {
+    headline: "YOU FOUND THE SOURCE",
+    lines: [
+      "Peeking behind the ink at this hour. Everyone's a detective.",
+      "Harley signed off on every line down here -- she's the senior engineer.",
+      "I just do the typing. The rest of the run is on file:",
+    ],
+  },
 } as const;
