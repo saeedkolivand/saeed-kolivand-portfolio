@@ -6,7 +6,7 @@ import { Text } from "@react-three/drei";
 import { Color, Object3D, type Group, type InstancedMesh } from "three";
 import IssueShell from "../_IssueShell";
 import { ISSUES } from "../registry";
-import CatModel, { type CatPalette } from "@/components/CatModel";
+import { ArtPanel } from "../04-origin/Origin";
 import { toonRamp } from "@/lib/toon";
 import { stepTime } from "@/lib/steppedClock";
 import { useScrollStore } from "@/lib/scrollStore";
@@ -49,16 +49,6 @@ const CORAL = "#E2574C";
 const BANGERS = "/fonts/Bangers-Regular.ttf";
 
 const COPY = issueCopy.newsprint;
-
-// B&W press photo of the mascot: canonical collar/tag identity marks (mono
-// prints them gray -- that is the gag), spot-red accent tail tip
-const CAT_PALETTE: CatPalette = {
-  ink: INK,
-  paper: PAPER,
-  collar: "#2BB3A3",
-  tag: "#E2574C",
-  accent: RED,
-};
 
 // ---- shared scratch (zero per-frame allocation) -----------------------------
 const tmpO = new Object3D();
@@ -194,17 +184,12 @@ function WallPhoto() {
   );
 }
 
-// the cat cameo: a mounted press photo, photo-corner mounts, click = meow
+// the cat cameo: a mounted halftone press photo (user-approved Harley art),
+// photo-corner mounts, newspaper cutline plate below, click = meow.
+// ArtPanel's aspect crop centers the square plate on the portrait frame
+// (~7% width trimmed per side; the keyboard bleeding off IS photo language).
+// z 0.075: above the SHEET plate face (0.06), under the corner mounts (0.09).
 function CatPhoto() {
-  const tail = useRef<Group>(null);
-
-  useFrame(({ clock }) => {
-    const { quality, reducedMotion } = useScrollStore.getState();
-    const fps = quality === "low" ? 8 : 12;
-    const s = reducedMotion ? 0 : stepTime(clock.elapsedTime, fps);
-    if (tail.current) tail.current.rotation.z = 0.85 + Math.sin(s * 1.6) * 0.14;
-  });
-
   return (
     <group
       position={[5.9, 5.05, -4.55]}
@@ -215,6 +200,9 @@ function CatPhoto() {
       }}
     >
       <PhotoFrame w={3.05} h={3.55} />
+      <Suspense fallback={null}>
+        <ArtPanel url="/images/newsprint-harley-photo.png" w={3.05} h={3.55} z={0.075} />
+      </Suspense>
       {[
         [-1.35, 1.6],
         [1.35, 1.6],
@@ -226,8 +214,36 @@ function CatPhoto() {
           <meshBasicMaterial color={INK} />
         </mesh>
       ))}
-      <group position={[0, -0.55, 0.12]} scale={0.8}>
-        <CatModel mode="flat" pose="sitting" palette={CAT_PALETTE} rig={{ tail }} />
+      {/* press-photo cutline (user-approved scene lettering): a pasted slip
+          over the plate's bottom-right corner -- the only band of the plate
+          the FG sheets never occlude across the shot-2 pass (a full-width
+          strip under the frame always lost "HARLEY" behind a sheet edge).
+          Three short lines keep it readable at the pass framings; single
+          crisp Text layers (S2.16). The corner mount pins the slip. */}
+      <group position={[0.55, -1.2, 0]} rotation={[0, 0, -0.04]}>
+        <mesh position={[0, 0, 0.082]}>
+          <planeGeometry args={[1.81, 1.06]} />
+          <meshBasicMaterial color={INK} />
+        </mesh>
+        <mesh position={[0, 0, 0.084]}>
+          <planeGeometry args={[1.75, 1.0]} />
+          <meshBasicMaterial color={SHEET} />
+        </mesh>
+        <Suspense fallback={null}>
+          {(["HARLEY.", "EDITOR-AT-LARGE.", "UNPAID."] as const).map((line, i) => (
+            <Text
+              key={line}
+              position={[0, 0.29 - i * 0.29, 0.088]}
+              font={BANGERS}
+              fontSize={0.2}
+              color={INK}
+              anchorX="center"
+              anchorY="middle"
+            >
+              {line}
+            </Text>
+          ))}
+        </Suspense>
       </group>
     </group>
   );

@@ -7,7 +7,7 @@ import type { Group, Mesh } from "three";
 import IssueShell from "../_IssueShell";
 import { ISSUES } from "../registry";
 import { RANGES } from "../timeline";
-import CatModel, { type CatPalette } from "@/components/CatModel";
+import CatModel from "@/components/CatModel";
 import { toonRamp } from "@/lib/toon";
 import { stepTime } from "@/lib/steppedClock";
 import { useScrollStore } from "@/lib/scrollStore";
@@ -36,9 +36,6 @@ const TEAL = "#2BB3A3";
 
 const BANGERS = "/fonts/Bangers-Regular.ttf";
 const COVER_END = RANGES[0]![1];
-
-// mascot identity marks shared with the Desk cat: teal collar, red tag
-const CAT_PALETTE: CatPalette = { ink: INK, paper: PAPER, collar: TEAL, tag: RED, accent: RED };
 
 // Masthead splits into a small kicker line + a big main line so long names
 // ("SAEED KOLIVAND", 14 chars) never clip or collide with the price box.
@@ -202,10 +199,11 @@ export default function Cover({ index }: { index: number }) {
             <meshToonMaterial color={INK} gradientMap={ramp} />
           </mesh>
           <group scale={1.3} rotation={[0, 0, 0.42]}>
-            {/* shared mascot (components/CatModel): flat-print pounce build;
-                tail rig ref is flicked on stepped time in the useFrame above,
-                its pivot sits INSIDE the haunch (Phase 1 invariant) */}
-            <CatModel mode="flat" pose="leaping" palette={CAT_PALETTE} rig={{ tail }} />
+            {/* shared mascot (components/CatModel): flat-print pounce build,
+                Harley default palette (golden tabby, user directive
+                2026-07-03); tail rig ref is flicked on stepped time in the
+                useFrame above, its pivot sits INSIDE the haunch */}
+            <CatModel mode="flat" pose="leaping" rig={{ tail }} />
 
             {/* speed dashes trailing the pounce (technique vocabulary, S1) */}
             <mesh position={[-1.8, -0.55, 0.001]}>

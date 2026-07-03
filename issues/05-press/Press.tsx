@@ -13,7 +13,7 @@ import {
 } from "three";
 import IssueShell from "../_IssueShell";
 import { ISSUES } from "../registry";
-import CatModel, { type CatPalette } from "@/components/CatModel";
+import CatModel, { HARLEY, type CatPalette } from "@/components/CatModel";
 import { toonRamp } from "@/lib/toon";
 import { stepTime } from "@/lib/steppedClock";
 import { useScrollStore } from "@/lib/scrollStore";
@@ -76,14 +76,10 @@ const ACCENT = [
   PRESS_PALETTE.ai,
 ] as const;
 
-// mascot identity marks (CatModel contract): teal collar, red tag
-const CAT_PALETTE: CatPalette = {
-  ink: DARK,
-  paper: INK,
-  collar: "#2BB3A3",
-  tag: "#E2574C",
-  accent: PRESS_PALETTE.rust,
-};
+// Harley body (golden tabby default, user directive 2026-07-03) -- the old
+// dark-body + light-socks combo was a tuxedo leftover. Issue accent keeps
+// the rust tail tip; teal collar + red tag identity marks stay.
+const CAT_PALETTE: CatPalette = { ...HARLEY, accent: PRESS_PALETTE.rust };
 
 // ---- shared scratch (zero per-frame allocation) -----------------------------
 const tmpO = new Object3D();

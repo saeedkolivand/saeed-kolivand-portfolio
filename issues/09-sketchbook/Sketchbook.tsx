@@ -12,7 +12,7 @@ import {
 } from "three";
 import IssueShell from "../_IssueShell";
 import { ISSUES } from "../registry";
-import CatModel, { type CatPalette } from "@/components/CatModel";
+import CatModel, { HARLEY, type CatPalette } from "@/components/CatModel";
 import { pawprintMaterial, sketchMaterial, SKETCH_PALETTE } from "@/shaders/sketchMaterials";
 import { stepTime } from "@/lib/steppedClock";
 import { useScrollStore } from "@/lib/scrollStore";
@@ -352,9 +352,11 @@ const PDZ = CAT_B[1] - CAT_A[1];
 const PLEN = Math.hypot(PDX, PDZ);
 const PERP: [number, number] = [-PDZ / PLEN, PDX / PLEN];
 
+// Harley body (golden tabby default, user directive 2026-07-03): the cat is
+// the one colored thing walking through the graphite sketch world. Wash
+// collar/tag + graphite tail tip keep the palette-law marks (shots.md ruling).
 const CAT_PALETTE: CatPalette = {
-  ink: INK,
-  paper: PAPER,
+  ...HARLEY,
   collar: WASH,
   tag: WASH,
   accent: GRAPHITE,

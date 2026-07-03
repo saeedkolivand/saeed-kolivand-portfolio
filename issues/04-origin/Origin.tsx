@@ -17,7 +17,7 @@ import {
 } from "three";
 import IssueShell from "../_IssueShell";
 import { ISSUES } from "../registry";
-import CatModel, { type CatPalette } from "@/components/CatModel";
+import CatModel, { HARLEY, type CatPalette } from "@/components/CatModel";
 import { snapshots } from "@/lib/snapshots";
 import { stepTime } from "@/lib/steppedClock";
 import { useScrollStore } from "@/lib/scrollStore";
@@ -55,8 +55,9 @@ const DARK = "#211E1A"; // in-panel night plates (ink -5%)
 const VOID = "#1B1815"; // portal interior (ink -10%)
 const BANGERS = "/fonts/Bangers-Regular.ttf";
 
-// mascot identity marks (CatModel contract): teal collar, red tag
-const CAT_PALETTE: CatPalette = { ink: INK, paper: PAPER, collar: "#2BB3A3", tag: "#E2574C", accent: RUST };
+// Harley body (golden tabby default, user directive 2026-07-03); issue
+// accent keeps the rust tail tip. Teal collar + red tag identity marks stay.
+const CAT_PALETTE: CatPalette = { ...HARLEY, accent: RUST };
 
 // ---- page layout (page local coords, page 12 x 16 centered at the set) -----
 const LEAD = issueCopy.origin.lead;

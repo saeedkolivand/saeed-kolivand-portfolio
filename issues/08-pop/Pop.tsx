@@ -15,7 +15,7 @@ import {
 } from "three";
 import IssueShell from "../_IssueShell";
 import { ISSUES } from "../registry";
-import CatModel, { type CatPalette } from "@/components/CatModel";
+import CatModel, { HARLEY, type CatPalette } from "@/components/CatModel";
 import { stepTime } from "@/lib/steppedClock";
 import { useScrollStore } from "@/lib/scrollStore";
 import { sayWord } from "@/lib/onomatopoeia";
@@ -781,11 +781,12 @@ function BoomWords() {
 
 /* ------------------- the streamer: toon cat on the desk -------------------- */
 // Toon (dimensional) build: a flat cat vanishes edge-on during the 360.
-// Palette ruling (shots.md): identity marks print in row-8 kin colors; body
-// lifted to the gear purple so it separates from dark panels (iteration 1).
+// Harley body (golden tabby default, user directive 2026-07-03): the fur
+// gold separates from the dark panels even better than the old gear-purple
+// lift (iteration 1). Row-8 kin identity marks stay (cyan collar, pink tag,
+// yellow tail tip -- collar/tag/accent are approved stylization).
 const CAT_PALETTE: CatPalette = {
-  ink: "#3A2A57",
-  paper: INK,
+  ...HARLEY,
   collar: CYAN,
   tag: PINK,
   accent: YELLOW,

@@ -6,11 +6,14 @@ import { toonRamp } from "@/lib/toon";
 
 /**
  * CatModel v2 -- the shared mascot (S1 through-line), rebuilt 2026-07-03 to
- * the user-approved flat-illustration reference: chubby black cat, big round
+ * the user-approved flat-illustration reference: chubby cat, big round
  * head (wider than tall, ~40% of the mass), small triangular ears, big oval
- * WHITE eyes with ink pupils, small triangular tag-colored nose, three thin
+ * eyes with pupils, small triangular nose, three thin
  * paper whiskers per side, collar band + tag, low-slung bean body, rounded
  * tapering limbs with paper sock paws, long rounded tail with an accent tip.
+ * Default coloring is HARLEY (user directive 2026-07-03): golden-brown
+ * tabby fur, cream ruff + socks, amber eyes, pink nose + inner ears,
+ * darker-brown tail tip and stripe caps (stripes toon build only).
  * Everything is spheres / capsules / circles / torus arcs -- no boxes, no
  * visible seams; every limb/tail root stays INSIDE a body mass in every pose
  * (Phase 1 invariant, re-verified numerically for the v2 numbers).
@@ -36,12 +39,42 @@ export type CatPose = "sitting" | "crouch" | "walking" | "leaping";
 export type CatMode = "flat" | "toon";
 
 export interface CatPalette {
-  ink: string; // body
-  paper: string; // socks, eye whites, whiskers, rim hulls
+  ink: string; // body fur
+  paper: string; // socks, whiskers, rim hulls (+ eye fallback)
   collar: string; // collar band (identity mark, teal everywhere so far)
-  tag: string; // collar tag + nose (identity mark, red everywhere so far)
+  tag: string; // collar tag (identity mark, red everywhere so far)
   accent: string; // tail tip (issue accent color)
+  // optional Harley detail fields -- legacy per-scene palettes omit them
+  // and render exactly as before (fallbacks reproduce the v2 look)
+  eye?: string; // iris fill (falls back to paper: white-sclera look)
+  pupil?: string; // falls back to ink
+  nose?: string; // falls back to tag (legacy nose == tag)
+  earInner?: string; // inner-ear fill; omitted = none
+  ruff?: string; // cream chest ruff mass; omitted = none
+  stripe?: string; // tabby stripe caps, toon build only; omitted = none
 }
+
+/**
+ * Default palette: Harley, the real cat (user directive 2026-07-03) --
+ * long-haired golden-brown tabby, big cream chest ruff, amber-yellow eyes,
+ * pink nose, cream paws, darker-brown tail tip + stripe caps. Teal collar
+ * and red tag identity marks stay (approved stylization). Fur hex chosen
+ * mid amber-brown so the 3-step toon ramp (27% / 63% / 100%) keeps it
+ * reading brown on light and dark paper alike.
+ */
+export const HARLEY: CatPalette = {
+  ink: "#A9743C",
+  paper: "#F4E7C8",
+  collar: "#2BB3A3",
+  tag: "#E2574C",
+  accent: "#6E4A24",
+  eye: "#F0B429",
+  pupil: "#17130C",
+  nose: "#E8929B",
+  earInner: "#E8929B",
+  ruff: "#F4E7C8",
+  stripe: "#6E4A24",
+};
 
 export interface CatRig {
   head?: RefObject<Group | null>;
@@ -52,7 +85,8 @@ export interface CatRig {
 interface CatModelProps {
   pose: CatPose;
   mode: CatMode;
-  palette: CatPalette;
+  /** omit for the Harley default */
+  palette?: CatPalette;
   rig?: CatRig;
 }
 
@@ -76,6 +110,7 @@ interface FlatPose {
   socks: Vec3[]; // paper caps ON the forward paw tips
   collar: { pos: Vec3; rot: number; w: number };
   tag: Vec3;
+  ruff: { pos: Vec3; r: number; s: [number, number] }; // chest patch, stays inside the ink outline
   tail: { pivot: Vec3; rot: number; r: number; arc: number; tip: Vec3 };
 }
 
@@ -102,6 +137,7 @@ const FLAT_POSES: Record<CatPose, FlatPose> = {
     ],
     collar: { pos: [0.6, 0.05, 0.005], rot: -0.75, w: 0.5 },
     tag: [0.67, -0.09, 0.006],
+    ruff: { pos: [0.6, -0.02, 0.0045], r: 0.17, s: [1.0, 1.15] },
     tail: { pivot: [-0.85, 0.18, 0.001], rot: 0.15, r: 0.45, arc: 2.0, tip: [-0.637, 0.409, 0.002] },
   },
   // upright sit: wide low base, big head, front paws planted, tail curled
@@ -123,6 +159,7 @@ const FLAT_POSES: Record<CatPose, FlatPose> = {
     ],
     collar: { pos: [0.1, 0.32, 0.005], rot: 0, w: 0.56 },
     tag: [0.1, 0.22, 0.006],
+    ruff: { pos: [0.1, 0.04, 0.0045], r: 0.19, s: [0.85, 1.3] },
     tail: { pivot: [-0.42, -0.62, 0.001], rot: 0.9, r: 0.4, arc: 2.1, tip: [-0.602, 0.345, 0.002] },
   },
   // low anticipation crouch: long low bean, rump up, legs folded flat
@@ -141,6 +178,7 @@ const FLAT_POSES: Record<CatPose, FlatPose> = {
     socks: [[0.83, -0.36, 0.0035]],
     collar: { pos: [0.58, -0.04, 0.005], rot: -1.2, w: 0.46 },
     tag: [0.65, -0.17, 0.006],
+    ruff: { pos: [0.56, -0.1, 0.0045], r: 0.13, s: [1.0, 1.0] },
     tail: { pivot: [-0.9, 0.06, 0.001], rot: -0.75, r: 0.4, arc: 1.7, tip: [-0.452, 0.397, 0.002] },
   },
   // mid-stride walk: low belly, diagonal limbs, question-mark tail
@@ -164,6 +202,7 @@ const FLAT_POSES: Record<CatPose, FlatPose> = {
     ],
     collar: { pos: [0.55, 0.24, 0.005], rot: -1.0, w: 0.48 },
     tag: [0.62, 0.11, 0.006],
+    ruff: { pos: [0.52, 0.0, 0.0045], r: 0.15, s: [0.95, 1.25] },
     tail: { pivot: [-0.58, 0.12, 0.001], rot: 0.55, r: 0.42, arc: 2.0, tip: [-0.595, 0.382, 0.002] },
   },
 };
@@ -176,24 +215,24 @@ function FlatFace({ p }: { p: CatPalette }) {
     <group>
       <mesh position={[-0.15, 0.05, 0.002]} scale={[0.8, 1.25, 1]}>
         <circleGeometry args={[0.105, 24]} />
-        <meshBasicMaterial color={p.paper} />
+        <meshBasicMaterial color={p.eye ?? p.paper} />
       </mesh>
       <mesh position={[0.17, 0.06, 0.002]} scale={[0.8, 1.25, 1]}>
         <circleGeometry args={[0.105, 24]} />
-        <meshBasicMaterial color={p.paper} />
+        <meshBasicMaterial color={p.eye ?? p.paper} />
       </mesh>
       <mesh position={[-0.14, 0.02, 0.004]}>
         <circleGeometry args={[0.045, 14]} />
-        <meshBasicMaterial color={p.ink} />
+        <meshBasicMaterial color={p.pupil ?? p.ink} />
       </mesh>
       <mesh position={[0.18, 0.03, 0.004]}>
         <circleGeometry args={[0.045, 14]} />
-        <meshBasicMaterial color={p.ink} />
+        <meshBasicMaterial color={p.pupil ?? p.ink} />
       </mesh>
       {/* 3-gon nose, point down */}
       <mesh position={[0.02, -0.13, 0.002]} rotation={[0, 0, -Math.PI / 2]}>
         <circleGeometry args={[0.055, 3]} />
-        <meshBasicMaterial color={p.tag} />
+        <meshBasicMaterial color={p.nose ?? p.tag} />
       </mesh>
       {/* whiskers: three thin paper strokes per side */}
       {(
@@ -257,8 +296,30 @@ function FlatCat({ def, p, rig }: { def: FlatPose; p: CatPalette; rig?: CatRig }
           <circleGeometry args={[0.15, 3]} />
           <meshBasicMaterial color={p.ink} />
         </mesh>
+        {/* pink inner ears (Harley marking; only when the palette asks) */}
+        {!sil && p.earInner && (
+          <>
+            <mesh position={[-0.26, 0.37, 0.001]} rotation={[0, 0, Math.PI / 2 + 0.22]}>
+              <circleGeometry args={[0.075, 3]} />
+              <meshBasicMaterial color={p.earInner} />
+            </mesh>
+            <mesh position={[0.26, 0.37, 0.001]} rotation={[0, 0, Math.PI / 2 - 0.22]}>
+              <circleGeometry args={[0.075, 3]} />
+              <meshBasicMaterial color={p.earInner} />
+            </mesh>
+          </>
+        )}
         {!sil && <FlatFace p={p} />}
       </group>
+
+      {/* cream chest ruff: sits under collar + tag (z 0.0045 < 0.005) and
+          inside the ink outline so the silhouette stays clean */}
+      {!sil && p.ruff && (
+        <mesh position={def.ruff.pos} scale={[def.ruff.s[0], def.ruff.s[1], 1]}>
+          <circleGeometry args={[def.ruff.r, 28]} />
+          <meshBasicMaterial color={p.ruff} />
+        </mesh>
+      )}
 
       {/* collar band across the neck + tag */}
       {!sil && (
@@ -406,6 +467,31 @@ function ToonCat({ def, p, rig }: { def: ToonPose; p: CatPalette; rig?: CatRig }
           </mesh>
         ))}
 
+      {/* cream chest ruff: bulges ~0.04 past the chest sphere front, under
+          the collar/chin (Harley marking; only when the palette asks) */}
+      {!sil && p.ruff && (
+        <mesh position={[0.46, 0.33 + L, 0]} scale={[0.9, 1.2, 1.05]}>
+          <sphereGeometry args={[0.18, 16, 12]} />
+          <meshToonMaterial color={p.ruff} gradientMap={ramp} />
+        </mesh>
+      )}
+
+      {/* tabby stripe caps on the back (2 of 3; third caps the skull).
+          Low-poly flattened spheres poking ~0.03 wu above the body hull --
+          negligible geometry, silhouette bulge under 0.04 wu */}
+      {!sil && p.stripe && (
+        <>
+          <mesh position={[0.05, 0.63 + L, 0]} scale={[0.5, 0.7, 1.28]}>
+            <sphereGeometry args={[0.14, 12, 10]} />
+            <meshToonMaterial color={p.stripe} gradientMap={ramp} />
+          </mesh>
+          <mesh position={[-0.24, 0.63 + L, 0]} scale={[0.5, 0.7, 1.32]}>
+            <sphereGeometry args={[0.14, 12, 10]} />
+            <meshToonMaterial color={p.stripe} gradientMap={ramp} />
+          </mesh>
+        </>
+      )}
+
       {/* collar ring + tag at the neck join */}
       {!sil && (
         <>
@@ -441,29 +527,50 @@ function ToonCat({ def, p, rig }: { def: ToonPose; p: CatPalette; rig?: CatRig }
           <coneGeometry args={[0.1, 0.2, 4]} />
           <meshToonMaterial color={p.ink} gradientMap={ramp} />
         </mesh>
+        {/* pink inner ears: smaller cones nudged forward so they show on
+            the front face (Harley marking; only when the palette asks) */}
+        {!sil && p.earInner && (
+          <>
+            <mesh position={[0.075, 0.27, 0.14]} rotation={[0.3, 0, 0.1]}>
+              <coneGeometry args={[0.05, 0.13, 4]} />
+              <meshBasicMaterial color={p.earInner} />
+            </mesh>
+            <mesh position={[0.075, 0.27, -0.14]} rotation={[-0.3, 0, 0.1]}>
+              <coneGeometry args={[0.05, 0.13, 4]} />
+              <meshBasicMaterial color={p.earInner} />
+            </mesh>
+          </>
+        )}
+        {/* skull stripe cap (third tabby stripe) */}
+        {!sil && p.stripe && (
+          <mesh position={[-0.05, 0.2, 0]} scale={[1.0, 0.55, 0.9]}>
+            <sphereGeometry args={[0.16, 12, 10]} />
+            <meshToonMaterial color={p.stripe} gradientMap={ramp} />
+          </mesh>
+        )}
         {!sil && (
           <>
-            {/* big oval white eyes + ink pupils (crisp, unlit) */}
+            {/* big oval eyes (iris) + pupils (crisp, unlit) */}
             <mesh position={[0.26, 0.06, 0.105]} scale={[0.45, 1.3, 1.05]}>
               <sphereGeometry args={[0.085, 16, 12]} />
-              <meshBasicMaterial color={p.paper} />
+              <meshBasicMaterial color={p.eye ?? p.paper} />
             </mesh>
             <mesh position={[0.26, 0.06, -0.105]} scale={[0.45, 1.3, 1.05]}>
               <sphereGeometry args={[0.085, 16, 12]} />
-              <meshBasicMaterial color={p.paper} />
+              <meshBasicMaterial color={p.eye ?? p.paper} />
             </mesh>
             <mesh position={[0.295, 0.03, 0.1]} scale={[0.4, 1, 1]}>
               <sphereGeometry args={[0.034, 12, 10]} />
-              <meshBasicMaterial color={p.ink} />
+              <meshBasicMaterial color={p.pupil ?? p.ink} />
             </mesh>
             <mesh position={[0.295, 0.03, -0.1]} scale={[0.4, 1, 1]}>
               <sphereGeometry args={[0.034, 12, 10]} />
-              <meshBasicMaterial color={p.ink} />
+              <meshBasicMaterial color={p.pupil ?? p.ink} />
             </mesh>
             {/* small triangular nose, point forward */}
             <mesh position={[0.3, -0.05, 0]} rotation={[0, 0, -Math.PI / 2]}>
               <coneGeometry args={[0.05, 0.1, 3]} />
-              <meshBasicMaterial color={p.tag} />
+              <meshBasicMaterial color={p.nose ?? p.tag} />
             </mesh>
             {/* whiskers: three thin paper strokes per side */}
             {(
@@ -517,7 +624,7 @@ function ToonCat({ def, p, rig }: { def: ToonPose; p: CatPalette; rig?: CatRig }
 
 /* -------------------------------------------------------------- export -- */
 
-export default function CatModel({ pose, mode, palette, rig }: CatModelProps) {
+export default function CatModel({ pose, mode, palette = HARLEY, rig }: CatModelProps) {
   return mode === "flat" ? (
     <FlatCat def={FLAT_POSES[pose]} p={palette} rig={rig} />
   ) : (
