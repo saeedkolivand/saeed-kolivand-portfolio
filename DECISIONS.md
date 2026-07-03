@@ -288,3 +288,73 @@ pinned 5.9.3, an external edit bumped it - kept, builds clean),
 - Advisory (non-blocking): reproducible single-frame ~58ms scene-mount hitch
   at t~0.172 during fast desk-region scrubbing (0.2% of frames, warm-pass
   confirmed one-off) - hand to perf-profiler if it worsens on the low tier.
+
+## 2026-07-03 - Phase 3 (Issues 4-11)
+
+- Per-issue cycle protocol: staged authoring (scene files only, registry
+  row held) pipelined behind the previous issue's gate; registry go-signal
+  after each commit keeps every "one commit each" build-clean. Zero
+  registry conflicts across 8 issues.
+- Determinism rulings (three catches, one root fix): sayWord default seed
+  was Math.random - Issues 6 and 7 both shipped nondeterministic beat words
+  before the default became an FNV word-hash (lib/onomatopoeia.ts); rule:
+  NO Math.random on any scrub-fired path, fixed or t-derived seeds only.
+- Issue 7 gate check-4 fix chain (2 attempts): camera/shot layer exonerated
+  bit-exactly (pose already pure f(t), no hysteresis in ShotDirector);
+  real defects were (a) store velocity latching its last sign at rest
+  (ScrollProxy: hard 0 after 200ms quiet), (b) PrintEffect ink-edge Sobel
+  radius modulated by uBoilJitter, re-rolling the edge detector every boil
+  step (radius pinned 1 texel, boil position-only; PostPipeline velocity
+  residual snaps below 1e-3). Settled whip-gutter variance 26-33% -> 0.2-0.5%.
+- Origin quiet-valley ruling: "drift" transition kind added (renders
+  nothing; legal ONLY with continuity-authored poses per S1) - origin
+  shots 1-3 are C1-continuous; full-frame whips banned inside intensity-1.
+- Title-drop card is a scroll-anchored opacity window (t 0.103-0.135, 30%
+  edge fades), never a timer; the beat contributes only the slam transform
+  + gated flash; deep jumps + reduced motion show it resting (user
+  directive 2026-07-03).
+- Fallback map is EMPTY of accidental fallbacks; remaining by-design:
+  title-drop->whip (beat), panel-portal->panel-wipe (scene work).
+- Harley batch (user directives): CatModel v2 organic shapes (approved
+  reference) + default palette = Harley, the user's real cat (fur #A9743C,
+  cream ruff/socks, amber eyes, pink nose, 3 toon stripe caps); palette-law
+  scenes unaffected (noir silhouette, neon ink, screentone spot-yellow);
+  Issue 10 SpreadCat is HARLEY pulled toward the row-10 gold accent
+  (#D9A44F fur, gold tail tip) - full brown read muddy on #05060D.
+  User-generated art integrated via shared ArtPanel (sRGB, UV-trim,
+  dispose): noir window pane, origin kid + Cologne panels, newsprint
+  Harley halftone press photo (+ in-scene cutline "HARLEY. EDITOR-AT-
+  LARGE. UNPAID." - corner slip, full-width strip lost the name behind FG
+  sheets), back-cover phosphor Harley walk-off (baked CRT-card border
+  KEPT as diegetic; trimming beheaded the tail). Persian donation word
+  replaced by ASCII "KA-CHING!" (user directive to content-scribe).
+- Issue 10 reduced motion: the unfold degrades to a gentle cross-fade -
+  pages hold their final laid-out spread poses and fade in with the same
+  staggered pure-f(t) driver (opacity only); ambient twinkle/drift freezes;
+  the flash beat is skipped centrally by BeatRunner.
+- SPREAD_RECIPE deviates from RECIPES[10] on grain .03 / paperTex .05 /
+  boil .4: high-frequency flicker on a near-black world edges toward
+  strobe (S2.16), same reasoning as the Neon Ink ruling of 2026-07-02.
+- Terminal rulings: hidden response keys (blog-until-set, harley easter
+  egg) answer when TYPED but get no card - VISIBLE_COMMANDS gates
+  affordance only; unknownCommand prints + stepped flinch (words are the
+  accessible path; flinch skipped under reduced motion); snapshot pool
+  end-state is 10 permanently retained keys (LRU applies to unretained
+  only - documented Origin/Spread design).
+- Real projects (user-provided 2026-07-03) in content: projects export +
+  newsprint ticker/secondary headline + terminal projects response
+  (ai-engineering-hub, claude-usage-streamdeck-plugin,
+  tokensaver-streamdeck-plugin, vocal-remover + flagship).
+
+### Phase 3 gate results (agent-browser CLI fallback - chrome-devtools MCP
+### disconnected mid-phase; trace/FPS clauses self-reported per S0.6;
+### formal DevTools re-trace queued for the Phase 4 gate)
+- Issue 4: 9/9 (advisory quiet-valley whip fixed pre-commit). Issue 5:
+  10/10. Issue 6: 9/9 (random beat word pinned pre-commit; canvas-button
+  a11y queued to Phase 5). Issue 7: 9/10 -> settle-determinism fix chain
+  -> closed. Issue 8: 10/10. Issue 9: 10/10. Issue 10: 9/10 -> SpreadCat
+  palette fix -> closed. Issue 11: 10/10 incl. full-journey 0->1 console
+  smoke on a fresh server.
+- Every issue: shots.md first (S0.8), <=3 iterations per shot, motivated
+  entrances/exits, one designed jaw-drop, cat placed, disposes clean,
+  reduced-motion + low-tier paths verified, zero new live RTs anywhere.
