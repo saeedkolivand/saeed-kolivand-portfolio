@@ -363,6 +363,13 @@ interface ToonPose {
   paw: Vec3;
   legs: { pos: Vec3; rot: number; len: number }[]; // static limbs (paw rig is its own)
   socks: Vec3[]; // paper sock spheres on forward tips
+  /** rear-leg masses bulging off the body flanks so the cat reads
+   *  four-limbed from behind and above (feet fix 2026-07-03); pos.y is
+   *  authored at lift 0 -- the renderer adds the pose lift */
+  haunches: { pos: Vec3; r: number; s: Vec3 }[];
+  /** folded feet: horizontal capsules lying along x at ground contact
+   *  (y stays absolute -- feet never lift with the body) */
+  feet: { pos: Vec3; len: number }[];
 }
 
 const TOON_POSES: Record<CatPose, ToonPose> = {
@@ -378,9 +385,27 @@ const TOON_POSES: Record<CatPose, ToonPose> = {
     lift: 0,
     head: [0.5, 0.62, 0],
     paw: [0.44, 0.32, 0.16],
-    legs: [{ pos: [0.34, 0.16, -0.15], rot: 0.05, len: 0.3 }],
-    socks: [[0.34, 0.02, -0.15]],
+    legs: [{ pos: [0.34, 0.16, -0.16], rot: 0.05, len: 0.3 }],
+    // front sock + two rear socks on the folded-foot tips (peek forward
+    // from under the haunches; read from front AND behind)
+    socks: [
+      [0.34, 0.02, -0.16],
+      [0.04, 0.06, 0.27],
+      [0.04, 0.06, -0.27],
+    ],
+    // upright-sit haunches: tall bulges poking ~0.07 past each flank
+    haunches: [
+      { pos: [-0.3, 0.3, 0.26], r: 0.21, s: [1.15, 1.15, 0.8] },
+      { pos: [-0.3, 0.3, -0.26], r: 0.21, s: [1.15, 1.15, 0.8] },
+    ],
+    // rear feet folded flat under the haunches, heels visible from behind
+    feet: [
+      { pos: [-0.13, 0.055, 0.27], len: 0.2 },
+      { pos: [-0.13, 0.055, -0.27], len: 0.2 },
+    ],
   },
+  // loaf/anticipation crouch: all four feet folded flat, front socks
+  // peeking under the chest ruff, wide rump haunches (feet fix 2026-07-03)
   crouch: {
     scale: [1.06, 0.78, 1],
     rot: 0,
@@ -388,7 +413,22 @@ const TOON_POSES: Record<CatPose, ToonPose> = {
     head: [0.54, 0.5, 0],
     paw: [0.52, 0.34, 0.16],
     legs: [],
-    socks: [],
+    socks: [
+      [0.56, 0.065, 0.16],
+      [0.56, 0.065, -0.16],
+      [-0.08, 0.065, 0.26],
+      [-0.08, 0.065, -0.26],
+    ],
+    haunches: [
+      { pos: [-0.28, 0.36, 0.24], r: 0.22, s: [1.2, 1.0, 0.8] },
+      { pos: [-0.28, 0.36, -0.24], r: 0.22, s: [1.2, 1.0, 0.8] },
+    ],
+    feet: [
+      { pos: [0.42, 0.06, 0.16], len: 0.18 },
+      { pos: [0.42, 0.06, -0.16], len: 0.18 },
+      { pos: [-0.22, 0.06, 0.26], len: 0.16 },
+      { pos: [-0.22, 0.06, -0.26], len: 0.16 },
+    ],
   },
   walking: {
     scale: [1.04, 0.96, 1],
@@ -405,6 +445,12 @@ const TOON_POSES: Record<CatPose, ToonPose> = {
       [0.44, 0.02, -0.16],
       [-0.4, 0.02, -0.16],
     ],
+    // subtle stride haunches, flush with the flank (shading, not bulge)
+    haunches: [
+      { pos: [-0.32, 0.3, 0.2], r: 0.18, s: [1.1, 1.0, 0.75] },
+      { pos: [-0.32, 0.3, -0.2], r: 0.18, s: [1.1, 1.0, 0.75] },
+    ],
+    feet: [],
   },
   // stretched airborne attitude: front limb reaching, rear limbs trailing
   leaping: {
@@ -419,6 +465,11 @@ const TOON_POSES: Record<CatPose, ToonPose> = {
       { pos: [-0.46, 0.32, 0.14], rot: 2.1, len: 0.36 },
     ],
     socks: [[0.77, 0.49, -0.15]],
+    haunches: [
+      { pos: [-0.3, 0.32, 0.18], r: 0.17, s: [1.15, 0.95, 0.75] },
+      { pos: [-0.3, 0.32, -0.18], r: 0.17, s: [1.15, 0.95, 0.75] },
+    ],
+    feet: [],
   },
 };
 
@@ -456,6 +507,35 @@ function ToonCat({ def, p, rig }: { def: ToonPose; p: CatPalette; rig?: CatRig }
         </>
       )}
 
+      {/* haunch bulges: rear-leg masses on both flanks (+ paper rim hulls)
+          so the cat reads four-limbed from behind and above */}
+      {def.haunches.map((h, i) => (
+        <mesh key={i} position={[h.pos[0], h.pos[1] + L, h.pos[2]]} scale={h.s}>
+          <sphereGeometry args={[h.r, 14, 12]} />
+          <meshToonMaterial color={p.ink} gradientMap={ramp} />
+        </mesh>
+      ))}
+      {!sil &&
+        def.haunches.map((h, i) => (
+          <mesh
+            key={i}
+            position={[h.pos[0], h.pos[1] + L, h.pos[2]]}
+            scale={[h.s[0] * 1.12, h.s[1] * 1.12, h.s[2] * 1.12]}
+          >
+            <sphereGeometry args={[h.r, 14, 12]} />
+            <meshBasicMaterial color={p.paper} side={BackSide} />
+          </mesh>
+        ))}
+
+      {/* folded feet: horizontal capsules at exact ground contact
+          (bottom = pos.y - 0.055 = 0); socks cap the forward toes */}
+      {def.feet.map((f, i) => (
+        <mesh key={i} position={f.pos} rotation={[0, 0, Math.PI / 2]}>
+          <capsuleGeometry args={[0.055, f.len, 4, 10]} />
+          <meshToonMaterial color={p.ink} gradientMap={ramp} />
+        </mesh>
+      ))}
+
       {/* static limbs per pose + paper sock tips */}
       {def.legs.map((l, i) => (
         <mesh key={i} position={l.pos} rotation={[0, 0, l.rot]}>
@@ -471,10 +551,13 @@ function ToonCat({ def, p, rig }: { def: ToonPose; p: CatPalette; rig?: CatRig }
           </mesh>
         ))}
 
-      {/* cream chest ruff: bulges ~0.04 past the chest sphere front, under
-          the collar/chin (Harley marking; only when the palette asks) */}
+      {/* cream chest ruff: bulges ~0.045 past the chest sphere front, under
+          the collar/chin (Harley marking; only when the palette asks).
+          Clamped to the chest silhouette in y/z (z half-extent 0.14 vs the
+          barrel's 0.168 at this x) so it cannot smear onto the flank in
+          top-down shots (Desk RT panel fix 2026-07-03) */}
       {!sil && p.ruff && (
-        <mesh position={[0.46, 0.33 + L, 0]} scale={[0.9, 1.2, 1.05]}>
+        <mesh position={[0.48, 0.32 + L, 0]} scale={[0.8, 1.05, 0.78]}>
           <sphereGeometry args={[0.18, 16, 12]} />
           <meshToonMaterial color={p.ruff} gradientMap={ramp} />
         </mesh>
@@ -611,14 +694,22 @@ function ToonCat({ def, p, rig }: { def: ToonPose; p: CatPalette; rig?: CatRig }
       </group>
 
       {/* tail: rounded segments from a pivot INSIDE the haunch; accent tip
-          (inked for silhouettes). Parents drive the group rotation. */}
+          (inked for silhouettes). Parents drive the group rotation. The
+          root ball rides the pivot itself, so the joint stays buried in the
+          haunch mass under ANY parent-driven rotation (Pop 360 rear-view
+          detachment fix 2026-07-03); the shaft is fattened so it survives
+          foreshortening from behind. */}
       <group ref={rig?.tail} position={[-0.48, 0.4 + L, 0]} rotation={[0, 0, 0.9]}>
+        <mesh>
+          <sphereGeometry args={[0.095, 12, 10]} />
+          <meshToonMaterial color={p.ink} gradientMap={ramp} />
+        </mesh>
         <mesh position={[-0.16, 0.16, 0]} rotation={[0, 0, 0.9]}>
-          <capsuleGeometry args={[0.055, 0.42, 4, 10]} />
+          <capsuleGeometry args={[0.065, 0.42, 4, 10]} />
           <meshToonMaterial color={p.ink} gradientMap={ramp} />
         </mesh>
         <mesh position={[-0.35, 0.33, 0]} rotation={[0, 0, 0.9]}>
-          <capsuleGeometry args={[0.048, 0.1, 4, 10]} />
+          <capsuleGeometry args={[0.052, 0.12, 4, 10]} />
           <meshToonMaterial color={sil ? p.ink : p.accent} gradientMap={ramp} />
         </mesh>
       </group>

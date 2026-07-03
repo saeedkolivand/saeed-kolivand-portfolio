@@ -404,3 +404,16 @@ pinned 5.9.3, an external edit bumped it - kept, builds clean),
   noopener; github/linkedin commands open the real profiles synchronously
   with the click/Enter gesture (popup-blocker safe). CatModel sitting
   pose front paw planted (was chest-height float; Desk/Pop re-grounded).
+- Standing rule (third occurrence -> law): ALL beat-fired onomatopoeia
+  words rest on pure-f(t) scroll windows (0.30 edge fades, deep-jump
+  resting, reduced-motion window-only); beats contribute slam scale +
+  budgeted flash ONLY. Applied: title card, KA-CHING, press KRUNCH +
+  SLAM, screentone SWISH. Any future beat word follows the Pop
+  BeatWord pattern.
+- CatModel toon anatomy pass (user screenshots: legless bean, detached
+  tail): per-pose haunch masses + ground-capsule feet/socks (sitting
+  rear pair visible from behind, loaf tucked front socks, crouch folded
+  four), tail root ball ON the rig pivot (rotation-invariant - the Pop
+  360 exposed the detached root), ruff clamped inside the barrel (the
+  top-view flank smear). Feet bottom at exactly y=0: zero scene seat
+  changes. ~9-13 low-poly meshes per toon cat.

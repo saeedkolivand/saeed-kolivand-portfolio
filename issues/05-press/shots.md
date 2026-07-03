@@ -15,9 +15,9 @@ direction constant, frame-left to frame-right the whole issue).
 |---|---|---|---|---|
 | 1 | hold | 28mm | 0.20 | establish REACT dept: wide 3/4 down the line from frame-left; cel-blue energy arch straddles the belt upper-right; the blank button slab enters frame-left and passes under the arch; FG hanging hooks, MG belt + arch + orbiting energy cells, BG dept wall + overhead pipes |
 | 2 | dolly | 40mm | 0.185 | TYPESCRIPT dept tracking: camera trucks right pacing the button; blueprint wall draws its circuit traces in as we pass (uTrace, monotonic f(t)); dept label top-third, caption plaque mid-right; button gains its blueprint plate |
-| 3 | dolly | 35mm | 0.185 | RUST dept low tracking: heavy-ink press blocks flank the belt, piston pounding on 2s; spark beat + impact word pop at p~0.5 (flash-budget guarded); button gains its heavy ink border; FG hooks graze frame-top |
+| 3 | dolly | 35mm | 0.185 | RUST dept low tracking: heavy-ink press blocks flank the belt, piston pounding on 2s; spark beat at p~0.5 (flash-budget guarded) slams the resting KRUNCH word (visibility = clankWordOpacity(t) scroll window); button gains its heavy ink border; FG hooks graze frame-top |
 | 4 | dolly | 50mm | 0.165 | AI dept drift, slightly high: krackle constellation wall + floating node cells brighten as we pass (uPulse ramp); button gains its purple core light; nodes cross FG for depth |
-| 5 | dolly | 70mm | 0.135 | stamp finale: low push-in on the stamp station looking back down the line (BG = all four bays receding); button parks dead-center; at p=0.5 the head slams -- impact frame + radial burst lines; the button takes the CTA face and drops out of the scene as the live DOM "See projects" button; cat cameo on the crate frame-right |
+| 5 | dolly | 70mm | 0.135 | stamp finale: low push-in on the stamp station looking back down the line (BG = all four bays receding); button parks dead-center; at p=0.5 the head slams -- impact frame + radial burst lines + slam kick on the resting SLAM word (visibility = stampWordOpacity(t) scroll window, fades as the CTA takes over); the button takes the CTA face and drops out of the scene as the live DOM "See projects" button; cat cameo on the crate frame-right |
 
 Intra-issue gutters: shots 1-2, 2-3, 3-4 take PANEL-WIPE (Shot.out, new in
 lib/shots.ts -- department cuts per SPEC Issue 5); shot 4-5 takes the default
@@ -38,8 +38,24 @@ outgoing frame (paper-color fallback on deep jumps).
   the Issue 6 newsprint front-page story; immediate under reduced motion.
 
 ## Secondary beat: RUST clank (id "press-clank", no impact frame)
-requestFlash()-guarded 0.4s uSpark envelope + one impact-pool word pop at
-PRESS_SPARK_T (shot 3 p=0.5). Fires <3Hz by construction (beat hysteresis).
+requestFlash()-guarded 0.4s uSpark envelope at PRESS_SPARK_T (shot 3 p=0.5).
+Fires <3Hz by construction (beat hysteresis). The KRUNCH word rides its own
+scroll window (below), not the beat.
+
+## Beat words: scroll windows (standing rule 2026-07-03, Pop pattern)
+Word VISIBILITY is a pure f(t) opacity window with 0.30 edge fades
+(clankWordOpacity / stampWordOpacity in ./shots.ts) -- scrub-safe both
+directions; deep jumps land the word resting at scale exactly 1; the beats
+contribute only slam scale (PRESS_SPARK / PRESS_STAMP_POP kicks) + their
+budgeted flashes; reduced motion = window only. Words are locked
+lettering.onomatopoeia.impact entries (KRUNCH, SLAM). Press is outside the
+ScrollProxy slow window, so plain notch math (~0.0043 t/notch):
+- KRUNCH (rust bay): [at(0.40), at(0.695)] -- ~6.1 notches, ~2.5-notch
+  plateau, PRESS_SPARK_T dead-center.
+- SLAM (stamp station): [at(0.80), at(1.0)] -- ~4.2 notches, ~1.7-notch
+  plateau, PRESS_STAMP_T at window p~0.66 (inside the plateau); end pinned
+  to the issue range so the word fades exactly as the DOM CTA drops in and
+  is gone before the exit gutter.
 
 ## S2.16 / intensity-3 check
 - No channel anything; all lettering is troika SDF or the DOM CTA layer.
@@ -47,6 +63,7 @@ PRESS_SPARK_T (shot 3 p=0.5). Fires <3Hz by construction (beat hysteresis).
   the only flashes, both requestFlash()-gated.
 - Busier than Origin (1): constant belt motion, piston, orbit cells, node
   drift -- all on stepped 2s. Calmer than Neon/Pop (5): no full-field
-  cascades, max two word pops, three panel-wipes as the only intra cuts.
+  cascades, two resting beat words on f(t) windows, three panel-wipes as the
+  only intra cuts.
 - Reduced motion freezes stepped machinery (st=0), skips beats centrally,
   keeps every caption/label/CTA readable and pure f(t).

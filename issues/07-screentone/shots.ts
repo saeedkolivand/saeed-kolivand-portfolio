@@ -2,8 +2,6 @@ import gsap from "gsap";
 import { clamp01, easeInOut, easeOutCubic, type Shot } from "@/lib/shots";
 import { printRecipe } from "@/lib/recipes";
 import { registerJawDrop } from "@/lib/beats";
-import { sayWord } from "@/lib/onomatopoeia";
-import { lettering } from "@/lib/content";
 import { issueCenter, RANGES } from "../timeline";
 
 /**
@@ -132,6 +130,28 @@ export const EDGE_RUN_T = at(0.945);
 /** authored-time squash-stretch channel read by Screentone.tsx (0 idle). */
 export const TRAIN_LURCH = { v: 0 };
 
+/**
+ * Edge-run word scroll window (standing rule 2026-07-03, Pop DONATION_WINDOW
+ * pattern): SWISH visibility is a pure f(t) opacity window with 0.30 edge
+ * fades -- scrub-safe both directions, deep jumps land it resting at scale
+ * exactly 1. The beat contributes only the TRAIN_LURCH slam + its budgeted
+ * flash; reduced motion = window only. Screentone sits outside the
+ * ScrollProxy slow window -- plain notch math (~0.0043 t/notch):
+ * [at(0.82), at(1.0)] = ~3.3 notches total, ~1.3-notch plateau (the finale
+ * is short and the end is pinned to the issue range, so the word is fully
+ * gone at E = 0.656 -- BEFORE the page-flip gutter [0.656, 0.671] carries
+ * the world away). EDGE_RUN_T lands at window p ~ 0.69, inside the plateau,
+ * so the armed crossing slams a fully visible word.
+ */
+export const SWISH_WINDOW: [number, number] = [at(0.82), at(1.0)];
+
+/** fade in/out over 30% each end (Pop donationOpacity pattern). */
+export function swishOpacity(t: number): number {
+  const p = (t - SWISH_WINDOW[0]) / (SWISH_WINDOW[1] - SWISH_WINDOW[0]);
+  if (p <= 0 || p >= 1) return 0;
+  return Math.min(1, p / 0.3, (1 - p) / 0.3);
+}
+
 let lurchTl: gsap.core.Timeline | null = null;
 
 // S5b jaw-drop: the launch itself is pure f(t) (final KNOT segment); this
@@ -150,8 +170,7 @@ registerJawDrop({
       .set(TRAIN_LURCH, { v: 0 })
       .to(TRAIN_LURCH, { v: 1, duration: 0.1, ease: "power2.in" })
       .to(TRAIN_LURCH, { v: 0, duration: 0.45, ease: "power2.out" });
-    // fixed seed: this fires on a t-crossing (scrub path) -- deterministic replay
-    sayWord(lettering.onomatopoeia.whip, [CX + 78, 5.2, 2], 0.37, "#F6C243");
+    // word visibility lives in swishOpacity(t) (standing rule 2026-07-03)
   },
 });
 
