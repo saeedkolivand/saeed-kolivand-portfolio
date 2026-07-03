@@ -1,4 +1,4 @@
-import type { FMSynth, Gain, MembraneSynth, Meter, Synth } from "tone";
+import type { Gain, MembraneSynth, Meter, Synth } from "tone";
 import { useScrollStore } from "@/lib/scrollStore";
 import { fx } from "@/lib/fx";
 import { setBeatSound } from "@/lib/beats";
@@ -6,6 +6,8 @@ import { clamp01 } from "@/lib/shots";
 import { RANGES } from "@/issues/timeline";
 import { audioRecipes, type AudioRecipe, type ToneModule } from "./types";
 import { scoreTransitions, stopTransitions } from "./transitions";
+import { scoreMoments, beatMoment, stopMoments } from "./moments";
+import { wireUi, uiSound } from "./ui";
 import "./recipes"; // Wave B: fills the audioRecipes slots (side effect)
 
 /**
@@ -33,7 +35,6 @@ interface Master {
   meter: Meter;
   thump: MembraneSynth;
   chime: Synth;
-  meowSynth: FMSynth;
 }
 
 interface Channel {
@@ -79,6 +80,7 @@ export function enableAudio(): void {
     if (!master) master = buildMaster(T);
     wire();
     master.out.gain.rampTo(1, 0.1);
+    uiSound("toggleOn"); // first thing the user hears (package C)
     enabled = true;
     pending = false;
     lastNow = performance.now();
@@ -104,6 +106,7 @@ export function disableAudio(): void {
   const m = master;
   if (!m) return;
   try {
+    uiSound("toggleOff"); // print-press chime while the master still rings (package C)
     m.out.gain.rampTo(0, 0.2);
     setTimeout(() => {
       if (enabled) return; // re-enabled during the fade
@@ -118,6 +121,7 @@ export function disableAudio(): void {
       }
       try {
         stopTransitions();
+        stopMoments();
       } catch (e) {
         warn(e);
       }
@@ -150,28 +154,24 @@ function buildMaster(T: ToneModule): Master {
     envelope: { attack: 0.02, decay: 0.25, sustain: 0, release: 0.3 },
     volume: -18,
   }).connect(sfx);
-  const meowSynth = new T.FMSynth({
-    harmonicity: 1.5,
-    modulationIndex: 4,
-    envelope: { attack: 0.03, decay: 0.2, sustain: 0.5, release: 0.12 },
-    modulationEnvelope: { attack: 0.05, decay: 0.2, sustain: 0.3, release: 0.1 },
-    volume: -12,
-  }).connect(sfx);
-
   channels = audioRecipes.map(() => null);
-  return { T, out, music, sfx, meter, thump, chime, meowSynth };
+  return { T, out, music, sfx, meter, thump, chime };
 }
 
 /** One-time subscriptions (survive disable; guarded by `enabled`). */
 function wire(): void {
   if (wired) return;
+  const m0 = master;
+  if (!m0) return;
   wired = true;
-  // beat one-shots: sub-thump scaled by flash; quiet-valley drops (flash 0)
-  // get a soft chime instead. All on the sfx bus.
-  setBeatSound((_id, flash) => {
+  // beat one-shots: package B (moments) claims scored beats first; anything it
+  // does not own falls through to the sub-thump (flash>0) / soft chime (flash 0)
+  // default. All on the sfx bus.
+  setBeatSound((id, flash) => {
     const m = master;
     if (!enabled || !m) return;
     try {
+      if (beatMoment(id, flash)) return; // moment owns the hit (sound or silence)
       const now = m.T.now();
       if (flash > 0) m.thump.triggerAttackRelease("A1", 0.3, now, 0.4 + 0.6 * Math.min(flash, 1));
       else m.chime.triggerAttackRelease("D6", 0.2, now, 0.7);
@@ -179,24 +179,9 @@ function wire(): void {
       warn(e);
     }
   });
-  // meow: deterministic per-count variation (multiplicative hash, repo law:
-  // no Math.random)
-  useScrollStore.subscribe((s, prev) => {
-    const m = master;
-    if (s.meowCount === prev.meowCount || !enabled || !m) return;
-    try {
-      const h = (s.meowCount * 2654435761) >>> 0;
-      const base = 480 + (h % 200); // Hz
-      const peak = base * (1.3 + ((h >>> 8) % 35) / 100);
-      const now = m.T.now();
-      m.meowSynth.triggerAttack(base, now, 0.8);
-      m.meowSynth.frequency.rampTo(peak, 0.1, now + 0.02); // "me-"
-      m.meowSynth.frequency.rampTo(base * 0.82, 0.2, now + 0.14); // "-ow"
-      m.meowSynth.triggerRelease(now + 0.38);
-    } catch (e) {
-      warn(e);
-    }
-  });
+  // package C (ui) installs the meow-variety + jump-land subscriptions on the
+  // sfx bus; both inherit the gesture gate (mod set here, post-enable).
+  wireUi(m0.T, m0.sfx);
 }
 
 /** 1 inside the issue's range, linear falloff to 0 across FALLOFF outside. */
@@ -252,6 +237,8 @@ function loop(now: number): void {
     }
     // scored transitions: pure f(t, velocity) on the sfx bus (single call site)
     scoreTransitions(m.T, m.sfx, t, dt, velocity);
+    // scene reactions (package B): diegetic moments, single call site
+    scoreMoments(m.T, m.sfx, t, dt, velocity);
     // music-bus envelope for the halftone breathe (consumers scale it down)
     const v = m.meter.getValue();
     fx.audioPulse = Math.min(1, Math.max(0, typeof v === "number" ? v : (v[0] ?? 0)));

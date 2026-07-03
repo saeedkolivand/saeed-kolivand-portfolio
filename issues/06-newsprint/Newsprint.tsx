@@ -11,6 +11,7 @@ import { toonRamp } from "@/lib/toon";
 import { stepTime } from "@/lib/steppedClock";
 import { useScrollStore } from "@/lib/scrollStore";
 import { sayWord } from "@/lib/onomatopoeia";
+import { uiSound } from "@/lib/audio/ui";
 import { issueCopy, lettering, links } from "@/lib/content";
 import { colorWindow } from "@/shaders/colorWindow";
 import { issueCenter } from "../timeline";
@@ -390,6 +391,7 @@ function PanelButton({ x, label, url }: { x: number; label: string; url: string 
       position={[x, -3.5, 0.45]}
       onClick={(e) => {
         e.stopPropagation();
+        uiSound("linkPress"); // both GITHUB and WEBSITE plates
         window.open(url, "_blank", "noopener,noreferrer");
       }}
       onPointerOver={(e) => {
