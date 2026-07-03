@@ -5,6 +5,8 @@ import { setBeatSound } from "@/lib/beats";
 import { clamp01 } from "@/lib/shots";
 import { RANGES } from "@/issues/timeline";
 import { audioRecipes, type AudioRecipe, type ToneModule } from "./types";
+import { scoreTransitions, stopTransitions } from "./transitions";
+import "./recipes"; // Wave B: fills the audioRecipes slots (side effect)
 
 /**
  * Audio director -- plain module singleton, React-free (lib/fx.ts pattern).
@@ -113,6 +115,11 @@ export function disableAudio(): void {
           warn(e);
         }
         ch.started = false;
+      }
+      try {
+        stopTransitions();
+      } catch (e) {
+        warn(e);
       }
     }, 250);
   } catch (e) {
@@ -243,6 +250,8 @@ function loop(now: number): void {
         ch.started = false;
       }
     }
+    // scored transitions: pure f(t, velocity) on the sfx bus (single call site)
+    scoreTransitions(m.T, m.sfx, t, dt, velocity);
     // music-bus envelope for the halftone breathe (consumers scale it down)
     const v = m.meter.getValue();
     fx.audioPulse = Math.min(1, Math.max(0, typeof v === "number" ? v : (v[0] ?? 0)));
