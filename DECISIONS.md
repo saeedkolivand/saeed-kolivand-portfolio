@@ -446,3 +446,16 @@ pinned 5.9.3, an external edit bumped it - kept, builds clean),
   with screentone gold +10% if it ever muddies) and Noir->Desk the
   weakest energy beat (title-drop gutter carries it). Audit via
   agent-browser CLI (chrome-devtools MCP absent this session too).
+- Phase 4 gate: 10/10. Checks 1-8,10 via agent-browser CLI (no autoplay:
+  AudioContext count 0 pre-gesture; audio-on full journey 102 steps clean;
+  beat/meow paths verified via AudioParam-op counting; breathe ON==OFF at
+  the 2.5% boil floor; settle determinism <1%; toggle off quiesces to 0
+  param ops). Check 9 formally re-traced under chrome-devtools MCP
+  (reconnected mid-session): Desk + Pop spans audio-on, no sustained
+  jank, audio main-thread cost negligible (Pop ON 2.11ms mean vs OFF
+  2.36ms; zero Tone long tasks - Web Audio renders off-main-thread).
+  This also closes the Phase 3 queued formal re-trace.
+- Advisory carried forward: single-frame cold-mount stalls (desk ~90-108ms,
+  pop ~143ms IN DEV - unminified + StrictMode double-invoke inflate the
+  58ms Phase 2 baseline) are audio-neutral and pre-date Phase 4.
+  Re-measure on a production build; goes in REPORT.md if it survives.
