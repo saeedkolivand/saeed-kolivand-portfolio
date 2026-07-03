@@ -235,3 +235,55 @@ export const issueCopy = {
     },
   },
 } as const;
+
+// Phase 5 -- The Print Edition. Structural/connective copy ONLY for the static, semantic-DOM
+// reading of the comic (reduced-motion / mobile / screen-reader / SEO, zero WebGL). Every issue's
+// body copy is REUSED from content/projects/issueCopy above -- never re-typed (S0.5). Section
+// titles 0-9 reference issueCopy.spread.constellations (Cover..Issue 9); 10-11 supplied to match.
+// PURE ASCII (Turbopack rope bug); no franchise vocabulary (S1). Email is assembled at runtime
+// (S0.5) -- contactNote is the label, not the address. Tone: dry, noir-adjacent, first person.
+export const printEdition = {
+  masthead: {
+    title: content.name, // reuse locked name
+    dek: "The whole run, set in print -- a frontend engineer building AI-powered tools.",
+  },
+  intro: "This is the comic read flat: every panel pressed to the page, no motion, no camera. Same story, same lettering, ink that finally holds still.",
+  // 12 pages, Cover..Terminal. Titles reuse issueCopy.spread.constellations (no re-type, S0.5).
+  // kicker: optional 3-5 word deck.
+  sectionTitles: [
+    { title: issueCopy.spread.constellations[0], kicker: "first printing" }, // Cover
+    { title: issueCopy.spread.constellations[1], kicker: "one window still lit" }, // Issue 1 Noir
+    { title: issueCopy.spread.constellations[2], kicker: "keys under the lamp" }, // Issue 2 Desk
+    { title: issueCopy.spread.constellations[3], kicker: "the stack in neon" }, // Issue 3 Neon
+    { title: issueCopy.spread.constellations[4], kicker: "kid to senior" }, // Issue 4 Origin
+    { title: issueCopy.spread.constellations[5], kicker: "skills off the line" }, // Issue 5 Press
+    { title: issueCopy.spread.constellations[6], kicker: "open source, front page" }, // Issue 6 Newsprint
+    { title: issueCopy.spread.constellations[7], kicker: "station by station" }, // Issue 7 Screentone
+    { title: issueCopy.spread.constellations[8], kicker: "live and on air" }, // Issue 8 Pop Print
+    { title: issueCopy.spread.constellations[9], kicker: "the architecture, by hand" }, // Issue 9 Sketchbook
+    { title: "The Spread", kicker: "the whole run at once" }, // Issue 10 Spread
+    { title: "The Letters", kicker: "commands in, answers out" }, // Issue 11 Terminal
+  ],
+  skipLinkLabel: "Skip to the Print Edition",
+  toReaderLabel: "Read the Print Edition",
+  toExperienceLabel: "Watch the animated version",
+  altText: {
+    mascot: "Harley, the fluffy golden-brown tabby cat mascot, seated and watching the desk.",
+    noirWindow: "A lone figure at a single lit window on a dark, rain-streaked block.",
+    originKid: "A child at a hand-me-down computer, one cursor blinking in the dark.",
+    originCologne: "A young developer arriving in Cologne with two suitcases.",
+    pressHarley: "Front-page newsprint photo of Harley, the golden-brown tabby mascot, on duty.",
+    backCoverHarley: "Back-cover portrait of Harley, the golden-brown tabby mascot.",
+  },
+  contactNote: "Write to the desk. The address assembles at runtime -- never set in plain ink.",
+  // Fires once in the DevTools console on every load (both paths). Headline logs styled;
+  // lines log plain, then the GitHub address (links.githubUrl -- never retyped here).
+  consoleEgg: {
+    headline: "YOU FOUND THE SOURCE",
+    lines: [
+      "Peeking behind the ink at this hour. Everyone's a detective.",
+      "Harley signed off on every line down here -- she's the senior engineer.",
+      "I just do the typing. The rest of the run is on file:",
+    ],
+  },
+} as const;

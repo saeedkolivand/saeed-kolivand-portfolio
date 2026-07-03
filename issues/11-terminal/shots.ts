@@ -154,11 +154,17 @@ export const panelPool = new PopPool<PanelData>(4, 6, () => ({ cmd: "", body: ""
  * cover the sit cat's rect (x 0.9..2.9, y 5.4..7.4) -- the mascot stays
  * visible through the whole interactive hold, whatever gets clicked.
  */
+// In-frame at the play camera (P2_FROM/P3_FROM, fov lens(32)) on both the
+// normal 16:9 and the widest 21:9 the shot is composed for: every 5.8 x 3.4
+// panel AND the projects [open] tab column (right edge local x +4.12) keep
+// all four corners inside |NDC| <= 0.95 at both poses (framing polish, user
+// feedback 2026-07-03). A2 was clipping off the top; A3's tab column ran off
+// the right. x on A2/A3 held where cat-clearance needs it.
 export const PANEL_ANCHORS: Vec3[] = [
-  [-3.4, 5.9, 2.6],
+  [-3.0, 5.6, 2.6],
   [-0.9, 3.5, 2.4],
-  [-2.6, 6.4, 2.8],
-  [2.9, 3.0, 2.5],
+  [-2.6, 5.7, 2.8],
+  [2.4, 3.0, 2.5],
 ];
 let anchorCursor = 0;
 
