@@ -42,6 +42,7 @@ const fragment = /* glsl */ `
   uniform float uEdge;
   uniform float uHalftone;
   uniform float uHalftoneScale;
+  uniform float uAudioPulse;
   uniform float uGrain;
   uniform float uPaperTex;
   uniform float uVignette;
@@ -90,7 +91,11 @@ const fragment = /* glsl */ `
     mat2 R = mat2(0.70710678, -0.70710678, 0.70710678, 0.70710678);
     vec2 p = (R * fragPx) / max(uHalftoneScale, 1.0);
     vec2 f = fract(p) - 0.5;
-    float r = (1.0 - shade) * 0.75;
+    // Phase 4 audio breathe: dot RADIUS swells up to +5% with the music
+    // envelope; cell pitch stays fixed so dot centers never crawl. At
+    // uAudioPulse == 0 the factor is exactly 1.0 -- bit-identical to the
+    // silent path (settle-determinism gates unaffected).
+    float r = (1.0 - shade) * 0.75 * (1.0 + 0.05 * uAudioPulse);
     float d = length(f);
     float aa = fwidth(d) + 1e-4;
     return 1.0 - smoothstep(r - aa, r + aa, d);
@@ -206,6 +211,7 @@ export class PrintEffect extends Effect {
         ["uEdge", new Uniform(0.7)],
         ["uHalftone", new Uniform(0.4)],
         ["uHalftoneScale", new Uniform(6)],
+        ["uAudioPulse", new Uniform(0)],
         ["uGrain", new Uniform(0.06)],
         ["uPaperTex", new Uniform(0.1)],
         ["uVignette", new Uniform(0.25)],

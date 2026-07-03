@@ -24,6 +24,7 @@ interface ScrollState {
   setPointer: (x: number, y: number) => void;
   setQuality: (q: Quality) => void;
   setReducedMotion: (v: boolean) => void;
+  setAudioOn: (v: boolean) => void;
   meow: () => void;
 }
 
@@ -44,5 +45,6 @@ export const useScrollStore = create<ScrollState>()((set) => ({
   setPointer: (pointerX, pointerY) => set({ pointerX, pointerY }),
   setQuality: (quality) => set({ quality }),
   setReducedMotion: (reducedMotion) => set({ reducedMotion }),
+  setAudioOn: (audioOn) => set({ audioOn }),
   meow: () => set((s) => ({ meowCount: s.meowCount + 1 })),
 }));

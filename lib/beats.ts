@@ -81,6 +81,13 @@ export interface JawDropSpec {
 const jawDrops = new Map<string, Beat>();
 let beatList: Beat[] | null = null;
 
+/** Phase 4 audio hook: the director registers a one-shot player; called after animate/flash. */
+let beatSound: ((id: string, flash: number) => void) | null = null;
+
+export function setBeatSound(fn: ((id: string, flash: number) => void) | null): void {
+  beatSound = fn;
+}
+
 /** flash-budget-guarded impact double pop + sub-thump, shared by all drops */
 function impactPop(intensity: number) {
   if (!requestFlash()) return;
@@ -101,6 +108,7 @@ export function registerJawDrop(spec: JawDropSpec): void {
     fire: () => {
       spec.animate?.();
       if (spec.flash) impactPop(spec.flash);
+      beatSound?.(spec.id, spec.flash ?? 0);
     },
   });
   beatList = null;

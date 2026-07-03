@@ -1,3 +1,4 @@
+import AudioToggle from "@/components/AudioToggle";
 import Experience from "@/components/Experience";
 import JumpCover from "@/components/JumpCover";
 import Lettering from "@/components/Lettering";
@@ -16,6 +17,7 @@ export default function Home() {
       <Experience />
       <Lettering />
       <PressCta />
+      <AudioToggle />
       <JumpCover />
       <ScrollProxy />
     </main>

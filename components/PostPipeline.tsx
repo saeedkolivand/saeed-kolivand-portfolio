@@ -135,6 +135,9 @@ export default function PostPipeline() {
     print.u<number>("uPaperTex").value = c.paperTex;
     print.u<number>("uVignette").value = c.vignette;
     print.u<number>("uImpact").value = fx.impact;
+    // Phase 4: halftone dot-scale breathe -- envelope is smoothed by the
+    // audio director and is exactly 0 whenever audio is off (no fallback)
+    print.u<number>("uAudioPulse").value = Math.min(1, Math.max(0, fx.audioPulse));
     print.u<number>("uHatch").value = c.hatch;
     print.u<number>("uHatchScale").value = c.hatchScale;
 
