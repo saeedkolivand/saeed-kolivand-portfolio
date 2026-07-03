@@ -438,3 +438,11 @@ pinned 5.9.3, an external edit bumped it - kept, builds clean),
   soft page-turn, never a thump.
 - Meow synth = the Phase-3-queued meowCount consumer: store subscription,
   deterministic per-count pitch hash (no Math.random - standing law).
+- Global color-script pass (SPEC Phase 4): 23 screenshots (12 centers +
+  11 gutters), 11/11 adjacent pairs OK - 0 clash, 0 flat. No recipe
+  changes made (pass criterion was "tweak only on clash"). Advisory
+  watch-links if a future phase touches these recipes: Newsprint->
+  Screentone is the softest palette gap (both desaturated print; widen
+  with screentone gold +10% if it ever muddies) and Noir->Desk the
+  weakest energy beat (title-drop gutter carries it). Audit via
+  agent-browser CLI (chrome-devtools MCP absent this session too).
