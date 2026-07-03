@@ -10,15 +10,26 @@ import { clamp01 } from "@/lib/shots";
 
 /**
  * S2.16 lettering layer -- a DOM overlay ABOVE the canvas, unconditionally
- * exempt from post: attract prompt (cover only), title-drop card (fx.title,
- * beat-driven), noir captions (per shot range in Issue 1). Everything is a
- * pure function of t + fx channels, read per rAF via getState() -- no hook
- * selectors, no React state per frame. Crisp single-layer type only: solid
- * fills, zero-blur shadows (comfort rule).
+ * exempt from post: attract prompt (cover only), title-drop card (opacity =
+ * scroll window, slam transform = beat via fx.title), noir captions (per
+ * shot range in Issue 1). Everything is a pure function of t + fx channels,
+ * read per rAF via getState() -- no hook selectors, no React state per
+ * frame. Crisp single-layer type only: solid fills, zero-blur shadows
+ * (comfort rule).
  */
 
 const COVER_END = RANGES[0]![1];
 const NOIR_RANGE = RANGES[1]!;
+const DESK_START = RANGES[2]![0];
+
+/**
+ * Title-drop card scroll window (user ruling 2026-07-03: the card lives and
+ * dies WITH SCROLL, never a timer): small lead-in before the noir->desk
+ * gutter, the full showcase gutter, and a tail into desk's landing shot so
+ * it stays readable at 2400vh pacing. 0.103 - 0.135 with the beat trigger
+ * (noir end, 0.108) inside the fade-in.
+ */
+const TITLE_WINDOW: [number, number] = [NOIR_RANGE[1] - 0.005, DESK_START + 0.012];
 const CAPTIONS = lettering.noirCaptions;
 
 /** One caption window per noir shot when counts allow, else an even split of the issue range. */
@@ -77,11 +88,15 @@ export default function Lettering() {
 
       const card = cardRef.current;
       if (card) {
-        const v = fx.title;
-        card.style.opacity = clamp01(v * 1.5).toFixed(3);
-        // slam: oversized at v=0, settles at 1 (back.out overshoot dips it slightly under)
-        card.style.transform = `scale(${Math.max(2.6 - 1.6 * v, 0.05).toFixed(4)})`;
-        card.style.visibility = v > 0.001 ? "visible" : "hidden";
+        // opacity: pure f(t) window -- scrub-safe both directions, parks at
+        // full opacity anywhere on the plateau, deep jumps land it resting
+        const o = windowOpacity(t, TITLE_WINDOW[0], TITLE_WINDOW[1]);
+        card.style.opacity = o.toFixed(3);
+        // transform: beat-only slam energy (fx.title 1 -> 0, back.out dips
+        // slightly negative for the settle). Unfired beat / reduced motion
+        // = fx.title 0 = scale 1 exactly (Press CTA pure-f(t) precedent).
+        card.style.transform = `scale(${Math.max(1 + 1.6 * fx.title, 0.05).toFixed(4)})`;
+        card.style.visibility = o > 0.001 ? "visible" : "hidden";
       }
 
       for (let i = 0; i < CAPTION_WINDOWS.length; i++) {
@@ -117,7 +132,8 @@ export default function Lettering() {
         </div>
       </div>
 
-      {/* title-drop card -- slammed in by the title-drop beat via fx.title */}
+      {/* title-drop card -- opacity is the TITLE_WINDOW scroll window;
+          the title-drop beat only plays the slam transform via fx.title */}
       <div className="absolute inset-0 flex items-center justify-center">
         <div ref={cardRef} style={{ opacity: 0, visibility: "hidden", textAlign: "center" }}>
           <div

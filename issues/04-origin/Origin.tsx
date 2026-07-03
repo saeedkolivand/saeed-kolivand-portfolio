@@ -1,12 +1,14 @@
 "use client";
 
-import { Suspense, useLayoutEffect, useRef, type ReactNode } from "react";
-import { useFrame } from "@react-three/fiber";
+import { Suspense, useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
+import { useFrame, useLoader } from "@react-three/fiber";
 import { Text } from "@react-three/drei";
 import {
   BackSide,
   Color,
   Object3D,
+  SRGBColorSpace,
+  TextureLoader,
   type Group,
   type InstancedMesh,
   type Mesh,
@@ -234,73 +236,48 @@ function PanelFrame({ p, children }: { p: PanelDef; children?: ReactNode }) {
   );
 }
 
-// ---- static panel art (flat primitives, muted palette) ----------------------
-function BlinkCursor({ position }: { position: [number, number, number] }) {
-  const m = useRef<Mesh>(null);
-  useFrame(({ clock }) => {
-    if (m.current) m.current.visible = Math.floor(clock.elapsedTime * 1.6) % 2 === 0;
-  });
-  return (
-    <mesh ref={m} position={position}>
-      <planeGeometry args={[0.07, 0.12]} />
-      <meshBasicMaterial color={PAPER} />
-    </mesh>
-  );
-}
+// ---- approved panel art (public/images, user-approved 2026-07-03) -----------
+/**
+ * Single textured plane filling the panel interior. Centered texture crop
+ * via repeat/offset reconciles image vs panel aspect (no distortion, no
+ * file edits); `trim` insets a further UV fraction per side so the baked
+ * canvas-edge ink border cannot double the in-scene PanelFrame border.
+ * Built-in material + SRGBColorSpace: three decodes -- no manual pow(2.2)
+ * (that rule is for custom-sampled canvas copies only, see decodeSRGB).
+ * Mount under a LOCAL Suspense: while loading, the PanelFrame's PAPER_DIM
+ * interior fill (z 0.03) is the placeholder, and the rest of the page
+ * never unmounts.
+ */
+function ArtPanel({ url, w, h, trim = 0 }: { url: string; w: number; h: number; trim?: number }) {
+  const tex = useLoader(TextureLoader, url);
 
-/** beat 1: a kid, a hand-me-down machine, one blinking cursor */
-function KidArt() {
+  useLayoutEffect(() => {
+    const img = tex.image as { width: number; height: number };
+    const a = w / h / (img.width / img.height);
+    const rx = (a <= 1 ? a : 1) * (1 - 2 * trim);
+    const ry = (a <= 1 ? 1 : 1 / a) * (1 - 2 * trim);
+    tex.colorSpace = SRGBColorSpace;
+    tex.repeat.set(rx, ry);
+    tex.offset.set((1 - rx) / 2, (1 - ry) / 2);
+    tex.needsUpdate = true;
+  }, [tex, w, h, trim]);
+
+  // useLoader caches by url: clear the cache entry AND free the GPU copy on
+  // unmount (SceneManager remount reloads clean); the JSX material is
+  // auto-disposed by fiber like the scene's other resources
+  useEffect(
+    () => () => {
+      useLoader.clear(TextureLoader, url);
+      tex.dispose();
+    },
+    [tex, url],
+  );
+
   return (
-    <group position={[0, 0.35, 0.035]}>
-      <mesh position={[0, -0.85, 0.004]}>
-        <planeGeometry args={[4.6, 0.06]} />
-        <meshBasicMaterial color={INK} />
-      </mesh>
-      {/* desk + legs */}
-      <mesh position={[0.45, -0.1, 0.004]}>
-        <planeGeometry args={[2.6, 0.09]} />
-        <meshBasicMaterial color={INK} />
-      </mesh>
-      <mesh position={[-0.7, -0.48, 0.004]}>
-        <planeGeometry args={[0.07, 0.7]} />
-        <meshBasicMaterial color={INK} />
-      </mesh>
-      <mesh position={[1.6, -0.48, 0.004]}>
-        <planeGeometry args={[0.07, 0.7]} />
-        <meshBasicMaterial color={INK} />
-      </mesh>
-      {/* the hand-me-down machine, ON the desk */}
-      <mesh position={[0.85, 0.29, 0.005]}>
-        <planeGeometry args={[1.05, 0.78]} />
-        <meshBasicMaterial color={BLUE} />
-      </mesh>
-      <mesh position={[0.85, 0.32, 0.007]}>
-        <planeGeometry args={[0.78, 0.52]} />
-        <meshBasicMaterial color={DARK} />
-      </mesh>
-      <BlinkCursor position={[0.62, 0.24, 0.009]} />
-      {/* the kid, silhouette on a stool, arm up on the desk */}
-      <mesh position={[-1.05, 0.62, 0.005]}>
-        <circleGeometry args={[0.24, 24]} />
-        <meshBasicMaterial color={INK} />
-      </mesh>
-      <mesh position={[-1.05, 0.12, 0.005]}>
-        <planeGeometry args={[0.58, 0.62]} />
-        <meshBasicMaterial color={INK} />
-      </mesh>
-      <mesh position={[-0.55, 0.08, 0.005]} rotation={[0, 0, -0.3]}>
-        <planeGeometry args={[0.6, 0.09]} />
-        <meshBasicMaterial color={INK} />
-      </mesh>
-      <mesh position={[-1.05, -0.28, 0.004]}>
-        <planeGeometry args={[0.55, 0.07]} />
-        <meshBasicMaterial color={INK} />
-      </mesh>
-      <mesh position={[-1.05, -0.55, 0.004]}>
-        <planeGeometry args={[0.06, 0.5]} />
-        <meshBasicMaterial color={INK} />
-      </mesh>
-    </group>
+    <mesh position={[0, 0, 0.035]}>
+      <planeGeometry args={[w, h]} />
+      <meshBasicMaterial map={tex} />
+    </mesh>
   );
 }
 
@@ -345,56 +322,6 @@ function UniArt() {
       </mesh>
       <mesh position={[0.49, 0.28, 0.007]}>
         <circleGeometry args={[0.06, 12]} />
-        <meshBasicMaterial color={RUST} />
-      </mesh>
-    </group>
-  );
-}
-
-/** beat 4: two suitcases, a one-way ticket, twin spires on the skyline */
-function MoveArt() {
-  return (
-    <group position={[0, 0.35, 0.035]}>
-      <group position={[-0.45, 0.95, 0.004]} scale={[0.75, 1.9, 1]}>
-        <mesh rotation={[0, 0, Math.PI / 2]}>
-          <circleGeometry args={[0.5, 3]} />
-          <meshBasicMaterial color={INK} />
-        </mesh>
-      </group>
-      <group position={[0.45, 0.95, 0.004]} scale={[0.75, 1.9, 1]}>
-        <mesh rotation={[0, 0, Math.PI / 2]}>
-          <circleGeometry args={[0.5, 3]} />
-          <meshBasicMaterial color={INK} />
-        </mesh>
-      </group>
-      <mesh position={[0, 0.28, 0.004]}>
-        <planeGeometry args={[1.4, 0.5]} />
-        <meshBasicMaterial color={INK} />
-      </mesh>
-      {/* suitcases */}
-      <mesh position={[-0.5, -0.72, 0.006]}>
-        <planeGeometry args={[1.05, 0.72]} />
-        <meshBasicMaterial color={RUST} />
-      </mesh>
-      <mesh position={[-0.5, -0.32, 0.006]}>
-        <planeGeometry args={[0.3, 0.09]} />
-        <meshBasicMaterial color={INK} />
-      </mesh>
-      <mesh position={[0.55, -0.8, 0.007]}>
-        <planeGeometry args={[0.8, 0.55]} />
-        <meshBasicMaterial color={BLUE} />
-      </mesh>
-      <mesh position={[0.55, -0.49, 0.007]}>
-        <planeGeometry args={[0.26, 0.08]} />
-        <meshBasicMaterial color={INK} />
-      </mesh>
-      {/* the one-way ticket */}
-      <mesh position={[1.15, -0.18, 0.008]} rotation={[0, 0, -0.25]}>
-        <planeGeometry args={[0.62, 0.3]} />
-        <meshBasicMaterial color={PAPER} />
-      </mesh>
-      <mesh position={[1.17, -0.26, 0.009]} rotation={[0, 0, -0.25]}>
-        <planeGeometry args={[0.55, 0.07]} />
         <meshBasicMaterial color={RUST} />
       </mesh>
     </group>
@@ -805,7 +732,9 @@ export default function Origin({ index }: { index: number }) {
 
         {/* story-beat panels, reading order */}
         <PanelFrame p={PANELS[0]!}>
-          <KidArt />
+          <Suspense fallback={null}>
+            <ArtPanel url="/images/origin-kid-panel.png" w={5.4} h={3.3} />
+          </Suspense>
         </PanelFrame>
         <PanelFrame p={PANELS[1]!}>
           <UniArt />
@@ -814,7 +743,9 @@ export default function Origin({ index }: { index: number }) {
           <DeskFallback />
         </PanelFrame>
         <PanelFrame p={PANELS[3]!}>
-          <MoveArt />
+          <Suspense fallback={null}>
+            <ArtPanel url="/images/origin-cologne-panel.png" w={3.5} h={3.6} />
+          </Suspense>
         </PanelFrame>
         <PanelFrame p={PANELS[4]!}>
           <NeonFallback />

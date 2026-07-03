@@ -27,6 +27,44 @@ export const links = {
   resumePdf: "", // path in /public; empty => `resume` prints an "out of stock" gag page
 };
 
+// The rest of the run -- real GitHub projects (facts verified 2026-07-03).
+// Flagship reuses the locked content.flagship + links fields (blurb referenced,
+// never re-typed, S0.5). Dry, tone-matched one-liners; PURE ASCII (Turbopack
+// rope bug); no franchise vocabulary (SPEC S1). Typed `as const` like issueCopy;
+// not yet consumed by a built scene, so the shape is free.
+export const projects = [
+  {
+    name: content.flagship.title, // reuse locked flagship
+    blurb: content.flagship.blurb, // reuse locked flagship copy (no dupe)
+    url: links.liveDemoUrl,
+    tech: "Rust + React",
+  },
+  {
+    name: "AI Engineering Hub",
+    blurb: "Local-first ops room for the AI toolchain: swallows metrics from every tool, serves the local API the desktop and Stream Deck read.",
+    url: "https://github.com/saeedkolivand/ai-engineering-hub",
+    tech: "Rust",
+  },
+  {
+    name: "Claude Usage Stream Deck Plugin",
+    blurb: "Your Claude session and weekly burn, lit up on a Stream Deck key.",
+    url: "https://github.com/saeedkolivand/claude-usage-streamdeck-plugin",
+    tech: "JavaScript",
+  },
+  {
+    name: "TokenSaver Stream Deck Plugin",
+    blurb: "Tallies the AI tokens you didn't spend, measured and estimated, one key away.",
+    url: "https://github.com/saeedkolivand/tokensaver-streamdeck-plugin",
+    tech: "JavaScript",
+  },
+  {
+    name: "Vocal Remover",
+    blurb: "Splits the vocals out of a track from the backing instrumental.",
+    url: "https://github.com/saeedkolivand/vocal-remover",
+    tech: "Python",
+  },
+] as const;
+
 // Phase 1 lettering & copy -- cover, title drop, onomatopoeia pools, captions, signage.
 // PURE ASCII (Turbopack rope bug); no franchise vocabulary (SPEC S1). Pool the words at runtime.
 export const lettering = {
@@ -94,16 +132,16 @@ export const issueCopy = {
     secondaryHeadlines: [
       "SOURCE STAYS OPEN, MAINTAINER STAYS AWAKE",
       "MERGE CONFLICT ENDS PEACEFULLY, SOURCES SAY",
-      "COFFEE SUPPLY HOLDS THROUGH THIRD REWRITE",
+      "RUST OPS HUB SEES EVERY TOOL, TELLS NO CLOUD",
     ],
     frontPageStory: content.flagship.title, // reuse locked flagship
     frontPageBlurb: content.flagship.blurb, // reuse locked flagship copy
     ticker: [
       "PR MERGED",
+      "RUST OPS HUB SHIPS LOCAL-FIRST",
+      "STREAM DECK NOW SHOWS CLAUDE USAGE",
+      "TOKENSAVER COUNTS THE TOKENS SAVED",
       "42 STARS OVERNIGHT",
-      "ISSUE CLOSED: WONTFIX",
-      "NEW RELEASE TAGGED",
-      "FORKED AGAIN",
       "CI GREEN ACROSS THE BOARD",
     ],
   },
@@ -177,7 +215,7 @@ export const issueCopy = {
   lettersPage: {
     responses: {
       about: "Senior Frontend Developer. Cologne. I build AI-powered tools and ship them.",
-      projects: "Pulling the panels... AI Job Hunter up front. Scroll back up, they're all here.",
+      projects: "AI Job Hunter up front. Then:\nAI Engineering Hub [Rust]\nClaude Usage [Stream Deck]\nTokenSaver [Stream Deck]\nVocal Remover [Python]",
       experience: "Years of React and TypeScript. Lately: Rust, Tauri, teaching machines to type.",
       skills: "React, TypeScript, Next.js, Rust, Tauri, Node, GraphQL, and a stubborn amount of AI.",
       contact: "The mailbox is on the desk. Assembled at runtime, so the bots stay hungry.",
@@ -186,6 +224,8 @@ export const issueCopy = {
       linkedin: "Straightening the tie. Opening the professional record.",
       blog: "No dispatches filed yet. Check back when the presses roll.",
     },
+    // {cmd} is replaced at runtime with the unrecognized command the visitor typed.
+    unknownCommand: "'{cmd}'? Never printed that one. Command not found.",
     backCover: {
       nextIssue: "NEXT ISSUE: ???",
       barcode: "200 OK | this issue never 404s | no refunds",

@@ -6,6 +6,11 @@
 export const fx = {
   /** 0..1 impact-frame flash (flash-budget guarded at the beat that drives it) */
   impact: 0,
-  /** 0..1(+overshoot) title-drop card presence, driven by the title-drop beat */
+  /**
+   * title-drop SLAM energy: 1 = oversized impact frame, 0 = at rest
+   * (back.out briefly dips it negative for the settle). Transform only --
+   * card opacity is a pure f(t) scroll window in components/Lettering.tsx,
+   * so an unfired beat (deep jump, reduced motion) shows the card resting.
+   */
   title: 0,
 };

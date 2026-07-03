@@ -56,3 +56,6 @@ graphify-out/
 CLAUDE.local.md
 
 .impeccable/
+
+# generated art drops live in public/images once approved
+assets/prompts/*.png

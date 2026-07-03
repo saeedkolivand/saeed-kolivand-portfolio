@@ -252,7 +252,9 @@ function DeskCat({ say = false }: { say?: boolean }) {
         g.position.set(-2.7, 0, 0.9);
         g.rotation.set(0, 0, 0);
         g.scale.set(1 + 0.18 * squash, 1 - 0.28 * squash - 0.12 * c, 1);
-        head.current.position.set(lerp(0.5, 0.42, c), lerp(0.62, 0.46, c), 0);
+        // loaf head rests ON the chest front (v2 body is rounder/taller than
+        // the v1 box -- the old 0.42/0.46 target buried the skull in it)
+        head.current.position.set(lerp(0.5, 0.47, c), lerp(0.62, 0.57, c), 0);
         wrap = 1.4 * c;
         flick *= 1 - 0.6 * c; // calmer tail once loafed
       }

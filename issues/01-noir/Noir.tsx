@@ -2,7 +2,8 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
-import { InstancedMesh, Object3D, type Group, type Mesh } from "three";
+import { InstancedMesh, Object3D, type Group } from "three";
+import CatModel, { type CatPalette } from "@/components/CatModel";
 import { colorWindow } from "@/shaders/colorWindow";
 import { toonRamp } from "@/lib/toon";
 import { stepTime } from "@/lib/steppedClock";
@@ -238,11 +239,26 @@ function TheWindow({ cx }: { cx: number }) {
 
 /* ----------------------------------------------------------------- cat -- */
 
+// every mark equals ink -> CatModel renders the pure silhouette build (no
+// face, no collar, no socks) -- the noir cat is a clean ink shape (S0.4 row 1)
+const CAT_SILHOUETTE: CatPalette = {
+  ink: SILHOUETTE,
+  paper: SILHOUETTE,
+  collar: SILHOUETTE,
+  tag: SILHOUETTE,
+  accent: SILHOUETTE,
+};
+
 function NoirCat({ cx }: { cx: number }) {
   const group = useRef<Group>(null);
-  const tail = useRef<Mesh>(null);
+  const walkG = useRef<Group>(null);
+  const crouchG = useRef<Group>(null);
+  const leapG = useRef<Group>(null);
+  const walkTail = useRef<Group>(null);
+  const crouchTail = useRef<Group>(null);
+  const leapTail = useRef<Group>(null);
+  const walkPaw = useRef<Group>(null);
   const armed = useRef(true);
-  const ramp = toonRamp();
 
   useFrame(({ clock }) => {
     const g = group.current;
@@ -291,8 +307,21 @@ function NoirCat({ cx }: { cx: number }) {
     g.position.set(x, y, z);
     g.rotation.set(0, ry, rz);
     g.scale.set(1.2, 1.2 * squash, 1.2);
+
+    // pose switch, pure f(t): walk in, crouch at the gap (squash window),
+    // leap build through the k-window -- scrub-safe both directions
+    const leaping = k > 0;
+    const crouching = !leaping && p4 > 0 && trot >= 0.75;
+    if (walkG.current) walkG.current.visible = !leaping && !crouching;
+    if (crouchG.current) crouchG.current.visible = crouching;
+    if (leapG.current) leapG.current.visible = leaping;
     // 12 fps tail flick -- ambient stepped-time idle (S2.8)
-    if (tail.current) tail.current.rotation.x = Math.sin(stepTime(clock.elapsedTime, 12) * 2.4) * 0.45;
+    const flick = Math.sin(stepTime(clock.elapsedTime, 12) * 2.4) * 0.45;
+    if (walkTail.current) walkTail.current.rotation.x = flick;
+    if (crouchTail.current) crouchTail.current.rotation.x = flick;
+    if (leapTail.current) leapTail.current.rotation.x = flick;
+    // stride swing derives from parapet x -- pure f(t), scrub-safe
+    if (walkPaw.current) walkPaw.current.rotation.z = Math.sin(x * 5.2) * 0.55;
   });
 
   return (
@@ -304,27 +333,23 @@ function NoirCat({ cx }: { cx: number }) {
         useScrollStore.getState().meow();
       }}
     >
-      {/* silhouette cat, built facing +x */}
-      <mesh position={[0, 0.2, 0]}>
-        <boxGeometry args={[0.85, 0.4, 0.32]} />
-        <meshToonMaterial color={SILHOUETTE} gradientMap={ramp} />
-      </mesh>
-      <mesh position={[0.5, 0.52, 0]}>
-        <boxGeometry args={[0.34, 0.34, 0.3]} />
-        <meshToonMaterial color={SILHOUETTE} gradientMap={ramp} />
-      </mesh>
-      <mesh position={[0.58, 0.78, 0.09]} rotation={[0, 0, -0.15]}>
-        <coneGeometry args={[0.08, 0.22, 4]} />
-        <meshToonMaterial color={SILHOUETTE} gradientMap={ramp} />
-      </mesh>
-      <mesh position={[0.58, 0.78, -0.09]} rotation={[0, 0, -0.15]}>
-        <coneGeometry args={[0.08, 0.22, 4]} />
-        <meshToonMaterial color={SILHOUETTE} gradientMap={ramp} />
-      </mesh>
-      <mesh ref={tail} position={[-0.55, 0.45, 0]} rotation={[0, 0, 1.0]}>
-        <cylinderGeometry args={[0.045, 0.06, 0.75, 8]} />
-        <meshToonMaterial color={SILHOUETTE} gradientMap={ramp} />
-      </mesh>
+      {/* shared mascot (components/CatModel v2): dimensional toon build in
+          pure-silhouette palette, built facing +x; one instance per pose,
+          visibility switched as pure f(t) above */}
+      <group ref={walkG}>
+        <CatModel
+          mode="toon"
+          pose="walking"
+          palette={CAT_SILHOUETTE}
+          rig={{ tail: walkTail, paw: walkPaw }}
+        />
+      </group>
+      <group ref={crouchG} visible={false}>
+        <CatModel mode="toon" pose="crouch" palette={CAT_SILHOUETTE} rig={{ tail: crouchTail }} />
+      </group>
+      <group ref={leapG} visible={false}>
+        <CatModel mode="toon" pose="leaping" palette={CAT_SILHOUETTE} rig={{ tail: leapTail }} />
+      </group>
     </group>
   );
 }

@@ -37,12 +37,15 @@ export const NEON_SHOTS: Shot[] = [
     ease: easeInQuad,
   },
   {
-    // crash-zoom down the hero tower face, sign raking past
+    // crash-zoom past the hero tower: opens on the roof (sign + cat +
+    // keyboard as PROPS against surrounding blocks -- the pull-back from
+    // the 2026-07-03 scale ruling keeps the tower reading as a building,
+    // not a frame-filling box), then dives to the street. Range unchanged.
     id: "neon-crash",
     issue: 3,
     range: [at(0.395), at(0.595)],
     kind: "crash",
-    from: { position: [CX + 3.5, CY + 26, CZ + 8], target: [CX + 9, CY + 18, CZ + 1], roll: 0.03, fov: 24 },
+    from: { position: [CX + 0.5, CY + 28, CZ + 15], target: [CX + 8, CY + 19.5, CZ + 1], roll: 0.03, fov: 32 },
     to: { position: [CX + 1.5, CY + 4, CZ + 10], target: [CX, CY + 1, CZ + 4], roll: -0.05, fov: 54 },
     ease: easeOutCubic,
   },
