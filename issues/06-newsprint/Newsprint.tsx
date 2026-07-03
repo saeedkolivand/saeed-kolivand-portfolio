@@ -527,9 +527,11 @@ function FrontPage() {
           {COPY.frontPageBlurb}
         </Text>
         {/* diegetic S5b.5: the links live IN the panel; empty URL hides (S0.5) */}
-        {links.githubUrl ? <PanelButton x={-2.15} label="GITHUB" url={links.githubUrl} /> : null}
+        {links.flagshipRepoUrl ? (
+          <PanelButton x={-2.15} label="GITHUB" url={links.flagshipRepoUrl} />
+        ) : null}
         {links.liveDemoUrl ? (
-          <PanelButton x={2.15} label="LIVE DEMO" url={links.liveDemoUrl} />
+          <PanelButton x={2.15} label="WEBSITE" url={links.liveDemoUrl} />
         ) : null}
       </Suspense>
     </group>

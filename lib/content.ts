@@ -22,6 +22,7 @@ export const links = {
   githubUrl: "https://github.com/saeedkolivand", // bakes the contribution star chart
   linkedinUrl: "https://www.linkedin.com/in/saeedkolivand/",
   liveDemoUrl: "https://aijobhunter.app",
+  flagshipRepoUrl: "https://github.com/saeedkolivand/ai-job-hunter-app", // AI Job Hunter repo (newsprint front-page GITHUB button)
   email: "saeedkolivand1997@gmail.com", // render assembled at runtime (anti-scrape), never as plain text in HTML
   blogUrl: "", // optional -- `blog` command hidden until set
   resumePdf: "", // path in /public; empty => `resume` prints an "out of stock" gag page
