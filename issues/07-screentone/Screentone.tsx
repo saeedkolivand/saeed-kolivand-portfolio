@@ -12,7 +12,14 @@ import { useScrollStore } from "@/lib/scrollStore";
 import { sayWord } from "@/lib/onomatopoeia";
 import { content, issueCopy, lettering } from "@/lib/content";
 import { issueCenter } from "../timeline";
-import { STATION_X, TRAIN_HALF, TRAIN_LURCH, trainDisplayX, trainSpeed } from "./shots";
+import {
+  STATION_X,
+  swishOpacity,
+  TRAIN_HALF,
+  TRAIN_LURCH,
+  trainDisplayX,
+  trainSpeed,
+} from "./shots";
 
 /**
  * Issue 7 SCREENTONE (S0.3 range [0.576, 0.656], palette S0.4 row 7).
@@ -438,6 +445,59 @@ function MapInsert() {
   );
 }
 
+/* ------------------- edge-run word: resting f(t) scroll window ------------- */
+// Visibility = swishOpacity(t) (standing rule 2026-07-03, Pop DONATION_WINDOW
+// pattern): scrub-safe both directions, deep jumps land it resting at scale
+// exactly 1, fully faded before the page-flip gutter. The edge-run beat
+// contributes only the TRAIN_LURCH slam + its budgeted flash; reduced motion
+// = window only (lurch stays 0, wobble frozen). Locked whip-pool entry
+// (whip[2] = the word the old seed 0.37 pop emitted) -- never invented.
+const SWISH_WORD = lettering.onomatopoeia.whip[2]!; // SWISH
+
+type TText = Mesh & { fillOpacity: number; outlineOpacity: number };
+
+function SwishWord() {
+  const txt = useRef<TText | null>(null);
+
+  useFrame(({ clock }) => {
+    const m = txt.current;
+    if (!m) return;
+    const { t, quality, reducedMotion } = useScrollStore.getState();
+    const o = swishOpacity(t);
+    m.visible = o > 0.001;
+    if (!m.visible) return;
+    m.fillOpacity = o;
+    m.outlineOpacity = o;
+    m.scale.setScalar(1 + 0.45 * TRAIN_LURCH.v);
+    const st = reducedMotion ? 0 : stepTime(clock.elapsedTime, quality === "low" ? 8 : 12);
+    m.rotation.z = -0.04 + 0.04 * Math.sin(st * 1.5);
+  });
+
+  return (
+    <Suspense fallback={null}>
+      <Text
+        ref={(el: unknown) => {
+          txt.current = el as TText | null;
+        }}
+        // above the last-stop dwell, west of the launch point; yawed toward
+        // the eastward-looking finale camera (shot 5 views mostly along +x)
+        position={[78, 5.2, 2]}
+        rotation={[0, -1.25, 0]}
+        font={BANGERS}
+        fontSize={1.4}
+        color={YELLOW}
+        outlineWidth={0.12}
+        outlineColor={PAPER}
+        anchorX="center"
+        anchorY="middle"
+        visible={false}
+      >
+        {SWISH_WORD}
+      </Text>
+    </Suspense>
+  );
+}
+
 /* ------------------------------------------- platform cameo: the cat ------- */
 function PlatformCat() {
   const tail = useRef<Group>(null);
@@ -475,6 +535,7 @@ export default function Screentone({ index }: { index: number }) {
       <Train />
       <SpeedLines />
       <MapInsert />
+      <SwishWord />
       <Suspense fallback={null}>
         <PlatformCat />
       </Suspense>

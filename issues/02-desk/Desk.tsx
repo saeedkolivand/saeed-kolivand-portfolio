@@ -228,9 +228,11 @@ function DeskCat({ say = false }: { say?: boolean }) {
     let wrap = 0;
     let pawSwing = 0;
     let arc = 0;
-    // scrub-safe defaults (shot 4 overrides them; scrolling back restores)
+    // scrub-safe defaults (shot 4 overrides them; scrolling back restores).
+    // Paw parks PLANTED (sock tip at y ~0, feet fix 2026-07-03): the
+    // loafing cat reads a grounded near-side front foot, not a chest stub.
     head.current.rotation.z = 0;
-    paw.current.position.set(0.5, 0.42, 0.16);
+    paw.current.position.set(0.44, 0.32, 0.16);
 
     if (t < MON_SWITCH) {
       const p1 = clamp01((t - LAND_R[0]) / (LAND_R[1] - LAND_R[0]));
@@ -271,7 +273,8 @@ function DeskCat({ say = false }: { say?: boolean }) {
       g.scale.setScalar(1 + 0.09 * pop);
       head.current.position.set(0.5, 0.74, 0);
       head.current.rotation.z = 0.15 * up + 0.06 * Math.sin(s * 2.4); // tracks the dot bob
-      paw.current.position.set(lerp(0.5, 0.82, strike), lerp(0.42, 0.6, strike), 0.16);
+      // planted gaze stance until the strike lifts it (feet fix 2026-07-03)
+      paw.current.position.set(lerp(0.44, 0.82, strike), lerp(0.32, 0.6, strike), 0.16);
       pawSwing = -0.7 * rear + 2.6 * strike * (1 - 0.55 * settle);
       flick += 0.9 * up;
       wrap = 0.35;
@@ -356,6 +359,10 @@ const WALL_Y = 8;
 const WALL_Z = 2.9;
 const PANEL_W = 1.4;
 const PANEL_H = 2.3;
+// RT cameras MUST be manual with this aspect: drei's RenderTexture portal
+// inherits the ROOT canvas size, so a non-manual camera picks up the full
+// landscape canvas aspect and the portrait panels display it squashed.
+const PANEL_ASPECT = PANEL_W / PANEL_H;
 const PANEL_X = [-1.55, 0, 1.55] as const;
 const RT_W = 288;
 const RT_H = 448;
@@ -444,8 +451,10 @@ function PanelWall({ low }: { low: boolean }) {
                 <directionalLight position={[2, 4, 3]} intensity={1.4} />
                 <PerspectiveCamera
                   makeDefault
-                  position={[1.6, 1.1, 2.6]}
-                  fov={35}
+                  manual
+                  aspect={PANEL_ASPECT}
+                  position={[2.0, 1.4, 3.05]}
+                  fov={42}
                   onUpdate={(c) => c.lookAt(KB_X, 0.12, KB_Z)}
                 />
                 <KeyboardUnit say={false} />
@@ -470,9 +479,11 @@ function PanelWall({ low }: { low: boolean }) {
               <directionalLight position={[3, 5, 4]} intensity={1.5} />
               <PerspectiveCamera
                 makeDefault
+                manual
+                aspect={PANEL_ASPECT}
                 position={[-0.8, 1.2, 3.0]}
-                fov={38}
-                onUpdate={(c) => c.lookAt(-2.7, 0.35, 0.9)}
+                fov={44}
+                onUpdate={(c) => c.lookAt(-2.5, 0.35, 0.9)}
               />
               <DeskCat />
             </RenderTexture>
@@ -491,11 +502,15 @@ function PanelWall({ low }: { low: boolean }) {
           <meshBasicMaterial>
             <RenderTexture attach="map" width={RT_W} height={RT_H}>
               <color attach="background" args={["#232020"]} />
+              {/* portrait crop of the code screen: frames the row starts +
+                  cursor; the p>0.72 full-bleed x-stretch widens bars only */}
               <PerspectiveCamera
                 makeDefault
-                position={[0, 0, 2.1]}
+                manual
+                aspect={PANEL_ASPECT}
+                position={[-0.85, 0, 2.1]}
                 fov={52}
-                onUpdate={(c) => c.lookAt(0, 0, 0)}
+                onUpdate={(c) => c.lookAt(-0.85, 0, 0)}
               />
               <ScreenContent />
             </RenderTexture>

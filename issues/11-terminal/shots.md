@@ -67,7 +67,19 @@ from pose (shared Pose constants). The camera never cuts inside the issue.
 - Enter runs the command: locked visible commands spawn a floating response
   panel from panelPool (lib/pops.ts PopPool, 4 slots, GC-clean round-robin);
   squash-and-stretch = popScale envelope + differential x/y wobble on
-  stepped time. NO navigation -- github/linkedin/projects answer in panels.
+  stepped time.
+- LINKS RULING (user feedback 2026-07-03, supersedes "no navigation"):
+  github/linkedin also window.open their links.* URL ("_blank", noopener)
+  INSIDE runCommand -- synchronous with the card click or Enter keydown, so
+  popup blockers treat it as a user gesture; the panel still spawns as the
+  diegetic echo. The projects panel grows a per-row [open] tab column off
+  its right border (raycast planes, hover amber like the cards, guarded by
+  a live-slot check because three's Raycaster ignores `visible`); row r
+  opens lib/content.ts projects[r].url -- index-aligned with the locked
+  5-line response body, content untouched.
+- ANCHOR RULING (same feedback): PANEL_ANCHORS re-seated so no response
+  panel can cover the sit cat (rect x 0.9..2.9, y 5.4..7.4) -- the mascot
+  stays visible through the whole interactive hold.
 - Clickable command cards (8 visible) = the touch/no-keyboard path; hover
   swaps the label to amber + pointer cursor (restored on out).
 - resume: spawns the gag panel AND the paper-sheet drop -- a framed window
@@ -87,15 +99,22 @@ The reveal itself is the pure-f(t) pullback -- scrub-safe both directions.
 
 ## Cat: guide moment closes the through-line (S5b.1)
 Sits flat on the CRT top through shots 1-2; at catWalk() range (t .72-.97 of
-the issue) the walk-off crosses the page bottom margin frame-right and exits
-past the page edge at u=1 -- off-panel, the journey's last image before
-t=1.000. Pose snap sit -> walk at the range edge is 12fps comic grammar
-(Sketchbook precedent).
-PALETTE RULING (updated 2026-07-03, supersedes the phosphor-palette ruling):
-sit cat = { ...HARLEY, accent: amber #FFB000 } -- CatModel v2 golden-tabby
-Harley default per user directive, amber tail tip as the issue accent
-(Origin {...HARLEY, accent} precedent); the recipe's green duotone supplies
-the phosphor cast in-post, keeping S0.4 row 11 intact on the final print.
+the issue) the exit plays, all pure f(t).
+CONTINUITY RULING (user feedback round 2, 2026-07-03, supersedes the pose
+snap): the old swap teleported the cat off the CRT to a floor spawn (x 5,
+z 2.2) INSIDE the desk footprint behind the command-card wall -- an
+invisible-cat window until the plate cleared them. Now the first 22% of the
+catWalk range is a hop-down arc (sit build rides lerp + sin bump from the
+perch to a landing at x 3.5, z 3.8 -- in front of the desk edge 3.5, left
+of the card wall 4.7+) and the walk plate takes over EXACTLY there, path z
+moved 2.2 -> 3.8 so it is never occluded. Sit visible u < 0.22, walk
+0.22 <= u < 1: no frame without a cat, scrub-safe both ways.
+PALETTE RULING (updated same feedback, supersedes the amber-accent mix):
+sit cat = FULL HARLEY palette; the shaders/colorWindow SPOT RECT tracks it
+per frame, hop included (setSpotRect, hu/hv 0.95, depth 0.8, strength 0.8
+so the scanline print grade stays on the fur; Noir 0.9 precedent). Rect off
+(enabled 0) the moment the walk plate owns the frame and on unmount -- the
+walk-off stays the user-approved baked green phosphor art, deliberately.
 WALK-OFF ART (another agent, kept deliberately): the walking cat is the
 user-approved textured ArtPanel /images/backcover-harley.png (green
 phosphor Harley with its baked CRT-card border) inside the same wrapper --

@@ -18,7 +18,7 @@ import { toonRamp } from "@/lib/toon";
 import { stepTime } from "@/lib/steppedClock";
 import { useScrollStore } from "@/lib/scrollStore";
 import { clamp01, lerp } from "@/lib/shots";
-import { issueCopy } from "@/lib/content";
+import { issueCopy, lettering } from "@/lib/content";
 import {
   PRESS_PALETTE,
   pressAiMaterial,
@@ -27,6 +27,7 @@ import {
   pressTypescriptMaterial,
 } from "@/shaders/pressMaterials";
 import {
+  clankWordOpacity,
   PRESS_BAY_X,
   PRESS_BELT_TOP,
   PRESS_CTA_IN,
@@ -39,6 +40,7 @@ import {
   PRESS_STAMP_X,
   PRESS_TRACE_RANGE,
   pressButtonX,
+  stampWordOpacity,
 } from "./shots";
 
 /**
@@ -80,6 +82,8 @@ const ACCENT = [
 // dark-body + light-socks combo was a tuxedo leftover. Issue accent keeps
 // the rust tail tip; teal collar + red tag identity marks stay.
 const CAT_PALETTE: CatPalette = { ...HARLEY, accent: PRESS_PALETTE.rust };
+
+type TText = Mesh & { fillOpacity: number; outlineOpacity: number };
 
 // ---- shared scratch (zero per-frame allocation) -----------------------------
 const tmpO = new Object3D();
@@ -598,6 +602,71 @@ function PressButton() {
   );
 }
 
+// ---- beat words: resting f(t) scroll windows (standing rule 2026-07-03) -----
+// Visibility = clankWordOpacity/stampWordOpacity(t) (Pop DONATION_WINDOW
+// pattern): scrub-safe both directions, deep jumps land the word resting at
+// scale exactly 1. The beats contribute only slam scale (their kick channels)
+// + their budgeted flashes; reduced motion = window only (kicks stay 0, wobble
+// frozen). Words are locked impact-pool entries -- never invented strings.
+const CLANK_WORD = lettering.onomatopoeia.impact[5]!; // KRUNCH
+const STAMP_WORD = lettering.onomatopoeia.impact[4]!; // SLAM
+
+function BeatWord({
+  word,
+  pos,
+  rotY = 0,
+  color,
+  size,
+  opacityAt,
+  kick,
+}: {
+  word: string;
+  pos: [number, number, number];
+  rotY?: number;
+  color: string;
+  size: number;
+  opacityAt: (t: number) => number;
+  kick: { v: number };
+}) {
+  const txt = useRef<TText | null>(null);
+
+  useFrame(({ clock }) => {
+    const m = txt.current;
+    if (!m) return;
+    const { t, quality, reducedMotion } = useScrollStore.getState();
+    const o = opacityAt(t);
+    m.visible = o > 0.001;
+    if (!m.visible) return;
+    m.fillOpacity = o;
+    m.outlineOpacity = o;
+    m.scale.setScalar(1 + 0.45 * kick.v);
+    const st = reducedMotion ? 0 : stepTime(clock.elapsedTime, quality === "low" ? 8 : 12);
+    m.rotation.z = -0.05 + 0.04 * Math.sin(st * 1.5);
+  });
+
+  return (
+    <Suspense fallback={null}>
+      <Text
+        ref={(el: unknown) => {
+          txt.current = el as TText | null;
+        }}
+        position={pos}
+        rotation={[0, rotY, 0]}
+        font={BANGERS}
+        fontSize={size}
+        color={color}
+        outlineWidth={0.12}
+        outlineColor={DARK}
+        anchorX="center"
+        anchorY="middle"
+        visible={false}
+      >
+        {word}
+      </Text>
+    </Suspense>
+  );
+}
+
 // ---- the cat (S5b.1 cameo): forecat, supervising from a crate ---------------
 function PressCat() {
   const tail = useRef<Group>(null);
@@ -720,6 +789,28 @@ export default function Press({ index }: { index: number }) {
       <StampStation />
       <PressButton />
       <Dressing />
+
+      {/* beat words on f(t) scroll windows (visibility never beat-driven) */}
+      <BeatWord
+        word={CLANK_WORD}
+        // y 3.55 / size 1.0: the shot-3 camera rides low (y ~1.5) -- higher
+        // placements clipped at frame top (verify loop 2026-07-03); word
+        // floats over the press beam, clear of the caption plaque glyphs
+        pos={[PRESS_BAY_X[2], 3.55, 2.4]}
+        color={ACCENT[2]!}
+        size={1.0}
+        opacityAt={clankWordOpacity}
+        kick={PRESS_SPARK}
+      />
+      <BeatWord
+        word={STAMP_WORD}
+        pos={[PRESS_STAMP_X, 4.0, 2.6]}
+        rotY={0.5}
+        color={INK}
+        size={1.3}
+        opacityAt={stampWordOpacity}
+        kick={PRESS_STAMP_POP}
+      />
 
       <Suspense fallback={null}>
         {/* dept labels + captions (issueCopy.press -- locked strings) */}

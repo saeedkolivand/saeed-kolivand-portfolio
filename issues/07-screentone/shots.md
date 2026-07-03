@@ -10,7 +10,8 @@ chain. Dark-paper halftone polarity flips in-shader (Phase 1 ruling).
 
 Copy: content.timeline (8 station names) + issueCopy.screentone.stationCaptions
 (index-aligned, 8) -- never invented strings. The map insert carries no title
-(zero invented lettering); word pops draw from lettering.onomatopoeia pools.
+(zero invented lettering); the cat-click word pops from the onomatopoeia pool
+and the edge-run SWISH is a locked whip-pool entry on a scroll window.
 
 WORLD: one subway line crossing the page west to east. 8 station spreads
 (platform, wall panel, name + caption, spot-yellow roundel mark) at 24-unit
@@ -54,10 +55,18 @@ arrival/launch spikes) and drives speed-line length/visibility.
 - The launch itself is pure f(t) (the final KNOT segment) -- deep jumps and
   scrub-back get the same train position deterministically.
 - registerJawDrop({ id: "screentone-edge-run", t: at(0.945), flash: 0.6 })
-  adds authored-time garnish only: TRAIN_LURCH squash-stretch on the train +
-  one whip-pool word pop in spot yellow. flash 0.6 rides the central
-  requestFlash budget; dark paper world keeps it comfortably off strobe
-  territory (S2.16). BeatRunner owns hysteresis + reduced-motion skip.
+  adds authored-time garnish only: TRAIN_LURCH squash-stretch on the train
+  (shared as the slam kick on the resting SWISH word). flash 0.6 rides the
+  central requestFlash budget; dark paper world keeps it comfortably off
+  strobe territory (S2.16). BeatRunner owns hysteresis + reduced-motion skip.
+- SWISH word (standing rule 2026-07-03, Pop DONATION_WINDOW pattern):
+  visibility = swishOpacity(t), a pure f(t) window [at(0.82), at(1.0)] with
+  0.30 edge fades -- outside the ScrollProxy slow window, so plain notch
+  math: ~3.3 notches total, ~1.3-notch plateau, EDGE_RUN_T at window p~0.69
+  (inside the plateau). End pinned to the issue range: fully faded at E
+  0.656, BEFORE the page-flip gutter [0.656, 0.671] carries the world away.
+  Deep jumps land it resting; reduced motion = window only. Locked whip-pool
+  entry (whip[2], the word the old seed-0.37 pop emitted).
 
 ## Speed lines (authored scene art, NOT the transition whip)
 44 instanced streaks (22 low tier) around the train's body, length/visibility

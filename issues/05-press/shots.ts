@@ -4,9 +4,6 @@ import { printRecipe } from "@/lib/recipes";
 import { registerJawDrop } from "@/lib/beats";
 import { requestFlash } from "@/lib/flashBudget";
 import { snapshots } from "@/lib/snapshots";
-import { sayWord } from "@/lib/onomatopoeia";
-import { lettering } from "@/lib/content";
-import { PRESS_PALETTE } from "@/shaders/pressMaterials";
 import { issueCenter, RANGES } from "../timeline";
 
 /**
@@ -92,6 +89,34 @@ export const PRESS_SPARK_T = at(0.455 + 0.5 * 0.185);
 /** Authored-time channels read by Press.tsx / PressCta.tsx (0 when idle). */
 export const PRESS_STAMP_POP = { v: 0 };
 export const PRESS_SPARK = { v: 0 };
+
+/**
+ * Beat-word scroll windows (standing rule 2026-07-03, Pop DONATION_WINDOW
+ * pattern): word VISIBILITY is a pure f(t) opacity window with 0.30 edge
+ * fades -- scrub-safe both directions, deep jumps land the word resting at
+ * scale exactly 1. The beats contribute only slam scale (PRESS_SPARK /
+ * PRESS_STAMP_POP kicks) + their budgeted flashes; reduced motion = window
+ * only (BeatRunner skips the beats, kicks stay 0). Press sits outside the
+ * ScrollProxy slow window, so plain notch math applies (~0.0043 t/notch):
+ * - clank [at(0.40), at(0.695)]: ~6.1 notches total, ~2.5-notch plateau,
+ *   PRESS_SPARK_T dead-center (window p = 0.5).
+ * - stamp [at(0.80), at(1.0)]: ~4.2 notches total, ~1.7-notch plateau,
+ *   PRESS_STAMP_T at window p ~ 0.66 (inside the plateau); the end is
+ *   pinned to the issue range so the word is fully gone before the exit
+ *   gutter, fading exactly as the DOM CTA takes over (PRESS_CTA_IN).
+ */
+export const PRESS_CLANK_WINDOW: [number, number] = [at(0.4), at(0.695)];
+export const PRESS_STAMP_WINDOW: [number, number] = [at(0.8), at(1.0)];
+
+/** fade in/out over 30% each end (Pop donationOpacity pattern). */
+const windowOpacity = (t: number, w: [number, number]) => {
+  const p = (t - w[0]) / (w[1] - w[0]);
+  if (p <= 0 || p >= 1) return 0;
+  return Math.min(1, p / 0.3, (1 - p) / 0.3);
+};
+
+export const clankWordOpacity = (t: number) => windowOpacity(t, PRESS_CLANK_WINDOW);
+export const stampWordOpacity = (t: number) => windowOpacity(t, PRESS_STAMP_WINDOW);
 /** 1 = CTA held above the frame, 0 = rested in place (drop-in plays 1 -> 0). */
 export const PRESS_CTA_DROP = { v: 0 };
 
@@ -127,7 +152,7 @@ registerJawDrop({
       .to(PRESS_STAMP_POP, { v: 1, duration: 0.09, ease: "power4.out" })
       .to(PRESS_STAMP_POP, { v: 0, duration: 0.55, ease: "power2.in" })
       .to(PRESS_CTA_DROP, { v: 0, duration: 0.6, ease: "bounce.out" }, 0.14);
-    sayWord(lettering.onomatopoeia.impact, [CX + PRESS_STAMP_X, 4.2, 1.4], undefined, "#E8E4DC");
+    // word visibility lives in stampWordOpacity(t) (standing rule 2026-07-03)
   },
 });
 
@@ -147,12 +172,7 @@ registerJawDrop({
       .set(PRESS_SPARK, { v: 0 })
       .to(PRESS_SPARK, { v: 1, duration: 0.05, ease: "none" })
       .to(PRESS_SPARK, { v: 0, duration: 0.35, ease: "power2.out" });
-    sayWord(
-      lettering.onomatopoeia.impact,
-      [CX + PRESS_BAY_X[2], 4.6, 1.2],
-      undefined,
-      PRESS_PALETTE.rust,
-    );
+    // word visibility lives in clankWordOpacity(t) (standing rule 2026-07-03)
   },
 });
 

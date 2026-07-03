@@ -11,15 +11,17 @@ import type {
 } from "three";
 import IssueShell from "../_IssueShell";
 import { ISSUES } from "../registry";
+import { issueCenter } from "../timeline";
 import { ArtPanel } from "../04-origin/Origin";
-import CatModel, { HARLEY, type CatPalette } from "@/components/CatModel";
+import CatModel, { HARLEY } from "@/components/CatModel";
+import { spotRect, setSpotRect } from "@/shaders/colorWindow";
 import { toonRamp } from "@/lib/toon";
 import { stepTime } from "@/lib/steppedClock";
 import { useScrollStore } from "@/lib/scrollStore";
 import { snapshots } from "@/lib/snapshots";
 import { popScale } from "@/lib/pops";
 import { clamp01, lerp } from "@/lib/shots";
-import { issueCopy } from "@/lib/content";
+import { issueCopy, projects } from "@/lib/content";
 import {
   AMBER,
   BACK_COVER_POP,
@@ -41,21 +43,22 @@ import {
  * "hello visitor_" prompt with a blinking block cursor; REAL keyboard input
  * while the issue is active plus 8 clickable command cards (S5b.5 -- the
  * touch path). Locked commands pop pooled floating response panels
- * (lib/pops.ts squash-and-stretch, no navigation); resume drops an amber
- * sheet into a receding Issue-2 desk snapshot window (S2.11 callback, zero
- * live RTs). Finale: NEXT ISSUE card + barcode gag + the cat walking
- * off-panel. All scroll motion pure f(t); rulings in ./shots.md.
+ * (lib/pops.ts squash-and-stretch); github/linkedin ALSO open their real
+ * pages and the projects panel grows per-row [open] tabs (rulings in
+ * ./shots.md); resume drops an amber sheet into a receding Issue-2 desk
+ * snapshot window (S2.11 callback, zero live RTs). Finale: NEXT ISSUE card
+ * + barcode gag + the cat walking off-panel. All scroll motion pure f(t).
  */
 
 const BANGERS = "/fonts/Bangers-Regular.ttf";
 /** S0.4 type table (shared drop, held for registry go -- see shots.md) */
 const MONO = "/fonts/JetBrainsMono-Regular.ttf";
 
-// Harley golden tabby (CatModel v2 default, user directive 2026-07-03) with
-// the issue's amber tail tip; the recipe's green duotone supplies the
-// phosphor cast, matching the walk-off art. Supersedes the phosphor-palette
-// ruling (updated in shots.md). Origin {...HARLEY, accent} precedent.
-const CAT_PALETTE: CatPalette = { ...HARLEY, accent: AMBER };
+// Sit cat prints the FULL Harley palette (user feedback 2026-07-03): the
+// shaders/colorWindow SPOT RECT tracks it per frame and lifts mono only
+// (strength 0.8), so the golden tabby survives the green duotone while
+// halftone + ink line keep it in the CRT print world (Noir precedent).
+// The walk-off plate stays baked green phosphor art -- rect off there.
 
 type TText = Mesh & { text: string; sync: () => void; fillOpacity: number; color: string };
 
@@ -327,11 +330,31 @@ function CommandCards() {
 
 const P_N = panelPool.slots.length;
 
+// [open] tab column for the PROJECTS panel (user feedback 2026-07-03): one
+// diegetic raycast tab per body line, index-aligned with the locked
+// lib/content.ts projects export (read-only; row r opens projects[r].url).
+// Geometry: body renders at fontSize 0.26 / lineHeight 1.35 from anchorY
+// "top" y 0.82 -- the locked 5 lines never wrap (33 chars * 0.156 adv =
+// 5.148 < maxWidth 5.2), so row centers are a fixed pitch apart.
+const OPEN_PITCH = 0.26 * 1.35;
+const OPEN_TOP = 0.82;
+const openRowY = (r: number) => OPEN_TOP - OPEN_PITCH * (r + 0.5);
+
+/** tab is live only while its slot shows the projects response -- three's
+ * Raycaster ignores `visible`, so handlers re-check the pool slot */
+const openLive = (i: number) => {
+  const slot = panelPool.slots[i];
+  return slot !== undefined && slot.active && slot.data.cmd === "projects";
+};
+
 function ResponsePanels() {
   const groups = useRef<(Group | null)[]>([]);
   const texts = useRef<(TText | null)[]>([]); // 2 per slot: label, body
   const mats = useRef<(MeshBasicMaterial | null)[]>([]); // 2 per slot: border, body
   const gens = useRef<number[]>(new Array<number>(P_N).fill(-1));
+  const openGroups = useRef<(Group | null)[]>([]); // 1 per slot: tab column
+  const openMats = useRef<(MeshBasicMaterial | null)[]>([]); // per slot x row
+  const openTexts = useRef<(TText | null)[]>([]); // per slot x row
 
   useFrame(() => {
     const { quality, reducedMotion } = useScrollStore.getState();
@@ -362,6 +385,8 @@ function ResponsePanels() {
           body.text = slot.data.body;
           body.sync();
         }
+        const og = openGroups.current[i];
+        if (og) og.visible = slot.data.cmd === "projects";
       }
       // pops become fades under reduced motion (ruling in shots.md)
       const s = reducedMotion ? 0.95 : popScale(age, panelPool.life, fps, 0.16, 0.35, 0.3);
@@ -383,6 +408,14 @@ function ResponsePanels() {
         if (m) m.opacity = alpha;
         const txt = texts.current[i * 2 + k];
         if (txt) txt.fillOpacity = alpha;
+      }
+      if (openGroups.current[i]?.visible) {
+        for (let r = 0; r < projects.length; r++) {
+          const m = openMats.current[i * projects.length + r];
+          if (m) m.opacity = alpha;
+          const txt = openTexts.current[i * projects.length + r];
+          if (txt) txt.fillOpacity = alpha;
+        }
       }
     }
   });
@@ -447,6 +480,61 @@ function ResponsePanels() {
               {" "}
             </Text>
           </Suspense>
+          {/* [open] tabs off the right border, one per project row; shown
+              only for the projects response (visibility set on gen swap) */}
+          <group
+            ref={(el) => {
+              openGroups.current[i] = el;
+            }}
+            visible={false}
+          >
+            {projects.map((p, r) => (
+              <group key={p.name} position={[3.52, openRowY(r), 0.02]}>
+                <mesh
+                  onClick={(e) => {
+                    if (!openLive(i)) return; // dead tab: let the ray pass
+                    e.stopPropagation();
+                    // synchronous with the click gesture -- popup-blocker safe
+                    window.open(p.url, "_blank", "noopener");
+                  }}
+                  onPointerOver={(e) => {
+                    if (!openLive(i)) return;
+                    e.stopPropagation();
+                    openMats.current[i * projects.length + r]?.color.set(AMBER);
+                    document.body.style.cursor = "pointer";
+                  }}
+                  onPointerOut={() => {
+                    openMats.current[i * projects.length + r]?.color.set(INK);
+                    document.body.style.cursor = "auto";
+                  }}
+                >
+                  <planeGeometry args={[1.2, 0.32]} />
+                  <meshBasicMaterial
+                    ref={(m) => {
+                      openMats.current[i * projects.length + r] = m;
+                    }}
+                    color={INK}
+                    transparent
+                  />
+                </mesh>
+                <Suspense fallback={null}>
+                  <Text
+                    ref={(el: unknown) => {
+                      openTexts.current[i * projects.length + r] = el as TText | null;
+                    }}
+                    font={MONO}
+                    fontSize={0.17}
+                    color={CASE}
+                    anchorX="center"
+                    anchorY="middle"
+                    position={[0, 0, 0.01]}
+                  >
+                    [open]
+                  </Text>
+                </Suspense>
+              </group>
+            ))}
+          </group>
         </group>
       ))}
     </group>
@@ -673,20 +761,69 @@ function BackCoverPage() {
 
 /* ---------------- the cat: sits on the terminal, then walks off-panel ------ */
 
+const [TCX] = issueCenter(11);
+
+/** first fraction of the catWalk range = the hop-down; the walk plate owns
+ * the rest. Sit visible u < HOP, walk u >= HOP: NO frame without a cat
+ * (continuity fix, user feedback 2026-07-03). All pure f(t), scrub-safe. */
+const CAT_HOP = 0.22;
+/** sit perch on the CRT top (shots 1-2, on/near the monitor throughout) */
+const SIT_FROM: [number, number, number] = [1.9, 6.25, 0.4];
+/** floor landing IN FRONT of the desk edge (z 3.5) and LEFT of the command
+ * card wall (x 4.7+): the old spawn (x 5, z 2.2) put the plate inside the
+ * desk footprint behind the card stack -- an invisible-cat window */
+const SIT_LAND: [number, number, number] = [3.5, 0.02, 3.8];
+
+// spot rect scratch -- setSpotRect copies values, no per-frame allocation
+const SPOT_C: [number, number, number] = [0, 0, 0];
+const SPOT_U: [number, number, number] = [0.95, 0, 0];
+const SPOT_V: [number, number, number] = [0, 0.95, 0];
+
 function TerminalCat() {
   const sit = useRef<Group>(null);
   const walk = useRef<Group>(null);
 
+  // channel hygiene: never leave the exemption on after the set unmounts
+  useEffect(
+    () => () => {
+      spotRect.enabled = 0;
+    },
+    [],
+  );
+
   useFrame(({ clock }) => {
     const { t, quality, reducedMotion } = useScrollStore.getState();
     const u = catWalk(t); // pure f(t), scrub-safe both directions
-    if (sit.current) sit.current.visible = u <= 0;
+    const k = u <= 0 ? 0 : Math.min(u / CAT_HOP, 1); // hop progress
+    const sitting = u < CAT_HOP;
+    const s = sit.current;
+    if (s) {
+      s.visible = sitting;
+      // hop-down arc off the CRT to the floor landing -- small rise first
+      // (sin bump), then the fall; reverses identically on scrub-back
+      s.position.set(
+        lerp(SIT_FROM[0], SIT_LAND[0], k),
+        lerp(SIT_FROM[1], SIT_LAND[1], k * k) + 1.15 * Math.sin(Math.PI * k),
+        lerp(SIT_FROM[2], SIT_LAND[2], k),
+      );
+      // HARLEY color: the spot rect tracks the sit cat (hop included);
+      // strength 0.8 keeps the scanline print grade on the fur. Depth 0.8
+      // hugs the flat build -- the CRT glass (z 1.76+) stays outside at
+      // the perch, so screen lettering is never exempted.
+      if (sitting) {
+        SPOT_C[0] = TCX + s.position.x;
+        SPOT_C[1] = s.position.y + 0.15;
+        SPOT_C[2] = s.position.z;
+        setSpotRect(SPOT_C, SPOT_U, SPOT_V, 0.8, 0.8);
+      }
+      spotRect.enabled = sitting ? 1 : 0;
+    }
     const g = walk.current;
     if (g) {
-      // walks the room floor frame-right, exiting past the desk + page edge
-      // (loop iter 3: the page bottom margin is floor-occluded at pullback)
-      g.visible = u > 0 && u < 1; // u=1: off-panel, the journey's last exit
-      g.position.x = lerp(5, 16.5, u);
+      // takes over EXACTLY at the hop landing, walks the floor frame-right
+      // past the page edge (u=1: off-panel, the journey's last exit)
+      g.visible = u >= CAT_HOP && u < 1;
+      g.position.x = lerp(SIT_LAND[0], 16.5, clamp01((u - CAT_HOP) / (1 - CAT_HOP)));
       const fps = quality === "low" ? 8 : 12;
       // stride bob is ambient life -- dropped under reduced motion
       g.position.y =
@@ -696,16 +833,17 @@ function TerminalCat() {
 
   return (
     <>
-      <group ref={sit} position={[1.9, 6.25, 0.4]} scale={0.85}>
-        <CatModel mode="flat" pose="sitting" palette={CAT_PALETTE} />
+      <group ref={sit} position={SIT_FROM} scale={0.85}>
+        <CatModel mode="flat" pose="sitting" palette={HARLEY} />
       </group>
       {/* walk-off plate (user-approved Harley art, assets/prompts/
           backcover-harley.md): 2.2 x 2.6 ArtPanel plane, aspect crop trims
           ~7.7% width per side; unlit basic material so the phosphor
           pointLight never touches it. The wrapper keeps driving scale,
           x-lerp, stride bob, and the catWalk(t) visibility gate. Lifted
-          +0.2 so the painted paw line lands where CatModel's feet walked. */}
-      <group ref={walk} position={[5, -0.12, 2.2]} scale={0.9} visible={false}>
+          +0.2 so the painted paw line lands where CatModel's feet walked.
+          z 3.8: clear of the desk slab AND the card wall (continuity fix). */}
+      <group ref={walk} position={[SIT_LAND[0], -0.12, SIT_LAND[2]]} scale={0.9} visible={false}>
         <group position={[0, 0.2, 0]}>
           <Suspense fallback={null}>
             <ArtPanel url="/images/backcover-harley.png" w={2.2} h={2.6} />

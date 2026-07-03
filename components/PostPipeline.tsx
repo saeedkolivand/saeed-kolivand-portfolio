@@ -6,7 +6,7 @@ import { EffectComposer, EffectPass, NormalPass, RenderPass } from "postprocessi
 import { Color, HalfFloatType, Matrix4, Vector3, type Texture } from "three";
 import { PrintEffect } from "@/shaders/PrintEffect";
 import { TransitionEffect } from "@/shaders/TransitionEffect";
-import { colorWindow } from "@/shaders/colorWindow";
+import { colorWindow, spotRect } from "@/shaders/colorWindow";
 import { evaluateTimeline, lerp, poseAt, usesSnapshot, type Pose, type Vec3 } from "@/lib/shots";
 import { ISSUES, SEGMENTS } from "@/issues/registry";
 import { useScrollStore } from "@/lib/scrollStore";
@@ -146,6 +146,18 @@ export default function PostPipeline() {
       print.u<Vector3>("uWinU").value.fromArray(colorWindow.halfU);
       print.u<Vector3>("uWinV").value.fromArray(colorWindow.halfV);
       print.u<number>("uWinDepth").value = colorWindow.depth;
+    }
+    // spot rect (mascot tracker): second mono-exempt rect, scene-driven
+    // per-frame via shaders/colorWindow.ts spotRect/setSpotRect; strength
+    // rides enabled so scenes can fade without losing partial exemption
+    print.u<number>("uSpotStrength").value = spotRect.enabled * spotRect.strength;
+    if (spotRect.enabled > 0) {
+      print.u<Vector3>("uSpotCenter").value.fromArray(spotRect.center);
+      print.u<Vector3>("uSpotU").value.fromArray(spotRect.halfU);
+      print.u<Vector3>("uSpotV").value.fromArray(spotRect.halfV);
+      print.u<number>("uSpotDepth").value = spotRect.depth;
+    }
+    if (colorWindow.enabled > 0 || spotRect.enabled > 0) {
       camera.updateMatrixWorld();
       print
         .u<Matrix4>("uInvViewProjection")

@@ -3,14 +3,14 @@ export const content = {
   role: "Senior Frontend Developer",
   tagline: "Frontend engineer building AI-powered tools.",
   location: "Germany",
-  stack: ["React", "TypeScript", "Next.js", "Rust", "Tauri", "Node.js", "GraphQL", "AI"],
+  stack: ["React", "TypeScript", "Next.js", "Tauri", "Node.js", "GraphQL", "AI"],
   timeline: ["Started Programming", "University", "First Job", "Moved to Germany",
     "Senior Frontend Engineer", "Open Source", "AI Job Hunter", "Streaming"],
   flagship: {
     title: "AI Job Hunter",
     blurb: "Local-first desktop app: covers 16 job boards, writes the cover letters, does everything but hit submit.",
     features: ["AI agents", "Resume & cover-letter generation", "Semantic search",
-      "Local AI (Ollama)", "Rust backend", "React frontend"],
+      "Local AI (Ollama)", "Tauri desktop backend", "React frontend"],
   },
   streaming: { platforms: ["Twitch", "YouTube"], tools: ["OBS", "Stream Deck"] },
   terminalCommands: ["about", "projects", "experience", "skills", "contact",
@@ -22,6 +22,7 @@ export const links = {
   githubUrl: "https://github.com/saeedkolivand", // bakes the contribution star chart
   linkedinUrl: "https://www.linkedin.com/in/saeedkolivand/",
   liveDemoUrl: "https://aijobhunter.app",
+  flagshipRepoUrl: "https://github.com/saeedkolivand/ai-job-hunter-app", // AI Job Hunter repo (newsprint front-page GITHUB button)
   email: "saeedkolivand1997@gmail.com", // render assembled at runtime (anti-scrape), never as plain text in HTML
   blogUrl: "", // optional -- `blog` command hidden until set
   resumePdf: "", // path in /public; empty => `resume` prints an "out of stock" gag page
@@ -37,13 +38,13 @@ export const projects = [
     name: content.flagship.title, // reuse locked flagship
     blurb: content.flagship.blurb, // reuse locked flagship copy (no dupe)
     url: links.liveDemoUrl,
-    tech: "Rust + React",
+    tech: "Tauri + React",
   },
   {
     name: "AI Engineering Hub",
     blurb: "Local-first ops room for the AI toolchain: swallows metrics from every tool, serves the local API the desktop and Stream Deck read.",
     url: "https://github.com/saeedkolivand/ai-engineering-hub",
-    tech: "Rust",
+    tech: "Ops platform",
   },
   {
     name: "Claude Usage Stream Deck Plugin",
@@ -93,7 +94,7 @@ export const lettering = {
     "One window lit on the whole dead block. Mine.",
     "Then the cat jumped. Cats always know the cut.",
   ],
-  neonSigns: ["REACT", "TYPESCRIPT", "RUST", "NEXT.JS", "GRAPHQL", "NODE.JS", "TAURI", "AI OPEN 24H"],
+  neonSigns: ["REACT", "TYPESCRIPT", "JAVASCRIPT", "NEXT.JS", "GRAPHQL", "NODE.JS", "TAURI", "AI OPEN 24H"],
 } as const;
 
 // Phase 3 lettering & copy -- Issues 4-11. One content pass so issue-builders never invent strings.
@@ -120,7 +121,7 @@ export const issueCopy = {
     departments: [
       { label: "REACT", caption: "The floor where the UI gets stamped out, part by part." },
       { label: "TYPESCRIPT", caption: "Blueprints. Every wire labeled before it ships." },
-      { label: "RUST", caption: "Heavy machinery, orange sparks. Nothing rusts on my watch." },
+      { label: "TAURI", caption: "Heavy machinery, orange sparks. Presses the whole app into one desktop binary." },
       { label: "AI", caption: "The thinking department. Wires itself while you wait." },
     ],
     cta: "See projects",
@@ -132,13 +133,13 @@ export const issueCopy = {
     secondaryHeadlines: [
       "SOURCE STAYS OPEN, MAINTAINER STAYS AWAKE",
       "MERGE CONFLICT ENDS PEACEFULLY, SOURCES SAY",
-      "RUST OPS HUB SEES EVERY TOOL, TELLS NO CLOUD",
+      "AI OPS HUB SEES EVERY TOOL, TELLS NO CLOUD",
     ],
     frontPageStory: content.flagship.title, // reuse locked flagship
     frontPageBlurb: content.flagship.blurb, // reuse locked flagship copy
     ticker: [
       "PR MERGED",
-      "RUST OPS HUB SHIPS LOCAL-FIRST",
+      "AI OPS HUB SHIPS LOCAL-FIRST",
       "STREAM DECK NOW SHOWS CLAUDE USAGE",
       "TOKENSAVER COUNTS THE TOKENS SAVED",
       "42 STARS OVERNIGHT",
@@ -171,9 +172,9 @@ export const issueCopy = {
       "that's a merge",
       "no bugs today?",
       "W stream",
-      "rustacean spotted",
+      "green ci baby",
       "the cat! the cat!",
-      "60fps gang",
+      "type faster!!",
     ],
     donationAlert: "NEW SUPPORTER just bought the whole team pizza.",
     // Donation alert spawns a giant word-pop (SPEC 2.12 / Issue 8 jaw-drop). ASCII, dev/streaming
@@ -215,9 +216,9 @@ export const issueCopy = {
   lettersPage: {
     responses: {
       about: "Senior Frontend Developer. Cologne. I build AI-powered tools and ship them.",
-      projects: "AI Job Hunter up front. Then:\nAI Engineering Hub [Rust]\nClaude Usage [Stream Deck]\nTokenSaver [Stream Deck]\nVocal Remover [Python]",
-      experience: "Years of React and TypeScript. Lately: Rust, Tauri, teaching machines to type.",
-      skills: "React, TypeScript, Next.js, Rust, Tauri, Node, GraphQL, and a stubborn amount of AI.",
+      projects: "AI Job Hunter up front. Then:\nAI Engineering Hub [ops platform]\nClaude Usage [Stream Deck]\nTokenSaver [Stream Deck]\nVocal Remover [Python]",
+      experience: "Years of React and TypeScript. Lately: Tauri, teaching machines to type.",
+      skills: "React, TypeScript, Next.js, Tauri, Node, GraphQL, and a stubborn amount of AI.",
       contact: "The mailbox is on the desk. Assembled at runtime, so the bots stay hungry.",
       resume: "OUT OF STOCK. This issue sold out its print run. Reprint pending.",
       github: "Opening the archive. Every commit, every all-nighter, cataloged.",
