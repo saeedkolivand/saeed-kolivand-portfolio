@@ -223,6 +223,8 @@ export const issueCopy = {
       github: "Opening the archive. Every commit, every all-nighter, cataloged.",
       linkedin: "Straightening the tie. Opening the professional record.",
       blog: "No dispatches filed yet. Check back when the presses roll.",
+      // hidden easter egg -- undocumented, not in content.terminalCommands; the real boss answers
+      harley: "Harley here. Fluffy, ~2.5 years old, and in charge.\nI supervise every commit; he just types faster.\nThe actual senior engineer on this project.",
     },
     // {cmd} is replaced at runtime with the unrecognized command the visitor typed.
     unknownCommand: "'{cmd}'? Never printed that one. Command not found.",

@@ -2,7 +2,6 @@ import type { ComponentType } from "react";
 import { compileSegments, type Segment, type Shot, type TransitionKind } from "@/lib/shots";
 import { ACCENTS, RECIPES, type PrintRecipe } from "@/lib/recipes";
 import { ISSUE_SPACING, issueCenter, placeholderShots, RANGES } from "./timeline";
-import PlaceholderIssue from "./PlaceholderIssue";
 import Cover from "./00-cover/Cover";
 import Noir from "./01-noir/Noir";
 import Desk from "./02-desk/Desk";
@@ -14,6 +13,7 @@ import Screentone from "./07-screentone/Screentone";
 import Pop from "./08-pop/Pop";
 import Sketchbook from "./09-sketchbook/Sketchbook";
 import Spread from "./10-spread/Spread";
+import Terminal from "./11-terminal/Terminal";
 import { COVER_SHOTS } from "./00-cover/shots";
 import { NOIR_SHOTS } from "./01-noir/shots";
 import { DESK_SHOTS } from "./02-desk/shots";
@@ -25,6 +25,7 @@ import { SCREENTONE_RECIPE, SCREENTONE_SHOTS } from "./07-screentone/shots";
 import { POP_RECIPE, POP_SHOTS } from "./08-pop/shots";
 import { SKETCH_RECIPE, SKETCH_SHOTS } from "./09-sketchbook/shots";
 import { SPREAD_RECIPE, SPREAD_SHOTS } from "./10-spread/shots";
+import { TERMINAL_RECIPE, TERMINAL_SHOTS } from "./11-terminal/shots";
 
 // Timeline numbers live in ./timeline (leaf); re-exported here for consumers.
 export { ISSUE_SPACING, issueCenter };
@@ -115,7 +116,10 @@ export const ISSUES: IssueEntry[] = [
     recipe: SPREAD_RECIPE,
     shots: SPREAD_SHOTS,
   }),
-  row("terminal", "ISSUE 11 - LETTERS PAGE", 11, 1, "cut", PlaceholderIssue),
+  row("terminal", "ISSUE 11 - LETTERS PAGE", 11, 1, "cut", Terminal, {
+    recipe: TERMINAL_RECIPE,
+    shots: TERMINAL_SHOTS,
+  }),
 ];
 
 /** Flat shot list in timeline order, derived from the rows above. */
