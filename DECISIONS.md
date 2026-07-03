@@ -470,3 +470,28 @@ pinned 5.9.3, an external edit bumped it - kept, builds clean),
   "0 param ops when off" observation BY DESIGN (ui.ts contract lines
   15-20); cost negligible per the formal trace. Revisit only if a future
   trace disagrees.
+
+## Phase 5 - Print Edition + accessibility (2026-07-03)
+- Architecture ruling "one document, optional visual overlay" (resolves
+  the S8 "all text in DOM" + Phase 5 reduced-motion/mobile fallback +
+  queued canvas-button a11y in ONE move):
+  * <PrintEdition/> is ALWAYS rendered in <main> as the real semantic
+    document - every issue as a designed static CSS panel pulling from
+    content.ts/issueCopy, real <a> links (github/linkedin/website/each
+    project + repo), h1..h2 outline, <nav>, skip-link. SSR'd => this is
+    the SEO + screen-reader source of truth. Zero WebGL in it.
+  * <ExperienceGate/> (client) mounts the interactive <Experience/> canvas
+    overlay ONLY when: NOT reduced-motion AND NOT mobile/low tier (coarse
+    pointer or small viewport or ?low) AND WebGL present. Canvas stays
+    aria-hidden + fixed inset-0.
+  * When the canvas is active the Print Edition sits behind it (visually
+    hidden, still in the a11y tree + DOM). A persistent, focusable-first
+    "Read the Print Edition" control + a focusin handler on the print
+    document swap to the static view (unmount canvas, reveal print), so a
+    keyboard/AT user never lands on a control hidden under the canvas.
+  * Fallback paths (reduced-motion / mobile / low / no-WebGL) never mount
+    the Canvas: Print Edition is the visible page from first paint - zero
+    WebGL, zero cuts/flashes (satisfies the Phase 5 gate directly).
+- Consequence: the queued diegetic-canvas-button a11y item (newsprint
+  GITHUB/WEBSITE, terminal links) is satisfied by the Print Edition's real
+  <a> links - no DOM overlay bolted onto canvas raycast buttons needed.

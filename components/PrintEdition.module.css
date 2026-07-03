@@ -1,0 +1,699 @@
+/*
+ * The Print Edition (SPEC Phase 5 + S8): a genuinely designed static comic --
+ * paper base, Ben-Day halftone dots, comic panel borders + gutters, Bangers
+ * lettering, Caveat handwriting, mono terminal. Per-issue accent tints echo
+ * the S0.4 palettes via the --paper / --ink / --accent custom props each
+ * .issue sets. Mobile-first single column; multi-column panels on desktop.
+ * Comfort rule S2.16: no blur/glow on readable text; solid ink shadows only.
+ */
+
+.root {
+  --paper: #f2ead9;
+  --ink: #201d18;
+  --accent: #e2574c;
+  --accent2: #2bb3a3;
+  position: relative;
+  min-height: 100vh;
+  margin: 0 auto;
+  max-width: 1180px;
+  padding: clamp(1rem, 4vw, 3rem) clamp(0.75rem, 4vw, 2.5rem) 4rem;
+  color: var(--ink);
+  background-color: var(--paper);
+  background-image: radial-gradient(circle at center, rgba(32, 29, 24, 0.1) 1.1px, transparent 1.3px);
+  background-size: 7px 7px;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+}
+
+/* Skip link -- first focusable child, hidden until focused. */
+.skipLink {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 70;
+  padding: 0.6rem 1rem;
+  background: var(--ink);
+  color: var(--paper);
+  font-weight: 700;
+  text-decoration: none;
+  border-radius: 0 0 6px 0;
+}
+.skipLink:focus {
+  left: 0;
+}
+
+/* --- Masthead (comic cover) --- */
+.masthead {
+  position: relative;
+  margin-bottom: 2.5rem;
+  padding: clamp(1.25rem, 4vw, 2.75rem);
+  background: var(--paper);
+  border: 4px solid var(--ink);
+  box-shadow: 9px 9px 0 var(--ink);
+  overflow: hidden;
+}
+.mastheadTitle {
+  margin: 0;
+  font-family: var(--font-bangers), Impact, sans-serif;
+  font-weight: 400;
+  font-size: clamp(2.75rem, 12vw, 7rem);
+  line-height: 0.9;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+  text-shadow: 4px 4px 0 var(--accent);
+}
+.dek {
+  margin: 0.85rem 0 0;
+  max-width: 62ch;
+  font-size: clamp(1rem, 2.4vw, 1.4rem);
+  font-weight: 700;
+  color: var(--accent);
+}
+.intro {
+  margin: 0.9rem 0 0;
+  max-width: 62ch;
+}
+
+/* --- Table of contents --- */
+.toc {
+  margin-bottom: 3rem;
+  padding: 1.25rem 1.5rem;
+  background: var(--paper);
+  border: 3px solid var(--ink);
+}
+.tocTitle {
+  margin: 0 0 0.85rem;
+  font-family: var(--font-bangers), Impact, sans-serif;
+  font-weight: 400;
+  font-size: 1.6rem;
+  letter-spacing: 0.03em;
+}
+.tocList {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.5rem 1.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tocLink {
+  display: flex;
+  gap: 0.6rem;
+  align-items: baseline;
+  padding: 0.4rem 0.2rem;
+  border-bottom: 1px dotted rgba(32, 29, 24, 0.4);
+  color: var(--ink);
+  text-decoration: none;
+}
+.tocLink:hover,
+.tocLink:focus {
+  background: rgba(0, 0, 0, 0.07);
+}
+.tocNum {
+  font-family: var(--font-bangers), Impact, sans-serif;
+  color: var(--accent);
+}
+.tocKicker {
+  margin-left: auto;
+  font-size: 0.75rem;
+  opacity: 0.65;
+}
+
+/* --- Issue panels --- */
+.main {
+  display: block;
+}
+.issue {
+  --paper: #f2ead9;
+  --ink: #201d18;
+  --accent: #e2574c;
+  position: relative;
+  margin-bottom: 3rem;
+  padding: clamp(1.25rem, 3.5vw, 2.5rem);
+  color: var(--ink);
+  background-color: var(--paper);
+  border: 4px solid var(--ink);
+  box-shadow: 10px 10px 0 rgba(0, 0, 0, 0.25);
+  background-image: radial-gradient(circle at center, rgba(0, 0, 0, 0.06) 1px, transparent 1.2px);
+  background-size: 6px 6px;
+  scroll-margin-top: 1rem;
+  overflow: hidden;
+}
+.issueDark {
+  background-image: radial-gradient(circle at center, rgba(255, 255, 255, 0.06) 1px, transparent 1.2px);
+}
+.issueHead {
+  margin-bottom: 1.25rem;
+}
+.kicker {
+  margin: 0 0 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.issueTitle {
+  margin: 0;
+  font-family: var(--font-bangers), Impact, sans-serif;
+  font-weight: 400;
+  font-size: clamp(1.8rem, 6vw, 3.25rem);
+  line-height: 0.95;
+  color: var(--ink);
+}
+.issueNo {
+  color: var(--accent);
+}
+.prose {
+  max-width: 66ch;
+}
+.prose p {
+  margin: 0 0 0.75rem;
+}
+.lead {
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+/* Captions (noir) */
+.captionList {
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.75rem;
+}
+.captionBox {
+  padding: 0.6rem 0.9rem;
+  border: 2px solid var(--ink);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--accent) 14%, var(--paper));
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.18);
+  font-style: italic;
+}
+
+/* Chips (neon signs / stack) */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+.chip {
+  padding: 0.4rem 0.85rem;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.85rem;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  border: 2px solid var(--accent);
+  border-radius: 999px;
+  box-shadow: 0 0 12px -4px var(--accent);
+}
+
+/* Desk keycaps */
+.keycaps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 1rem;
+}
+.keycap {
+  min-width: 2.4rem;
+  padding: 0.35rem 0.5rem;
+  font-family: var(--font-bangers), Impact, sans-serif;
+  font-size: 0.85rem;
+  text-align: center;
+  color: var(--ink);
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  box-shadow: 0 3px 0 var(--ink);
+}
+
+/* Origin beats */
+.beats {
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.85rem;
+  counter-reset: beat;
+}
+.beat {
+  position: relative;
+  padding-left: 3rem;
+  min-height: 2rem;
+}
+.beat::before {
+  counter-increment: beat;
+  content: counter(beat);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-bangers), Impact, sans-serif;
+  color: var(--paper);
+  background: var(--accent);
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+}
+.beatMilestone {
+  display: block;
+  font-family: var(--font-bangers), Impact, sans-serif;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+}
+
+/* Images */
+.imgRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+.imgFrame {
+  flex: 1 1 240px;
+  max-width: 100%;
+  margin: 0;
+  padding: 6px;
+  background: var(--paper);
+  border: 3px solid var(--ink);
+  box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.2);
+}
+.imgFrame img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.figCaption {
+  margin-top: 0.45rem;
+  font-size: 0.8rem;
+  opacity: 0.75;
+}
+.catMotif {
+  float: right;
+  width: clamp(64px, 14vw, 110px);
+  margin: 0 0 0.75rem 1rem;
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.25);
+}
+
+/* Departments (press) */
+.grid2,
+.grid3 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+.dept,
+.projectCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1.1rem;
+  background: var(--paper);
+  border: 3px solid var(--ink);
+  box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.2);
+}
+.deptLabel {
+  margin: 0;
+  font-family: var(--font-bangers), Impact, sans-serif;
+  font-size: 1.35rem;
+  color: var(--accent);
+}
+.deptCaption {
+  margin: 0;
+}
+.ctaLink {
+  display: inline-block;
+  margin-top: 1.25rem;
+  padding: 0.6rem 1.2rem;
+  font-family: var(--font-bangers), Impact, sans-serif;
+  font-size: 1.15rem;
+  letter-spacing: 0.03em;
+  color: var(--paper);
+  background: var(--accent);
+  border: 3px solid var(--ink);
+  box-shadow: 4px 4px 0 var(--ink);
+  text-decoration: none;
+}
+
+/* Newsprint */
+.newsHeadline {
+  margin: 0;
+  padding-bottom: 0.5rem;
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 900;
+  font-size: clamp(1.8rem, 6vw, 3rem);
+  text-transform: uppercase;
+  border-bottom: 4px double var(--ink);
+}
+.newsSecondary {
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.newsSecondary li {
+  padding: 0.45rem 0;
+  font-family: Georgia, serif;
+  font-weight: 700;
+  border-top: 1px solid var(--ink);
+}
+.newsFront {
+  margin-top: 1rem;
+  font-family: Georgia, serif;
+}
+.newsFront h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.3rem;
+}
+.newsBtns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+.newsBtn {
+  padding: 0.5rem 1rem;
+  font-family: var(--font-mono), monospace;
+  font-weight: 700;
+  color: var(--paper);
+  background: var(--accent);
+  border: 2px solid var(--ink);
+  text-decoration: none;
+}
+.ticker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 0.5rem 0.75rem;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.78rem;
+  color: var(--accent);
+  border-top: 2px solid var(--accent);
+  border-bottom: 2px solid var(--accent);
+}
+
+/* Subway (screentone) */
+.subway {
+  margin: 1rem 0 0 0.5rem;
+  padding: 0;
+  list-style: none;
+}
+.station {
+  position: relative;
+  padding: 0 0 1rem 1.4rem;
+  border-left: 4px solid var(--accent);
+}
+.station:last-child {
+  border-left-color: transparent;
+}
+.stationDot {
+  position: absolute;
+  left: -9px;
+  top: 0.3rem;
+  width: 14px;
+  height: 14px;
+  background: var(--accent);
+  border: 2px solid var(--paper);
+  border-radius: 50%;
+}
+.stationName {
+  font-family: var(--font-bangers), Impact, sans-serif;
+  font-size: 1rem;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+}
+.stationCaption {
+  margin: 0.15rem 0 0;
+  opacity: 0.9;
+}
+
+/* Pop print chat */
+.chatWall {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+.bubble {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.85rem;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid var(--accent);
+  border-radius: 14px;
+}
+.donationAlert {
+  margin-top: 1.25rem;
+  padding: 0.75rem 1rem;
+  font-weight: 700;
+  border: 3px dashed var(--accent);
+}
+.boom {
+  margin: 0.75rem 0 0;
+  font-family: var(--font-bangers), Impact, sans-serif;
+  font-size: clamp(2.5rem, 10vw, 5rem);
+  line-height: 1;
+  color: var(--accent);
+  text-shadow: 4px 4px 0 var(--ink);
+}
+
+/* Sketchbook */
+.annotationChain {
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.85rem;
+}
+.annotation {
+  padding: 0.4rem 0.65rem;
+  border-bottom: 2px dashed var(--accent);
+}
+.chainNode {
+  display: block;
+  font-family: var(--font-bangers), Impact, sans-serif;
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+}
+.hand {
+  font-family: var(--font-caveat), cursive;
+  font-size: 1.4rem;
+  line-height: 1.25;
+}
+
+/* Spread */
+.spreadStars {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.star {
+  padding: 0.4rem 0.8rem;
+  font-family: var(--font-bangers), Impact, sans-serif;
+  font-size: 0.95rem;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.06);
+  border: 2px solid var(--accent);
+  border-radius: 999px;
+}
+.closingCaption {
+  margin: 1.25rem 0 0;
+  font-family: var(--font-bangers), Impact, sans-serif;
+  font-size: clamp(1.2rem, 4vw, 2rem);
+  line-height: 1.05;
+  color: var(--accent);
+}
+
+/* Terminal (letters page) */
+.terminal {
+  margin: 0.5rem 0 0;
+  padding: 1.25rem;
+  font-family: var(--font-mono), monospace;
+  color: #33ff66;
+  background: #0b0f0c;
+  border: 3px solid #0b3d1a;
+  border-radius: 6px;
+}
+.terminal dt {
+  color: #ffb000;
+  font-weight: 700;
+}
+.terminal dt::before {
+  content: "> ";
+}
+.terminal dd {
+  margin: 0.25rem 0 1.1rem;
+  white-space: pre-line;
+  color: #33ff66;
+}
+.terminal dd:last-child {
+  margin-bottom: 0;
+}
+.terminal a {
+  color: #7fffb0;
+}
+.backCover {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 3px double var(--accent);
+  text-align: center;
+}
+.backCover p {
+  margin: 0.35rem 0;
+}
+.nextIssue {
+  font-family: var(--font-bangers), Impact, sans-serif;
+  font-size: 1.6rem;
+  color: var(--accent);
+}
+
+/* Projects */
+.projectName {
+  margin: 0;
+  font-family: var(--font-bangers), Impact, sans-serif;
+  font-weight: 400;
+  font-size: 1.4rem;
+}
+.projectBlurb {
+  margin: 0;
+}
+.projectTech {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.projectLink {
+  margin-top: auto;
+  font-weight: 700;
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+}
+
+/* Footer */
+.footer {
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 4px solid var(--ink);
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+.footerTitle {
+  margin: 0;
+  font-family: var(--font-bangers), Impact, sans-serif;
+  font-weight: 400;
+  font-size: 1.5rem;
+}
+.contactNote {
+  margin: 0;
+  max-width: 60ch;
+}
+.contactLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+}
+.contactLink {
+  font-weight: 700;
+  color: var(--ink);
+}
+.emailPending {
+  opacity: 0.7;
+}
+
+/* --- ExperienceGate controls --- */
+/* Visually hidden but kept in the a11y tree + SEO (NOT display:none / aria-hidden / inert). */
+.behind {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+.switchReader,
+.switchExperience {
+  position: fixed;
+  z-index: 60;
+  top: 1rem;
+  right: 1rem;
+  padding: 0.55rem 1.05rem;
+  font-family: var(--font-bangers), Impact, sans-serif;
+  font-size: 1rem;
+  letter-spacing: 0.05em;
+  color: #201d18;
+  background: #f2ead9;
+  border: 3px solid #201d18;
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+}
+.switchReader:focus-visible,
+.switchExperience:focus-visible {
+  outline: 3px solid #e2574c;
+  outline-offset: 2px;
+}
+
+/* Responsive columns */
+@media (min-width: 640px) {
+  .tocList {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (min-width: 720px) {
+  .grid2,
+  .grid3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (min-width: 960px) {
+  .tocList {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+@media (min-width: 1000px) {
+  .grid3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Gentle motion only for users who allow it; reduced-motion sees zero motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .root {
+    animation: pjFadeIn 0.5s ease both;
+  }
+  .issue {
+    transition: transform 0.2s ease;
+  }
+  .issue:hover {
+    transform: translateY(-2px);
+  }
+}
+@keyframes pjFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
