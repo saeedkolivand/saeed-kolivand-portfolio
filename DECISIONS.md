@@ -417,3 +417,56 @@ pinned 5.9.3, an external edit bumped it - kept, builds clean),
   360 exposed the detached root), ruff clamped inside the barrel (the
   top-view flank smear). Feet bottom at exactly y=0: zero scene seat
   changes. ~9-13 low-poly meshes per toon cat.
+
+## Phase 4 - Sound + polish (2026-07-03)
+- Tone.js pinned tone@15.1.22 (npm latest, verified 2026-07-03 via
+  Context7 + registry; SPEC pre-approved dep for this phase). Lazy
+  import("tone") on first enable only - audio never in initial bundle.
+- Latency ruling: keep default latencyHint "interactive" but set
+  context.lookAhead = 0.02 after Tone.start(). Rationale: docs suggest
+  "playback" for sustained ambience CPU, but beat one-shots must land
+  inside their ~60ms visual impact frame; default 100ms lookAhead would
+  audibly lag every thump. CPU cost goes to the perf ladder if the gate
+  trace objects.
+- fx.audioPulse channel added (0..1 smoothed music envelope, 0 whenever
+  audio off): the ONE contract between audio director (writer) and
+  PrintEffect halftone breathe (reader). Bit-exact print output when 0 -
+  settle-determinism gates unaffected.
+- Beat sounds: single hook in beats.ts fire() (setBeatSound) - "every
+  beat has a synced sound" enforced at the same choke point that already
+  enforces hysteresis + flash budget. Quiet-valley drops (flash 0) get a
+  soft page-turn, never a thump.
+- Meow synth = the Phase-3-queued meowCount consumer: store subscription,
+  deterministic per-count pitch hash (no Math.random - standing law).
+- Global color-script pass (SPEC Phase 4): 23 screenshots (12 centers +
+  11 gutters), 11/11 adjacent pairs OK - 0 clash, 0 flat. No recipe
+  changes made (pass criterion was "tweak only on clash"). Advisory
+  watch-links if a future phase touches these recipes: Newsprint->
+  Screentone is the softest palette gap (both desaturated print; widen
+  with screentone gold +10% if it ever muddies) and Noir->Desk the
+  weakest energy beat (title-drop gutter carries it). Audit via
+  agent-browser CLI (chrome-devtools MCP absent this session too).
+- Phase 4 gate: 10/10. Checks 1-8,10 via agent-browser CLI (no autoplay:
+  AudioContext count 0 pre-gesture; audio-on full journey 102 steps clean;
+  beat/meow paths verified via AudioParam-op counting; breathe ON==OFF at
+  the 2.5% boil floor; settle determinism <1%; toggle off quiesces to 0
+  param ops). Check 9 formally re-traced under chrome-devtools MCP
+  (reconnected mid-session): Desk + Pop spans audio-on, no sustained
+  jank, audio main-thread cost negligible (Pop ON 2.11ms mean vs OFF
+  2.36ms; zero Tone long tasks - Web Audio renders off-main-thread).
+  This also closes the Phase 3 queued formal re-trace.
+- Advisory carried forward: single-frame cold-mount stalls (desk ~90-108ms,
+  pop ~143ms IN DEV - unminified + StrictMode double-invoke inflate the
+  58ms Phase 2 baseline) are audio-neutral and pre-date Phase 4.
+  Re-measure on a production build; goes in REPORT.md if it survives.
+- Soundscape enrichment focused re-gate: 6/6 PASS (DevTools MCP): 0
+  AudioContexts pre-gesture across all 10 new call sites, full journey
+  clean both directions, gutter-jitter hysteresis holds (paramOps delta 0
+  across 40 rapid crossings), terminal cmdOk/cmdErr paths live, deep-jump
+  landing bounded (no catch-up cascade).
+- Toggle-off semantics ruling: post-disable, event-driven sounds still
+  schedule into the master out-gain ramped to 0 (silence guarantee holds;
+  context kept live for instant re-enable). Differs from the pre-enrichment
+  "0 param ops when off" observation BY DESIGN (ui.ts contract lines
+  15-20); cost negligible per the formal trace. Revisit only if a future
+  trace disagrees.

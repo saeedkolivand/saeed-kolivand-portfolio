@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useScrollStore } from "@/lib/scrollStore";
+import { uiSound } from "@/lib/audio/ui";
 import { issueCopy } from "@/lib/content";
 import { clamp01 } from "@/lib/shots";
 import { scrollToT } from "./ScrollProxy";
@@ -53,7 +54,10 @@ export default function PressCta() {
     <button
       ref={btn}
       type="button"
-      onClick={() => scrollToT(PRESS_PROJECTS_T)}
+      onClick={() => {
+        uiSound("ctaPress");
+        scrollToT(PRESS_PROJECTS_T);
+      }}
       className="fixed left-1/2 z-30"
       style={{
         bottom: "9vh",

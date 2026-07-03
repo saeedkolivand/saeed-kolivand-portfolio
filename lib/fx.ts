@@ -13,4 +13,10 @@ export const fx = {
    * so an unfired beat (deep jump, reduced motion) shows the card resting.
    */
   title: 0,
+  /**
+   * 0..1 music envelope written by the audio director each frame (0 whenever
+   * audio is off/muted). Read by PostPipeline for the S-Phase-4 halftone
+   * dot-scale breathe. Subtle by contract: consumers scale it way down.
+   */
+  audioPulse: 0,
 };

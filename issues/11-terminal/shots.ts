@@ -5,6 +5,7 @@ import { registerJawDrop } from "@/lib/beats";
 import { PopPool } from "@/lib/pops";
 import { snapshots } from "@/lib/snapshots";
 import { content, issueCopy, links } from "@/lib/content";
+import { uiSound } from "@/lib/audio/ui";
 import { issueCenter, RANGES } from "../timeline";
 
 /**
@@ -195,13 +196,22 @@ export function runCommand(cmd: string): boolean {
   const locked = RESPONSES[cmd];
   if (locked === undefined) {
     spawnPanel(cmd, issueCopy.lettersPage.unknownCommand.replace("{cmd}", cmd));
+    uiSound("cmdErr"); // lockstep with the errAt screen flinch
     return false;
   }
   spawnPanel(cmd, cmd === "contact" ? locked + "\n" + assembleEmail() : locked);
   if (cmd === "resume") dropPool.spawn(RESUME_DROP_POS);
   if (cmd === "github" && links.githubUrl !== "") window.open(links.githubUrl, "_blank", "noopener");
   if (cmd === "linkedin" && links.linkedinUrl !== "") window.open(links.linkedinUrl, "_blank", "noopener");
+  uiSound("cmdOk", charSum(cmd)); // per-command pitch identity (Enter + card click)
   return true;
+}
+
+/** Deterministic per-command seed (sum of char codes) for the cmdOk pitch. */
+function charSum(s: string): number {
+  let n = 0;
+  for (let i = 0; i < s.length; i++) n += s.charCodeAt(i);
+  return n;
 }
 
 // ---- jaw-drop: the back-cover reveal (gentle BY DESIGN, intensity 1) --------

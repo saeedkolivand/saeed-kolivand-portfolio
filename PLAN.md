@@ -89,7 +89,36 @@ Session protocol (S0.9): one phase per session. Kickoff every session with
   press CTA is DOM already) need DOM/a11y exposure; terminal panels
   spawn partly off-frame at play camera (legible, polish)
 
-## Phase 4 - Sound (all synthesized; Tone.js pre-approved) + polish
+## Phase 4 - Sound (all synthesized; Tone.js pre-approved) + polish -- DONE (2026-07-03)
+- [x] tone@15.1.22 pinned (verified via Context7 before any code); lazy
+      import, never in the initial bundle; lookAhead 0.02 latency ruling
+- [x] Audio engine core: director singleton (music/sfx buses -> Compressor
+      -> Limiter, -9dB ceiling), AudioToggle DOM overlay (off by default,
+      aria-pressed, never autoplays), setBeatSound hook at the beats.ts
+      fire() choke point, fx.audioPulse contract channel
+- [x] meowCount consumer shipped (Phase 3 queue): synth meow on cat click,
+      hash-seeded, later upgraded to contour families (question/trill/chirp)
+- [x] 12 per-issue ambiences per SPEC list (Cover/Origin/Press nearest-
+      analog rulings); screentone rail synced to the 10Hz boil grid;
+      sketchbook pencil scratch follows |velocity|
+- [x] Halftone dot-scale breathe: uAudioPulse, +5% radius cap, cell pitch
+      fixed (no crawl), bit-exact at 0 - settle gates unaffected
+- [x] Global color-script pass: 23 shots, 11/11 boundaries OK, advisory-only
+- [x] User-directed soundscape enrichment (multi-agent design sweep, 44
+      candidates -> 35 shipped): ALL 11 gutter transitions carry signature
+      sounds + velocity page-riffle; 15 scroll-window scene reactions
+      (moments.ts); 10 input reactions (ui.ts) across 10 approved scene
+      call sites; adversarial law review PASS 10/10
+- [x] Gate 10/10 (agent-browser CLI + chrome-devtools MCP after mid-session
+      reconnect); formal DevTools re-trace closes the Phase 3 queue: audio
+      adds zero main-thread cost (Web Audio off-main-thread), no new jank
+- [x] Focused audio re-gate over the enrichment (autoplay guard at new
+      call sites, gutter-jitter hysteresis, terminal interactions,
+      toggle-off quiesce, deep-jump safety)
+- Advisory to REPORT.md: pre-existing single-frame cold-mount stalls
+  (desk/pop) read 90-143ms in dev (StrictMode-inflated vs 58ms Phase 2
+  baseline) - audio-neutral; re-measure on a production build
+- Ships as PR: branch phase-4-sound-polish
 
 ## Phase 5 - Print Edition + accessibility (do NOT skip)
 

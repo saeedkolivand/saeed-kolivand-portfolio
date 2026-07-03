@@ -21,6 +21,7 @@ import { useScrollStore } from "@/lib/scrollStore";
 import { snapshots } from "@/lib/snapshots";
 import { popScale } from "@/lib/pops";
 import { clamp01, lerp } from "@/lib/shots";
+import { uiSound } from "@/lib/audio/ui";
 import { issueCopy, projects } from "@/lib/content";
 import {
   AMBER,
@@ -91,16 +92,19 @@ function onKey(e: KeyboardEvent) {
     e.preventDefault();
     term.buf = term.buf.slice(0, -1);
     term.gen++;
+    uiSound("keyBack");
     return;
   }
   if (e.key === "Escape") {
     term.buf = "";
     term.gen++;
+    uiSound("keyEsc");
     return;
   }
   if (e.key.length === 1 && /[a-z0-9-]/i.test(e.key) && term.buf.length < 14) {
     term.buf += e.key.toLowerCase();
     term.gen++;
+    uiSound("key", term.buf.length);
   }
 }
 
@@ -494,6 +498,7 @@ function ResponsePanels() {
                   onClick={(e) => {
                     if (!openLive(i)) return; // dead tab: let the ray pass
                     e.stopPropagation();
+                    uiSound("openTab", r); // per-row pitch step
                     // synchronous with the click gesture -- popup-blocker safe
                     window.open(p.url, "_blank", "noopener");
                   }}
