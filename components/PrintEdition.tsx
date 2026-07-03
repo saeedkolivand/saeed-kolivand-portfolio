@@ -11,28 +11,37 @@ import styles from "./PrintEdition.module.css";
  * client paint are identical (ExperienceGate mounts this on both paths).
  */
 
-type Pal = { paper: string; ink: string; accent: string };
+type Pal = { paper: string; ink: string; accent: string; accentText: string };
 
-// Per-issue accent tints echoing the S0.4 palettes, ASCII hex.
+// Per-issue palettes echoing S0.4, ASCII hex. `accent` is the vivid spot color
+// for decorative fills + large display; `accentText` is the WCAG 1.4.3 AA
+// readable ink used for accent-colored small/body text -- a darker mix of the
+// same hue that clears 4.5:1 on that panel's paper. On dark panels the vivid
+// accent already clears 4.5:1, so accentText equals accent there.
 const PAL = [
-  { paper: "#f2ead9", ink: "#201d18", accent: "#e2574c" }, // 0 Cover
-  { paper: "#0e0e10", ink: "#f5f1e8", accent: "#ffb347" }, // 1 Noir
-  { paper: "#f6efe3", ink: "#1c1b1a", accent: "#f5a623" }, // 2 Desk
-  { paper: "#060608", ink: "#ededf2", accent: "#00e5ff" }, // 3 Neon
-  { paper: "#ede7db", ink: "#2a2722", accent: "#7c93b2" }, // 4 Origin
-  { paper: "#23272e", ink: "#e8e4dc", accent: "#4fc3f7" }, // 5 Press
-  { paper: "#eae3d2", ink: "#221f1a", accent: "#c63d2f" }, // 6 Newsprint
-  { paper: "#101014", ink: "#e8e8e8", accent: "#f6c243" }, // 7 Screentone
-  { paper: "#1b0f2e", ink: "#f4efff", accent: "#ff3d81" }, // 8 Pop
-  { paper: "#f7f2e7", ink: "#232019", accent: "#6fa8dc" }, // 9 Sketchbook
-  { paper: "#05060d", ink: "#eaf2ff", accent: "#ffd166" }, // 10 Spread
-  { paper: "#0b0f0c", ink: "#33ff66", accent: "#ffb000" }, // 11 Terminal
+  { paper: "#f2ead9", ink: "#201d18", accent: "#e2574c", accentText: "#b3241a" }, // 0 Cover
+  { paper: "#0e0e10", ink: "#f5f1e8", accent: "#ffb347", accentText: "#ffb347" }, // 1 Noir
+  { paper: "#f6efe3", ink: "#1c1b1a", accent: "#f5a623", accentText: "#8a5300" }, // 2 Desk
+  { paper: "#060608", ink: "#ededf2", accent: "#00e5ff", accentText: "#00e5ff" }, // 3 Neon
+  { paper: "#ede7db", ink: "#2a2722", accent: "#7c93b2", accentText: "#445a78" }, // 4 Origin
+  { paper: "#23272e", ink: "#e8e4dc", accent: "#4fc3f7", accentText: "#4fc3f7" }, // 5 Press
+  { paper: "#eae3d2", ink: "#221f1a", accent: "#c63d2f", accentText: "#a5261a" }, // 6 Newsprint
+  { paper: "#101014", ink: "#e8e8e8", accent: "#f6c243", accentText: "#f6c243" }, // 7 Screentone
+  { paper: "#1b0f2e", ink: "#f4efff", accent: "#ff3d81", accentText: "#ff3d81" }, // 8 Pop
+  { paper: "#f7f2e7", ink: "#232019", accent: "#6fa8dc", accentText: "#396699" }, // 9 Sketchbook
+  { paper: "#05060d", ink: "#eaf2ff", accent: "#ffd166", accentText: "#ffd166" }, // 10 Spread
+  { paper: "#0b0f0c", ink: "#33ff66", accent: "#ffb000", accentText: "#ffb000" }, // 11 Terminal
 ] as const;
 
 const DARK = [false, true, false, true, false, true, false, true, true, false, true, true] as const;
 
 function vars(p: Pal): CSSProperties {
-  const s: Record<string, string> = { "--paper": p.paper, "--ink": p.ink, "--accent": p.accent };
+  const s: Record<string, string> = {
+    "--paper": p.paper,
+    "--ink": p.ink,
+    "--accent": p.accent,
+    "--accent-text": p.accentText,
+  };
   return s as CSSProperties;
 }
 
@@ -244,10 +253,18 @@ export default function PrintEdition() {
               <h3>{issueCopy.newsprint.frontPageStory}</h3>
               <p>{issueCopy.newsprint.frontPageBlurb}</p>
               <div className={styles.newsBtns}>
-                <a className={styles.newsBtn} href={links.flagshipRepoUrl}>
+                <a
+                  className={styles.newsBtn}
+                  href={links.flagshipRepoUrl}
+                  aria-label="Open the flagship project source on GitHub"
+                >
                   GITHUB
                 </a>
-                <a className={styles.newsBtn} href={links.liveDemoUrl}>
+                <a
+                  className={styles.newsBtn}
+                  href={links.liveDemoUrl}
+                  aria-label="Open the flagship project live demo website"
+                >
                   WEBSITE
                 </a>
               </div>
@@ -387,7 +404,7 @@ export default function PrintEdition() {
                 <h3 className={styles.projectName}>{p.name}</h3>
                 <p className={styles.projectTech}>{p.tech}</p>
                 <p className={styles.projectBlurb}>{p.blurb}</p>
-                <a className={styles.projectLink} href={p.url}>
+                <a className={styles.projectLink} href={p.url} aria-label={"Open project: " + p.name}>
                   Open project
                 </a>
               </article>
