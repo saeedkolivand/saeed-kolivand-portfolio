@@ -6,7 +6,7 @@ import { Text } from "@react-three/drei";
 import { Color, Object3D, type Group, type InstancedMesh, type MeshBasicMaterial } from "three";
 import IssueShell from "../_IssueShell";
 import { ISSUES } from "../registry";
-import CatModel, { type CatPalette } from "@/components/CatModel";
+import CatModel, { HARLEY, type CatPalette } from "@/components/CatModel";
 import { toonRamp } from "@/lib/toon";
 import { stepTime, stepNoise } from "@/lib/steppedClock";
 import { useScrollStore } from "@/lib/scrollStore";
@@ -111,7 +111,7 @@ const GRID = 9;
 const SIGN_CELLS = new Map<string, number>([
   ["-2,1", 0], // REACT
   ["2,2", 1], // TYPESCRIPT
-  ["-1,-1", 2], // RUST
+  ["-1,-1", 2], // JAVASCRIPT
   ["1,2", 3], // NEXT.JS
   ["-3,0", 4], // GRAPHQL
   ["3,1", 5], // NODE.JS
@@ -237,16 +237,16 @@ const DIM_BODY = new Color(PAPER).lerp(new Color(INK), 0.05);
 // Scale ruling (user report 2026-07-03): both were gigantic relative to the
 // city; at 0.45 the cat reads as an animal on a building, the keyboard as a
 // deck it types on -- rooftop props consistent with the 4-20 wu blocks.
-// Palette: near-paper ink body so the paper rim hulls (CatModel toon build)
-// carve the silhouette out of the black city; cyan collar + pink tag keep
-// the identity marks inside S0.4 row 3.
+// Palette (user override 2026-07-03, supersedes the black-ink palette-law
+// ruling): Harley golden tabby here too. Pure HARLEY.ink #A9743C sinks into
+// the black world, so the body is warmed 50% toward the row-3 neon orange
+// #FF9E1F -> #D4892E; tail tip takes the neon orange. HARLEY's cream paper
+// keeps the rim hulls carving the silhouette out of the dark roof.
 const CAT_SCALE = 0.45;
 const CAT_PALETTE: CatPalette = {
-  ink: "#0B0B10",
-  paper: INK,
-  collar: SYNTAX[0]!,
-  tag: SYNTAX[1]!,
-  accent: SYNTAX[1]!,
+  ...HARLEY,
+  ink: "#D4892E",
+  accent: SYNTAX[3]!,
 };
 
 const ROOF_KEY_COLS = 8;

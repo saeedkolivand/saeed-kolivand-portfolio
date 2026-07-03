@@ -6,8 +6,8 @@ Shares apply to the span left after gutters (see shots.ts `seg`).
 | # | kind | lens | share of issue | framing |
 |---|---|---|---|---|
 | 1 | hold | 24mm | 0.45 | low dutch from street; window upper-third; FG railing, MG rain, BG facade |
-| 2 | whip | 28mm | 0.179 | vertical whip up the facade; speed lines |
-| 3 | dolly | 50mm | 0.171 | slow push to window; cat silhouette enters frame-left on rooftop FG |
+| 2 | whip | 28mm | 0.215 | vertical whip up the facade; speed lines |
+| 3 | dolly | 50mm | 0.135 | slow push to window; cat enters frame-left on rooftop FG |
 | 4 | crash | 85->35mm | 0.20 | crash to window; cat leaps frame-right at p~0.8 -- motivated cut |
 
 Notes
@@ -33,3 +33,15 @@ Notes
   (0.0962-0.1080) BIT-identically through the seg() float accumulation
   (verified old===new); the NDC-verified leap framing is unchanged.
   Shot 1 now spans 0.0400-0.0666 (~9 wheel notches, was ~7).
+- Round 2, 2026-07-03 (facade climb still too fast): whip 0.179 -> 0.215
+  taken entirely from the dolly window-dwell (0.171 -> 0.135) per the
+  standing ruling (never from hold/crash). Whip now spans 0.06955-0.08224
+  (~4.3 wheel notches, was ~3.6; ~0.33 notches per facade meter over the
+  13 m climb, was ~0.27). Shot 4 stays bit-identical (0.0962-0.1080,
+  Object.is-verified on both endpoints); leap framing untouched. Captions
+  keep their fractional 30% fade windows, so all three still reach full
+  opacity (caption 1's +0.004 tail unchanged).
+- The rooftop cat is HARLEY golden-tabby (user override 2026-07-03 of the
+  noir silhouette ruling): shaders/colorWindow spotRect tracks the active
+  cat per frame, lifting mono+hatch only (strength 0.9) -- halftone and
+  ink stay, the street stays mono.

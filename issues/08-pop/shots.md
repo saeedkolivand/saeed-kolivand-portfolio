@@ -58,14 +58,21 @@ the issue): [0, .20], [.24, .44], [.47, .63], [.67, 1.0].
   boundaries (8 low tier), so they snap against the butter spin.
 
 ## Donation beat (registerJawDrop "pop-donation", t = at(0.55), flash 0.5)
-Authored ~1.1s GSAP timeline, TIME-STAGGERED (iteration 2): the alert panel
-(yellow rim, pink face, locked donationAlert copy) pops over the monitor via
-ALERT.v and reads ALONE for ~0.6s; at +0.85s the BOOM pool spawns the giant
-"KA-CHING!" (fontSize 1.65 Bangers, yellow with paper outline, popScale
-overshoot 0.8) as the panel pops out -- overlapped, the word had covered the
-locked copy for its whole life. flash 0.5 rides the central requestFlash
-budget -- the ONE full-frame moment of the issue. BeatRunner owns hysteresis
-and the reduced-motion skip.
+REWORKED (user directive 2026-07-03, title-card ruling): visibility is a
+pure f(t) opacity window, DONATION_WINDOW = [at(0.36), at(0.76)] with 0.30
+edge fades -- ~7.5 wheel notches total, ~3 notches of full-opacity plateau
+at 2400vh pacing, scrub-safe both directions, deep jumps land both elements
+resting visible at scale exactly 1. The beat contributes ONLY the DON_KICK
+slam (1 -> 0 back.out settle, scale energy on both elements) + flash 0.5 on
+the armed crossing (DONATION_T sits inside the plateau, so the ONE budgeted
+full-frame moment fires while both are fully visible). The old time-stagger
+is replaced by SPATIAL separation: the alert panel (yellow rim, pink face,
+locked donationAlert copy) rests at y 5.35 and the giant "KA-CHING!"
+(fontSize 1.65 Bangers, yellow with paper outline) rests BELOW it at y 3.9
+in front of the monitor -- both read together on the shared plateau. The
+boom pool is gone (no lifetime, no respawn, no Math.random). Reduced
+motion: window only (beat skipped centrally by BeatRunner -> kick 0, no
+flash, wobble frozen).
 
 ## Chat balloons (PopPool, lib/pops.ts -- built for exactly this)
 chatPool = PopPool(8 slots, life 2.6s). Ambient cadence: one spawn every 0.5s
@@ -92,7 +99,9 @@ luminance strobe). Both faces lettered for the orbit. Platform placards and
 OBS / Stream Deck labels are locked content.streaming strings.
 
 ## Cat: the streamer (guide moment)
-Toon-mode CatModel perched on the PC tower top, three-quarter turn toward the
+Toon-mode CatModel seated on the desk top over the tower (y 2.5 = desk
+surface 2.475 + paw contact; feedback round 2 fixed a 0.35 wu float at
+y 2.85), three-quarter turn toward the
 front cameras (loop iterations 1-2: on the desk it vanished dark-on-dark in
 front of the screen) -- RULING: flat build vanishes edge-on
 during a 360 (Noir precedent in DECISIONS), so this cameo is dimensional.
@@ -145,3 +154,12 @@ point. The empty pushed-aside chair sells the gag: the cat is live.
   frozen emote field, balloons as opacity fades, beats skipped -- the
   approved rulings hold. Console clean (pre-existing engine-wide THREE.Clock
   deprecation warning only).
+
+## Feedback round 2 (2026-07-03)
+- Cat floated 0.55 wu over its seat -> landed at y 2.5 (desk top 2.475; the
+  tower top 2.30 is EMBEDDED under the desk slab, so the desk is the real
+  surface). Verified at establish t~0.679 and orbit angles.
+- Donation alert + KA-CHING converted from timer flashes to the
+  DONATION_WINDOW f(t) pattern (section above). "60fps gang" confirmed
+  NOT hardcoded in-scene -- it is issueCopy.popPrint.chat[11]; the scene
+  only renders the pool (content-scribe owns the removal).

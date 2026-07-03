@@ -366,14 +366,18 @@ interface ToonPose {
 }
 
 const TOON_POSES: Record<CatPose, ToonPose> = {
-  // neutral perch/loaf rig (the Desk cat): head/paw defaults are LOCKED --
-  // Desk drives them per frame through the rig refs
+  // neutral perch/loaf rig (the Desk cat): head default is LOCKED -- Desk
+  // drives head/paw per frame through the rig refs. Paw default PLANTED
+  // (sock tip lands at y ~0, user feedback 2026-07-03): undriven sitters
+  // (Neon, Pop) read a grounded near-side front foot instead of a floating
+  // chest stub; Desk overrides the paw every frame, so typing/batting is
+  // untouched.
   sitting: {
     scale: [1, 1, 1],
     rot: 0,
     lift: 0,
     head: [0.5, 0.62, 0],
-    paw: [0.5, 0.42, 0.16],
+    paw: [0.44, 0.32, 0.16],
     legs: [{ pos: [0.34, 0.16, -0.15], rot: 0.05, len: 0.3 }],
     socks: [[0.34, 0.02, -0.15]],
   },

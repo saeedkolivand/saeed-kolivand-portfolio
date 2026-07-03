@@ -24,6 +24,12 @@ import { Color, Matrix4, Uniform, Vector3, type Texture } from "three";
  * uInvViewProjection -- costs zero render targets. Positioned at runtime
  * through shaders/colorWindow.ts.
  *
+ * Spot rect (ruling 2026-07-03): a SECOND independent mono-exempt rect
+ * (uSpot*) sharing the window's reconstruction -- scenes track the mascot
+ * with it per-frame (shaders/colorWindow.ts spotRect/setSpotRect).
+ * uSpotStrength < 1 keeps partial mono/hatch on the subject; halftone and
+ * ink line stay full (S2.16 clean, single-layer color op).
+ *
  * verified 2026-07 (postprocessing v6.39): uniforms must be a Map of
  * three.Uniform; mainImage signature with EffectAttribute.DEPTH gains a
  * depth param and readDepth(uv); resolution/texelSize are provided.
@@ -49,6 +55,11 @@ const fragment = /* glsl */ `
   uniform vec3 uWinU;
   uniform vec3 uWinV;
   uniform float uWinDepth;
+  uniform float uSpotStrength;
+  uniform vec3 uSpotCenter;
+  uniform vec3 uSpotU;
+  uniform vec3 uSpotV;
+  uniform float uSpotDepth;
   uniform mat4 uInvViewProjection;
 
   float pjLuma(const in vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
@@ -103,27 +114,37 @@ const fragment = /* glsl */ `
     return clamp(pjHatchLine(xa, w) * s1 + pjHatchLine(xb, w) * s2, 0.0, 1.0);
   }
 
-  float pjWindow(const in vec2 uv, const in float depth) {
-    if (uWindow < 0.001) return 0.0;
-    vec4 h = uInvViewProjection * vec4(vec3(uv, depth) * 2.0 - 1.0, 1.0);
-    vec3 q = h.xyz / max(h.w, 1e-6) - uWinCenter;
-    float a = abs(dot(q, uWinU)) / max(dot(uWinU, uWinU), 1e-5);
-    float b = abs(dot(q, uWinV)) / max(dot(uWinV, uWinV), 1e-5);
-    float n = abs(dot(q, normalize(cross(uWinU, uWinV)))) / max(uWinDepth, 1e-3);
+  // shared world-space rect mask: q = worldPos - rectCenter, U/V half-axes,
+  // dTol = half-thickness along the rect normal (window + spot rect)
+  float pjRectMask(const in vec3 q, const in vec3 U, const in vec3 V, const in float dTol) {
+    float a = abs(dot(q, U)) / max(dot(U, U), 1e-5);
+    float b = abs(dot(q, V)) / max(dot(V, V), 1e-5);
+    float n = abs(dot(q, normalize(cross(U, V)))) / max(dTol, 1e-3);
     float edge = 1.0 - smoothstep(0.92, 1.0, max(a, b));
-    return edge * (1.0 - step(1.0, n)) * uWindow;
+    return edge * (1.0 - step(1.0, n));
   }
 
   void mainImage(const in vec4 inputColor, const in vec2 uv, const in float depth, out vec4 outputColor) {
     vec3 col = inputColor.rgb;
     vec2 fragPx = uv * resolution;
 
-    // 0 -- color window: world-space rect exempt from mono + hatch, so one
-    // rect prints in full color inside an otherwise mono recipe
-    float win = pjWindow(uv, depth);
+    // 0 -- mono-exempt rects: the color window plus the per-frame SPOT RECT
+    // (mascot tracker, ruling 2026-07-03). Both reconstruct world position
+    // from the depth buffer -- zero RTs, one shared matrix multiply. With
+    // both channels disabled the masks are exactly 0.0 and every mix below
+    // reduces to the pre-spot math bit-for-bit.
+    float win = 0.0;
+    float spot = 0.0;
+    if (uWindow > 0.001 || uSpotStrength > 0.001) {
+      vec4 h = uInvViewProjection * vec4(vec3(uv, depth) * 2.0 - 1.0, 1.0);
+      vec3 wp = h.xyz / max(h.w, 1e-6);
+      win = pjRectMask(wp - uWinCenter, uWinU, uWinV, uWinDepth) * uWindow;
+      spot = pjRectMask(wp - uSpotCenter, uSpotU, uSpotV, uSpotDepth) * uSpotStrength;
+    }
+    float ex = max(win, spot);
 
     // 1 -- mono grade
-    col = mix(col, vec3(pjLuma(col)), uMono * (1.0 - win));
+    col = mix(col, vec3(pjLuma(col)), uMono * (1.0 - ex));
 
     // pre-halftone luminance feeds both screens (avoids dot/hatch moire)
     float lum = pjLuma(col);
@@ -142,7 +163,7 @@ const fragment = /* glsl */ `
     col = mix(col, mix(uPaper, col * 0.88, dotMask), uHalftone);
 
     // 2b -- crosshatch shading in shadow steps (2 directions + cross)
-    float hm = pjHatch(fragPx, shade) * uHatch * (1.0 - win);
+    float hm = pjHatch(fragPx, shade) * uHatch * (1.0 - ex);
     col = mix(col, uEdgeColor, hm * 0.85);
 
     // 3 -- one uniform ink line for the whole frame, boiling at step rate.
@@ -198,6 +219,11 @@ export class PrintEffect extends Effect {
         ["uWinU", new Uniform(new Vector3(1, 0, 0))],
         ["uWinV", new Uniform(new Vector3(0, 1, 0))],
         ["uWinDepth", new Uniform(0.6)],
+        ["uSpotStrength", new Uniform(0)],
+        ["uSpotCenter", new Uniform(new Vector3())],
+        ["uSpotU", new Uniform(new Vector3(1, 0, 0))],
+        ["uSpotV", new Uniform(new Vector3(0, 1, 0))],
+        ["uSpotDepth", new Uniform(0.6)],
         ["uInvViewProjection", new Uniform(new Matrix4())],
       ]),
     });

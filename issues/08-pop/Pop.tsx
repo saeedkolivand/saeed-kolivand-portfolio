@@ -22,10 +22,10 @@ import { sayWord } from "@/lib/onomatopoeia";
 import { popScale } from "@/lib/pops";
 import { content, issueCopy, lettering } from "@/lib/content";
 import {
-  ALERT,
-  boomPool,
   chatPool,
   CYAN,
+  DON_KICK,
+  donationOpacity,
   INK,
   ORBIT_KICK,
   PAPER,
@@ -58,7 +58,12 @@ const BANGERS = "/fonts/Bangers-Regular.ttf";
 const PLATFORMS = content.streaming.platforms;
 const TOOLS = content.streaming.tools;
 
-type TText = Mesh & { text: string; sync: () => void; fillOpacity: number };
+type TText = Mesh & {
+  text: string;
+  sync: () => void;
+  fillOpacity: number;
+  outlineOpacity: number;
+};
 
 // ---- shared scratch (zero per-frame allocation) -----------------------------
 const tmpO = new Object3D();
@@ -677,30 +682,53 @@ function ChatBalloons() {
   );
 }
 
-/* --------------- donation alert panel (ALERT.v, beat-driven) --------------- */
+/* ------- donation alert panel (pure f(t) window + beat slam energy) -------- */
+// Visibility = donationOpacity(t) window (title-card ruling 2026-07-03):
+// scrub-safe, deep jumps land it resting visible at scale exactly 1. The
+// beat contributes only the DON_KICK slam + its budgeted flash.
 function DonationAlert() {
   const g = useRef<Group>(null);
+  const mats = useRef<(MeshBasicMaterial | null)[]>([]);
+  const txt = useRef<TText | null>(null);
 
   useFrame(() => {
     const gg = g.current;
     if (!gg) return;
-    const v = ALERT.v;
-    gg.visible = v > 0.001;
-    gg.scale.setScalar(Math.max(v, 0.001));
+    const o = donationOpacity(useScrollStore.getState().t);
+    gg.visible = o > 0.001;
+    if (!gg.visible) return;
+    gg.scale.setScalar(1 + 0.4 * DON_KICK.v);
+    for (const m of mats.current) if (m) m.opacity = o;
+    if (txt.current) txt.current.fillOpacity = o;
   });
 
   return (
     <group ref={g} position={[0.4, 5.35, 1.4]} visible={false}>
       <mesh position={[0, 0, -0.12]}>
         <boxGeometry args={[7.9, 2.1, 0.18]} />
-        <meshBasicMaterial color={YELLOW} />
+        <meshBasicMaterial
+          ref={(m) => {
+            mats.current[0] = m;
+          }}
+          color={YELLOW}
+          transparent
+        />
       </mesh>
       <mesh>
         <boxGeometry args={[7.5, 1.7, 0.2]} />
-        <meshBasicMaterial color={PINK} />
+        <meshBasicMaterial
+          ref={(m) => {
+            mats.current[1] = m;
+          }}
+          color={PINK}
+          transparent
+        />
       </mesh>
       <Suspense fallback={null}>
         <Text
+          ref={(el: unknown) => {
+            txt.current = el as TText | null;
+          }}
           position={[0, 0, 0.14]}
           font={BANGERS}
           fontSize={0.4}
@@ -718,63 +746,46 @@ function DonationAlert() {
   );
 }
 
-/* ------------- the giant donation word (boomPool renderer) ----------------- */
-function BoomWords() {
-  const refs = useRef<(TText | null)[]>([]);
-  const gens = useRef<number[]>(new Array<number>(boomPool.slots.length).fill(-1));
+/* ------------- the giant donation word (same f(t) window) ------------------ */
+// Rests BELOW the alert, in front of the desk, so the two read together on
+// the shared plateau (the old pooled pop covered the alert copy -- loop log
+// in shots.md). Ambient wobble samples stepped time; freezes under reduced
+// motion. No pool, no lifetime, no Math.random.
+function DonationBoom() {
+  const txt = useRef<TText | null>(null);
 
-  useFrame(() => {
-    const now = performance.now();
-    for (let i = 0; i < boomPool.slots.length; i++) {
-      const m = refs.current[i];
-      if (!m) continue;
-      const slot = boomPool.slots[i]!;
-      if (!slot.active) {
-        m.visible = false;
-        continue;
-      }
-      const age = boomPool.age(slot, now);
-      if (!slot.active) {
-        m.visible = false;
-        continue;
-      }
-      if (gens.current[i] !== slot.gen) {
-        gens.current[i] = slot.gen;
-        m.text = slot.data.word;
-        m.sync();
-      }
-      const s = popScale(age, boomPool.life, 12, 0.16, 0.35, 0.8);
-      if (s <= 0.001) {
-        m.visible = false;
-        continue;
-      }
-      m.visible = true;
-      m.position.copy(slot.pos);
-      m.scale.setScalar(s);
-      m.rotation.z = (slot.seed - 0.5) * 0.3 + 0.05 * Math.sin(stepTime(age, 12) * 16);
-    }
+  useFrame(({ clock }) => {
+    const m = txt.current;
+    if (!m) return;
+    const { t, quality, reducedMotion } = useScrollStore.getState();
+    const o = donationOpacity(t);
+    m.visible = o > 0.001;
+    if (!m.visible) return;
+    m.fillOpacity = o;
+    m.outlineOpacity = o;
+    m.scale.setScalar(1 + 0.5 * DON_KICK.v);
+    const st = reducedMotion ? 0 : stepTime(clock.elapsedTime, quality === "low" ? 8 : 12);
+    m.rotation.z = -0.06 + 0.05 * Math.sin(st * 1.4);
   });
 
   return (
     <Suspense fallback={null}>
-      {boomPool.slots.map((_, i) => (
-        <Text
-          key={i}
-          ref={(el: unknown) => {
-            refs.current[i] = el as TText | null;
-          }}
-          font={BANGERS}
-          fontSize={1.65}
-          color={YELLOW}
-          outlineWidth={0.18}
-          outlineColor={PAPER}
-          anchorX="center"
-          anchorY="middle"
-          visible={false}
-        >
-          {" "}
-        </Text>
-      ))}
+      <Text
+        ref={(el: unknown) => {
+          txt.current = el as TText | null;
+        }}
+        position={[0.3, 3.9, 2.8]}
+        font={BANGERS}
+        fontSize={1.65}
+        color={YELLOW}
+        outlineWidth={0.18}
+        outlineColor={PAPER}
+        anchorX="center"
+        anchorY="middle"
+        visible={false}
+      >
+        {issueCopy.popPrint.donationBoom}
+      </Text>
     </Suspense>
   );
 }
@@ -805,8 +816,12 @@ function DeskCat() {
     <group
       // perched on the PC tower: clear silhouette against the paper, never
       // lost in front of the dark screen; three-quarter turn toward the
-      // front cameras so the profile reads (iterations 1-2, shots.md log)
-      position={[-3.0, 2.85, 0.35]}
+      // front cameras so the profile reads (iterations 1-2, shots.md log).
+      // Seated on the desk top over the tower: surface y 2.475 (desk slab
+      // 2.3 + 0.35/2) + 0.025 paw-contact allowance -- sitting-pose leg tips
+      // land at local y ~ 0, socks kiss the surface (user fix round 2: the
+      // cat floated at y 2.85)
+      position={[-3.0, 2.5, 0.35]}
       rotation={[0, 0.6, 0]}
       scale={0.75}
       onClick={(e) => {
@@ -850,7 +865,7 @@ export default function Pop({ index }: { index: number }) {
         <DiamondRing />
         <ChatBalloons />
         <DonationAlert />
-        <BoomWords />
+        <DonationBoom />
         <Suspense fallback={null}>
           <DeskCat />
         </Suspense>

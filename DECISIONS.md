@@ -371,3 +371,36 @@ pinned 5.9.3, an external edit bumped it - kept, builds clean),
   post-exempt, smear-safe). Dwell ~7.1 -> ~9.2 notches, readable plateau
   ~2.9 -> ~4.2 notches. Standing note: opening pacing is user-taste-tuned -
   future rebalances take share from whip/dolly, never hold or crash.
+
+## 2026-07-03 - Feedback round 2 (rides PR #25)
+
+- Rust removed as a presented skill EVERYWHERE (user: "used it with ai but
+  idk rust at all") - S0.5 locked fields overridden by user directive:
+  stack (7 items), flagship features ("Tauri desktop backend"), Press
+  dept 3 RUST -> TAURI (same industrial look), skills/experience terminal
+  responses, ticker/headline "AI OPS HUB", projects tech fields, neon sign
+  index 2 RUST -> JAVASCRIPT (8-entry map, replace-not-remove). Repo-fact
+  mentions reframed as domain labels. "60fps gang" chat line removed.
+- Spot-color channel: PrintEffect gained a second mono/hatch-exempt world
+  rect (uSpot*, setSpotRect per-frame, zero RTs, halftone/ink preserved) so
+  the Harley mascot shows color inside print worlds. USER OVERRIDES of the
+  earlier palette-law rulings: noir rooftop cat (strength .9, rect clamped
+  short of the window glass - street stays mono) and terminal sit cat
+  (strength .8) now render golden; neon cat direct palette (#D4892E, no
+  shader needed - colored world).
+- Scroll-anchored alert ruling extended to Pop donation: alert + KA-CHING
+  visibility = f(t) window t .7002-.7326 (~3.8-notch plateau), beat = slam
+  + budgeted flash only; boomPool lifetime replaced by resting Text.
+- Desk RT squash root cause: drei RenderTexture portal injects no size, so
+  RT cameras inherited the root canvas aspect onto portrait planes - all
+  RT cameras now `manual` with plane aspect. Rule: every future RT camera
+  declares manual aspect = its display plane.
+- Noir facade climb: whip .215 / dolly .135 (dolly is the only pacing
+  donor per standing ruling); shot-4 seg() Object.is-identical (share
+  pair ULP-searched, third time).
+- Terminal: sit->walk continuity via pure-f(t) hop-down arc (walk plate
+  spawned occluded behind the card wall - root cause of the vanishing
+  cat); projects panel per-row [open] raycast tabs -> window.open
+  noopener; github/linkedin commands open the real profiles synchronously
+  with the click/Enter gesture (popup-blocker safe). CatModel sitting
+  pose front paw planted (was chest-height float; Desk/Pop re-grounded).

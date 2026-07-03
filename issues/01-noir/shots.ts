@@ -3,15 +3,19 @@ import { issueCenter, RANGES } from "../timeline";
 
 /**
  * Issue 1 -- NOIR authored shot list (S0.8 canonical table, see shots.md):
- * hold 24mm 0.45 / whip 28mm 0.179 / dolly 50mm 0.171 / crash 85->35mm 0.20,
+ * hold 24mm 0.45 / whip 28mm 0.215 / dolly 50mm 0.135 / crash 85->35mm 0.20,
  * chained inside RANGES[1] with three intra-issue whip gutters. Everything
  * here is pure data; Lettering.tsx maps the 3 noir captions onto shots 1-3.
  * Rebalanced 2026-07-02 (hold+whip grew at the dolly's expense), then again
  * 2026-07-03 (live feedback: the opening street still read as a flash) --
- * shot 1 grew to 0.45 taken ~evenly from whip/dolly. The exact triple
- * 0.45/0.179/0.171 was picked so the seg() float accumulation reproduces
- * shot 4's t-range BIT-identically (sum 0.80 alone is not enough at double
- * precision; verified old===new). Leap k-window is in-shot p, untouched.
+ * shot 1 grew to 0.45 taken ~evenly from whip/dolly. Round 2 same day (the
+ * facade climb still whipped by too fast): whip 0.179 -> 0.215, taken
+ * entirely from the static dolly window-dwell (0.171 -> 0.135) per the
+ * standing ruling (never from hold or crash). The exact pair 0.215/0.135
+ * was picked so the seg() float accumulation reproduces shot 4's t-range
+ * BIT-identically (sum 0.35 alone is not enough at double precision;
+ * verified old===new via Object.is on both endpoints). Leap k-window is
+ * in-shot p, untouched.
  */
 
 /** vertical fov in degrees for a full-frame lens: 2*atan(12/mm) */
@@ -23,7 +27,7 @@ const easeInCubic: EaseFn = (x) => x * x * x;
 const [S, E] = RANGES[1]!;
 /** intra-issue whip gutters carved from the range (deadband-safe width) */
 const GUTTER = 0.003;
-const SHARES = [0.45, 0.179, 0.171, 0.2];
+const SHARES = [0.45, 0.215, 0.135, 0.2];
 const SPAN = E - S - GUTTER * (SHARES.length - 1);
 
 const seg = (i: number): [number, number] => {

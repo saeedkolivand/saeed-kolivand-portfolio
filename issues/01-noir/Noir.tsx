@@ -3,9 +3,9 @@
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { InstancedMesh, Object3D, type Group } from "three";
-import CatModel, { type CatPalette } from "@/components/CatModel";
+import CatModel, { HARLEY } from "@/components/CatModel";
 import { ArtPanel } from "../04-origin/Origin";
-import { colorWindow } from "@/shaders/colorWindow";
+import { colorWindow, setSpotRect, spotRect } from "@/shaders/colorWindow";
 import { toonRamp } from "@/lib/toon";
 import { stepTime } from "@/lib/steppedClock";
 import { useScrollStore } from "@/lib/scrollStore";
@@ -19,8 +19,10 @@ import { NOIR_SHOTS, NOIR_WINDOW } from "./shots";
  * ISSUE 1 -- NOIR (S0 Phase 1). Pure B&W hatched-ink street world (recipe 1
  * carries mono + crosshatch); rain is an InstancedMesh of white dashes on
  * stepped time; ONE window prints in full CMYK via the shaders/colorWindow
- * rect -- the only color in the universe. All scroll-driven motion (the cat
- * walk / trot / leap) is a pure function of t read via getState() (S2.2).
+ * rect, and the Harley cat carries its golden-tabby color through the
+ * tracking spot rect (user override 2026-07-03) -- everything else stays
+ * mono. All scroll-driven motion (the cat walk / trot / leap) is a pure
+ * function of t read via getState() (S2.2).
  */
 
 // S0.4 row 1 palette + working grays (post drives the final ink look)
@@ -32,7 +34,6 @@ const WALL_DARK = "#17171C";
 const GLASS_DARK = "#060609";
 const STREET = "#101014";
 const RAIL = "#3A3A44";
-const SILHOUETTE = "#050507";
 
 const S3 = NOIR_SHOTS[2]!.range;
 const S4 = NOIR_SHOTS[3]!.range;
@@ -198,15 +199,17 @@ function TheWindow({ cx }: { cx: number }) {
 
 /* ----------------------------------------------------------------- cat -- */
 
-// every mark equals ink -> CatModel renders the pure silhouette build (no
-// face, no collar, no socks) -- the noir cat is a clean ink shape (S0.4 row 1)
-const CAT_SILHOUETTE: CatPalette = {
-  ink: SILHOUETTE,
-  paper: SILHOUETTE,
-  collar: SILHOUETTE,
-  tag: SILHOUETTE,
-  accent: SILHOUETTE,
-};
+// Harley golden-tabby in the mono world (user override 2026-07-03 of the
+// noir silhouette ruling): the shaders/colorWindow SPOT RECT tracks the
+// active cat per frame and lifts mono+hatch only (strength 0.9) -- halftone
+// and the ink line stay, so the cat keeps the print texture while the
+// street around it stays pure B&W.
+
+/** spot rect half-extents, world units, sized just past the 1.2x-scaled
+ * silhouette (local build ~ x [-1.0, 0.9], y [0, 1.0], z [-0.35, 0.35]) */
+const SPOT = { hu: 1.25, hv: 0.72, cy: 0.62, depthMin: 0.55, depthMax: 1.3 };
+/** rect volume must never reach the facade glass (dark panes at z -7.83) */
+const SPOT_Z_GUARD = -7.72;
 
 function NoirCat({ cx }: { cx: number }) {
   const group = useRef<Group>(null);
@@ -218,6 +221,13 @@ function NoirCat({ cx }: { cx: number }) {
   const leapTail = useRef<Group>(null);
   const walkPaw = useRef<Group>(null);
   const armed = useRef(true);
+
+  useEffect(() => {
+    spotRect.enabled = 1;
+    return () => {
+      spotRect.enabled = 0;
+    };
+  }, []);
 
   useFrame(({ clock }) => {
     const g = group.current;
@@ -267,6 +277,16 @@ function NoirCat({ cx }: { cx: number }) {
     g.rotation.set(0, ry, rz);
     g.scale.set(1.2, 1.2 * squash, 1.2);
 
+    // spot rect tracks the active cat (world coords; rect normal is +z).
+    // The build faces +x, so the z half-thickness widens as ry turns the
+    // body toward the facade for the leap, clamped so the volume never
+    // reaches the facade glass -- by then the cat is out of frame anyway.
+    const depth = Math.min(
+      Math.min(SPOT.depthMin + 0.75 * Math.sin(ry), SPOT.depthMax),
+      z - SPOT_Z_GUARD,
+    );
+    setSpotRect([cx + x, y + SPOT.cy, z], [SPOT.hu, 0, 0], [0, SPOT.hv, 0], depth, 0.9);
+
     // pose switch, pure f(t): walk in, crouch at the gap (squash window),
     // leap build through the k-window -- scrub-safe both directions
     const leaping = k > 0;
@@ -293,21 +313,17 @@ function NoirCat({ cx }: { cx: number }) {
       }}
     >
       {/* shared mascot (components/CatModel v2): dimensional toon build in
-          pure-silhouette palette, built facing +x; one instance per pose,
-          visibility switched as pure f(t) above */}
+          the Harley golden-tabby palette (spot rect above keeps the color
+          alive inside the mono recipe), built facing +x; one instance per
+          pose, visibility switched as pure f(t) above */}
       <group ref={walkG}>
-        <CatModel
-          mode="toon"
-          pose="walking"
-          palette={CAT_SILHOUETTE}
-          rig={{ tail: walkTail, paw: walkPaw }}
-        />
+        <CatModel mode="toon" pose="walking" palette={HARLEY} rig={{ tail: walkTail, paw: walkPaw }} />
       </group>
       <group ref={crouchG} visible={false}>
-        <CatModel mode="toon" pose="crouch" palette={CAT_SILHOUETTE} rig={{ tail: crouchTail }} />
+        <CatModel mode="toon" pose="crouch" palette={HARLEY} rig={{ tail: crouchTail }} />
       </group>
       <group ref={leapG} visible={false}>
-        <CatModel mode="toon" pose="leaping" palette={CAT_SILHOUETTE} rig={{ tail: leapTail }} />
+        <CatModel mode="toon" pose="leaping" palette={HARLEY} rig={{ tail: leapTail }} />
       </group>
     </group>
   );

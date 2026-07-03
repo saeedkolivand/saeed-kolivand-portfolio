@@ -149,12 +149,15 @@ export const panelPool = new PopPool<PanelData>(4, 6, () => ({ cmd: "", body: ""
  * Set-local anchors cycled per spawn; panels float in the terminal room air.
  * All z >= 2.4: IN FRONT of the CRT face (bezel z 1.76) so panels overlap
  * the tube like speech balloons instead of clipping behind it (loop iter 1).
+ * CAT CLEARANCE (user feedback 2026-07-03): no anchor's 5.8 x 3.4 panel may
+ * cover the sit cat's rect (x 0.9..2.9, y 5.4..7.4) -- the mascot stays
+ * visible through the whole interactive hold, whatever gets clicked.
  */
 export const PANEL_ANCHORS: Vec3[] = [
   [-3.4, 5.9, 2.6],
-  [3.2, 5.8, 2.4],
-  [0.0, 6.1, 2.8],
-  [2.4, 4.4, 2.5],
+  [-0.9, 3.5, 2.4],
+  [-2.6, 6.4, 2.8],
+  [2.9, 3.0, 2.5],
 ];
 let anchorCursor = 0;
 
@@ -181,9 +184,12 @@ snapshots.retain(2);
 /**
  * Run a terminal command (keyboard Enter or card click). Any RESPONSES key
  * (visible or hidden) spawns a pooled response panel; resume additionally
- * spawns the sheet drop. Unknown input prints the locked unknownCommand line
- * with the typed echo substituted for {cmd} AND returns false so the caller
- * plays the screen flinch on top (ruling in ./shots.md).
+ * spawns the sheet drop. github/linkedin ALSO open the real page (user
+ * feedback 2026-07-03): window.open fires synchronously inside the click /
+ * Enter-keydown gesture so popup blockers allow it -- the panel still
+ * spawns as the diegetic echo. Unknown input prints the locked
+ * unknownCommand line with the typed echo substituted for {cmd} AND returns
+ * false so the caller plays the screen flinch on top (ruling in ./shots.md).
  */
 export function runCommand(cmd: string): boolean {
   const locked = RESPONSES[cmd];
@@ -193,6 +199,8 @@ export function runCommand(cmd: string): boolean {
   }
   spawnPanel(cmd, cmd === "contact" ? locked + "\n" + assembleEmail() : locked);
   if (cmd === "resume") dropPool.spawn(RESUME_DROP_POS);
+  if (cmd === "github" && links.githubUrl !== "") window.open(links.githubUrl, "_blank", "noopener");
+  if (cmd === "linkedin" && links.linkedinUrl !== "") window.open(links.linkedinUrl, "_blank", "noopener");
   return true;
 }
 

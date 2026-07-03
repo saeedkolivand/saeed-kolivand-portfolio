@@ -88,16 +88,30 @@ export function spawnChat(seed?: number): void {
   slot.data.accent = ACCENT_CYCLE[i % ACCENT_CYCLE.length]!;
 }
 
-// ---- the donation boom pool (giant word, rendered in-scene by Pop.tsx) ------
-export const boomPool = new PopPool<{ word: string }>(2, 1.3, () => ({
-  word: "",
-}));
-
 // ---- donation beat (the issue's ONE budgeted flash, S2.16) ------------------
 export const DONATION_T = at(0.55); // shot 3 p ~ 0.5
 
-/** authored-time alert-panel scale channel read by Pop.tsx (0 idle). */
-export const ALERT = { v: 0 };
+/**
+ * Donation scroll window (user directive 2026-07-03, title-card ruling):
+ * alert + KA-CHING visibility is a pure f(t) opacity window with 0.30 edge
+ * fades -- scrub-safe both directions, deep jumps land them resting visible
+ * at scale exactly 1. [at(0.36), at(0.76)] spans late shot 2 -> early orbit:
+ * ~7.5 wheel notches total, ~3 notches of full-opacity plateau at 2400vh
+ * pacing, DONATION_T inside the plateau so the armed crossing fires its
+ * budgeted flash while both are fully visible. The two elements never
+ * overlap spatially (boom rests below the alert -- loop log in shots.md).
+ */
+export const DONATION_WINDOW: [number, number] = [at(0.36), at(0.76)];
+
+/** fade in/out over 30% each end (Lettering.tsx windowOpacity pattern). */
+export function donationOpacity(t: number): number {
+  const p = (t - DONATION_WINDOW[0]) / (DONATION_WINDOW[1] - DONATION_WINDOW[0]);
+  if (p <= 0 || p >= 1) return 0;
+  return Math.min(1, p / 0.3, (1 - p) / 0.3);
+}
+
+/** authored-time slam kick read by Pop.tsx (1 -> 0 settle, 0 idle/rest). */
+export const DON_KICK = { v: 0 };
 
 let donTl: gsap.core.Timeline | null = null;
 
@@ -107,23 +121,13 @@ registerJawDrop({
   flash: 0.5,
   animate: () => {
     donTl?.kill();
-    // time-staggered (iteration 2): the alert banner reads ALONE for ~0.6s,
-    // then the giant boom replaces it -- overlapped, the word covered the
-    // locked donationAlert copy for its whole life (loop log in shots.md)
+    // the beat contributes pop energy ONLY (title-card ruling): visibility
+    // lives in donationOpacity(t). back.out settle dips slightly negative
+    // for the slam; unfired beat / reduced motion = kick 0 = scale 1.
     donTl = gsap
       .timeline()
-      .set(ALERT, { v: 0 })
-      .to(ALERT, { v: 1, duration: 0.26, ease: "back.out(2.4)" })
-      .call(
-        () => {
-          // y 5.05 keeps the giant word inside shot 3's frame top (iter 1)
-          const slot = boomPool.spawn([0.3, 5.05, 2.8], 0.37); // explicit seed: scrub-stable
-          slot.data.word = issueCopy.popPrint.donationBoom;
-        },
-        undefined,
-        0.85,
-      )
-      .to(ALERT, { v: 0, duration: 0.22, ease: "power2.in" }, 0.88);
+      .set(DON_KICK, { v: 1 })
+      .to(DON_KICK, { v: 0, duration: 0.7, ease: "back.out(2.4)" });
   },
 });
 
