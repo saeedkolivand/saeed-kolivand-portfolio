@@ -459,3 +459,14 @@ pinned 5.9.3, an external edit bumped it - kept, builds clean),
   pop ~143ms IN DEV - unminified + StrictMode double-invoke inflate the
   58ms Phase 2 baseline) are audio-neutral and pre-date Phase 4.
   Re-measure on a production build; goes in REPORT.md if it survives.
+- Soundscape enrichment focused re-gate: 6/6 PASS (DevTools MCP): 0
+  AudioContexts pre-gesture across all 10 new call sites, full journey
+  clean both directions, gutter-jitter hysteresis holds (paramOps delta 0
+  across 40 rapid crossings), terminal cmdOk/cmdErr paths live, deep-jump
+  landing bounded (no catch-up cascade).
+- Toggle-off semantics ruling: post-disable, event-driven sounds still
+  schedule into the master out-gain ramped to 0 (silence guarantee holds;
+  context kept live for instant re-enable). Differs from the pre-enrichment
+  "0 param ops when off" observation BY DESIGN (ui.ts contract lines
+  15-20); cost negligible per the formal trace. Revisit only if a future
+  trace disagrees.
