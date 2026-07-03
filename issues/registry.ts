@@ -84,7 +84,7 @@ const row = (
 
 /** S0.3 locked timeline -- ranges + gutters chain exactly to 1.000. Do not re-balance. */
 export const ISSUES: IssueEntry[] = [
-  row("cover", "PANEL JUMP", 0, 1, "crash-through", Cover, { shots: COVER_SHOTS }),
+  row("cover", "Saeed Kolivand -- Portfolio", 0, 1, "crash-through", Cover, { shots: COVER_SHOTS }),
   row("noir", "ISSUE 1 - NOIR", 1, 2, "title-drop", Noir, { shots: NOIR_SHOTS }),
   row("desk", "ISSUE 2 - DESK", 2, 2, "dot-zoom", Desk, { shots: DESK_SHOTS }),
   row("neon", "ISSUE 3 - NEON INK", 3, 5, "panel-wipe", Neon, { shots: NEON_SHOTS }),

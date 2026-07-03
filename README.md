@@ -1,4 +1,4 @@
-# PANEL JUMP
+# Saeed Kolivand — Portfolio
 
 **A scroll-driven portfolio that reads like a living comic book.**
 
@@ -65,7 +65,7 @@ append `?low` to the URL, or narrow the window below 820px.
 
 ## How it was built
 
-PANEL JUMP was built autonomously with **Claude Code**, one phase per session,
+This portfolio was built autonomously with **Claude Code**, one phase per session,
 under a self-directed execution protocol — a roster of specialized subagents
 (scene builder, shader engineer, gate auditor, performance profiler, docs
 researcher, content scribe) coordinated by an orchestrator. The agent

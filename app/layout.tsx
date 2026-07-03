@@ -20,7 +20,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PANEL JUMP -- Saeed Kolivand",
+  title: "Saeed Kolivand -- Portfolio",
   description:
     "Saeed Kolivand -- Senior Frontend Developer. A scroll-driven comic-book portfolio.",
 };
