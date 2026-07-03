@@ -13,6 +13,7 @@ export type ShotKind = "hold" | "dolly" | "orbit" | "crash" | "whip" | "spline";
 /** Full S0.3 transition vocabulary. */
 export type TransitionKind =
   | "cut"
+  | "drift"
   | "whip"
   | "dot-zoom"
   | "crash-through"
@@ -28,6 +29,7 @@ export type TransitionKind =
 /** What the TransitionEffect can render (Phase 2: full S5 library). */
 export type TransitionMode =
   | "cut"
+  | "drift"
   | "whip"
   | "dot-zoom"
   | "crash-through"
@@ -44,8 +46,14 @@ export type TransitionMode =
 // panel-portal -> panel-wipe (a portal fly-through is scene/camera work,
 // not a post op; "panel grows to full bleed" is the nearest native analog
 // and reads correctly for the Issue 4 quiet-valley exit).
+// drift (intra-issue only): a CONTINUITY gutter -- the post pass renders
+// nothing and the camera carries straight through. It is NOT a raw cut:
+// S1 bans unstyled pose jumps, so a shot may only declare out: "drift"
+// when its end pose is authored equal to the next shot's from pose
+// (near-zero delta at the mid-gutter snap). Quiet-valley grammar.
 export const TRANSITION_FALLBACK: Record<TransitionKind, TransitionMode> = {
   cut: "cut",
+  drift: "drift",
   whip: "whip",
   "dot-zoom": "dot-zoom",
   "crash-through": "crash-through",
@@ -81,6 +89,13 @@ export interface Shot {
   from: Pose;
   to?: Pose;
   ease?: EaseFn;
+  /**
+   * Transition kind for the INTRA-issue gutter after this shot (default
+   * whip). Ignored on an issue's final shot: inter-issue gutters always take
+   * the registry's outTransition. Snapshot-driven kinds (e.g. panel-wipe)
+   * need the issue snapshot fresh at shot tails -- snapshots.retain(issue).
+   */
+  out?: TransitionKind;
 }
 
 export interface ShotSegment {
@@ -169,7 +184,9 @@ export function compileSegments(
     const next = shots[i + 1];
     if (!next) break;
     const interIssue = next.issue !== shot.issue;
-    const kind: TransitionKind = interIssue ? outTransitionOf(shot.issue) : "whip";
+    const kind: TransitionKind = interIssue
+      ? outTransitionOf(shot.issue)
+      : (shot.out ?? "whip");
     segments.push({
       type: "gutter",
       range: [shot.range[1], next.range[0]],
@@ -226,13 +243,13 @@ export function evaluateTimeline(t: number, segments: Segment[]): TimelineSample
     pose: afterCut ? poseAt(segment.toShot, 0) : poseAt(segment.fromShot, 1),
     shotP: 0,
     shotKind: null,
-    transition: segment.interIssue
-      ? {
-          mode: segment.mode,
-          p,
-          fromIssue: segment.fromShot.issue,
-          toIssue: segment.toShot.issue,
-        }
-      : { mode: "whip", p, fromIssue: segment.fromShot.issue, toIssue: segment.toShot.issue },
+    // intra-issue gutters carry the shot-authored kind too (Shot.out);
+    // fromIssue === toIssue there, so recipes never jump mid-issue
+    transition: {
+      mode: segment.mode,
+      p,
+      fromIssue: segment.fromShot.issue,
+      toIssue: segment.toShot.issue,
+    },
   };
 }

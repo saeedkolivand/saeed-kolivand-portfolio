@@ -116,9 +116,11 @@ const TITLE_DROP_T = RANGES[1]![1];
 
 let titleTl: gsap.core.Timeline | null = null;
 
-// S5b.3 title drop -- the name card slams in as a full-frame comic title at
-// authored speed (the card itself lives in components/Lettering.tsx and reads
-// fx.title); the budgeted impact pop is the sub-thump. Re-fires cleanly after
+// S5b.3 title drop -- card VISIBILITY is a scroll-anchored window, pure f(t)
+// in components/Lettering.tsx (user ruling 2026-07-03: no timer fade). This
+// beat plays only the authored SLAM: fx.title snaps to 1 (oversized impact
+// frame, held ~60ms) then settles to 0 with a back.out dip. Flash stays
+// gated here, never tied to the opacity window. Re-fires cleanly after
 // hysteresis re-arm: the previous timeline is killed.
 registerJawDrop({
   id: "title-drop",
@@ -128,9 +130,8 @@ registerJawDrop({
     titleTl?.kill();
     titleTl = gsap
       .timeline()
-      .set(fx, { title: 0 })
-      .to(fx, { title: 1, duration: 0.22, ease: "back.out(2.5)" })
-      .to(fx, { title: 0, duration: 0.16, ease: "power3.in" }, "+=0.72");
+      .set(fx, { title: 1 })
+      .to(fx, { title: 0, duration: 0.34, ease: "back.out(2.5)" }, "+=0.06");
   },
 });
 

@@ -6,6 +6,7 @@ import { Text } from "@react-three/drei";
 import { Color, Object3D, type Group, type InstancedMesh, type MeshBasicMaterial } from "three";
 import IssueShell from "../_IssueShell";
 import { ISSUES } from "../registry";
+import CatModel, { type CatPalette } from "@/components/CatModel";
 import { toonRamp } from "@/lib/toon";
 import { stepTime, stepNoise } from "@/lib/steppedClock";
 import { useScrollStore } from "@/lib/scrollStore";
@@ -232,6 +233,64 @@ const tmpC = new Color();
 const tmpC2 = new Color();
 const DIM_BODY = new Color(PAPER).lerp(new Color(INK), 0.05);
 
+// -- the cat (S1) + its rooftop keyboard, hero-tower roof props ---------------
+// Scale ruling (user report 2026-07-03): both were gigantic relative to the
+// city; at 0.45 the cat reads as an animal on a building, the keyboard as a
+// deck it types on -- rooftop props consistent with the 4-20 wu blocks.
+// Palette: near-paper ink body so the paper rim hulls (CatModel toon build)
+// carve the silhouette out of the black city; cyan collar + pink tag keep
+// the identity marks inside S0.4 row 3.
+const CAT_SCALE = 0.45;
+const CAT_PALETTE: CatPalette = {
+  ink: "#0B0B10",
+  paper: INK,
+  collar: SYNTAX[0]!,
+  tag: SYNTAX[1]!,
+  accent: SYNTAX[1]!,
+};
+
+const ROOF_KEY_COLS = 8;
+const ROOF_KEY_ROWS = 3;
+const ROOF_KEY_COUNT = ROOF_KEY_COLS * ROOF_KEY_ROWS;
+
+function RoofKeyboard() {
+  const inst = useRef<InstancedMesh>(null);
+  const ramp = toonRamp();
+
+  useLayoutEffect(() => {
+    const m = inst.current;
+    if (!m) return;
+    for (let row = 0; row < ROOF_KEY_ROWS; row++) {
+      for (let col = 0; col < ROOF_KEY_COLS; col++) {
+        const i = row * ROOF_KEY_COLS + col;
+        tmpO.position.set((col - (ROOF_KEY_COLS - 1) / 2) * 0.064, 0.045, (row - 1) * 0.064);
+        tmpO.rotation.set(0, 0, 0);
+        tmpO.scale.setScalar(1);
+        tmpO.updateMatrix();
+        m.setMatrixAt(i, tmpO.matrix);
+        // every instance colored (unset instances render WHITE)
+        tmpC.set((i * 31) % 89 < 22 ? SYNTAX[i % SYNTAX.length]! : INK);
+        m.setColorAt(i, tmpC);
+      }
+    }
+    m.instanceMatrix.needsUpdate = true;
+    m.instanceColor!.needsUpdate = true;
+  }, []);
+
+  return (
+    <group position={[6.27, 20.0, 2.58]} rotation={[0, -1.33, 0]}>
+      <mesh position={[0, 0.02, 0]}>
+        <boxGeometry args={[0.56, 0.04, 0.24]} />
+        <meshToonMaterial color={DIM_BODY} gradientMap={ramp} />
+      </mesh>
+      <instancedMesh ref={inst} args={[undefined, undefined, ROOF_KEY_COUNT]}>
+        <boxGeometry args={[0.05, 0.022, 0.05]} />
+        <meshBasicMaterial color="#FFFFFF" />
+      </instancedMesh>
+    </group>
+  );
+}
+
 export default function Neon({ index }: { index: number }) {
   const issue = ISSUES[index]!;
   const ramp = toonRamp();
@@ -429,38 +488,22 @@ export default function Neon({ index }: { index: number }) {
         ))}
       </Suspense>
 
-      {/* the cat (S1) -- perched on the hero tower roof edge, clickable */}
+      {/* the cat (S1) -- shared mascot (components/CatModel v2), perched on
+          the hero tower roof at prop scale, facing its keyboard toward the
+          plaza; clickable meow */}
       <group
         ref={cat}
-        position={[7.2, 20, 2.4]}
-        rotation={[0, -2.4, 0]}
-        scale={0.9}
+        position={[6.8, 20.0, 2.45]}
+        rotation={[0, -2.9, 0]}
+        scale={CAT_SCALE}
         onClick={(e) => {
           e.stopPropagation();
           useScrollStore.getState().meow();
         }}
       >
-        <mesh position={[0, 0.25, 0]}>
-          <boxGeometry args={[0.9, 0.5, 0.45]} />
-          <meshToonMaterial color={INK} gradientMap={ramp} />
-        </mesh>
-        <mesh position={[0.45, 0.62, 0]}>
-          <boxGeometry args={[0.42, 0.4, 0.4]} />
-          <meshToonMaterial color={INK} gradientMap={ramp} />
-        </mesh>
-        <mesh position={[0.55, 0.88, 0.1]} rotation={[0, 0, 0.3]}>
-          <coneGeometry args={[0.09, 0.22, 4]} />
-          <meshToonMaterial color={INK} gradientMap={ramp} />
-        </mesh>
-        <mesh position={[0.35, 0.88, -0.1]} rotation={[0, 0, -0.2]}>
-          <coneGeometry args={[0.09, 0.22, 4]} />
-          <meshToonMaterial color={INK} gradientMap={ramp} />
-        </mesh>
-        <mesh position={[-0.55, 0.45, 0]} rotation={[0, 0, 1.1]}>
-          <cylinderGeometry args={[0.05, 0.07, 0.7, 8]} />
-          <meshToonMaterial color={INK} gradientMap={ramp} />
-        </mesh>
+        <CatModel mode="toon" pose="sitting" palette={CAT_PALETTE} />
       </group>
+      <RoofKeyboard />
     </IssueShell>
   );
 }

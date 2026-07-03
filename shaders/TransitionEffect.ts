@@ -306,6 +306,10 @@ const fragment = /* glsl */ `
 
 const MODE = {
   none: 0,
+  // drift: intentionally uMode 0 -- a continuity gutter renders NOTHING
+  // (no smear, no speed lines, no blink). Legal only where the adjacent
+  // shot poses are authored continuous (see lib/shots.ts "drift").
+  drift: 0,
   whip: 1,
   "dot-zoom": 2,
   cut: 3,

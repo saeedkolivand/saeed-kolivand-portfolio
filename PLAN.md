@@ -63,7 +63,31 @@ Session protocol (S0.9): one phase per session. Kickoff every session with
       one-off mount hitch t~0.172 (0.2% frames) - perf-profiler if it worsens
 - Ships as PR: branch phase-2-framework-hardening
 
-## Phase 3 - Issues 4-11, one commit each (styled placeholders -> real)
+## Phase 3 - Issues 4-11, one commit each -- DONE (2026-07-03)
+- [x] Wave 0: all Issue 4-11 copy seeded (issueCopy), GitHub contributions
+      endpoint verified + baked (real data, deterministic starfield fallback)
+- [x] Issue 4 Origin (gate 9/9 + drift-gutter fix), 5 Press (10/10),
+      6 Newsprint (9/9 + pinned KRAKA-THOOM fix), 7 Screentone (10/10 after
+      2-attempt settle-determinism fix loop: ScrollProxy velocity latch +
+      PrintEffect boil-modulated Sobel radius), 8 Pop (10/10), 9 Sketchbook
+      (10/10), 10 Spread (10/10 after SpreadCat palette fix), 11 Terminal
+      (10/10 incl. full-journey console smoke)
+- [x] User-directed mid-phase: CatModel v2 organic redesign -> Harley
+      golden-tabby mascot (user's real cat); user-generated art integrated:
+      noir window, origin kid + Cologne panels, newsprint Harley press
+      photo, back-cover Harley walk-off; title card scroll-anchored;
+      noir/scroll pacing follow-ups; real GitHub projects woven into content
+- [x] Framework survived the letter of the Phase 2 gate: every issue landed
+      as component + registry row() + printRecipe (+ its own shots.ts)
+- [x] All gates via agent-browser CLI fallback (chrome-devtools MCP
+      disconnected mid-phase): trace/FPS clauses self-reported per S0.6 -
+      formal DevTools re-trace queued for the Phase 4 gate
+- Queued to Phase 4: meowCount consumer (synth meow on cat click - counter
+  is write-only app-wide); isolated ~60ms single-frame mount hitches
+  (t~0.172 desk, back-cover beat) if they worsen on low tier
+- Queued to Phase 5: diegetic canvas buttons (newsprint GITHUB/LIVE DEMO,
+  press CTA is DOM already) need DOM/a11y exposure; terminal panels
+  spawn partly off-frame at play camera (legible, polish)
 
 ## Phase 4 - Sound (all synthesized; Tone.js pre-approved) + polish
 

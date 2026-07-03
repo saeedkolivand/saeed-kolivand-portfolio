@@ -4,7 +4,7 @@ import { useLayoutEffect, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { PerspectiveCamera, RenderTexture } from "@react-three/drei";
 import { Color, Matrix4, Vector3, type Group, type InstancedMesh, type Mesh } from "three";
-import CatModel, { type CatPalette } from "@/components/CatModel";
+import CatModel from "@/components/CatModel";
 import { toonRamp } from "@/lib/toon";
 import { stepTime } from "@/lib/steppedClock";
 import { useScrollStore } from "@/lib/scrollStore";
@@ -31,9 +31,6 @@ const WOOD = "#D9A967";
 
 const CENTER = issueCenter(2);
 const CX = CENTER[0];
-
-// mascot identity marks shared with the Cover cat: teal collar, red tag
-const CAT_PALETTE: CatPalette = { ink: INK, paper: PAPER, collar: TEAL, tag: RED, accent: ORANGE };
 
 // -- shared scratch (zero per-frame allocation) ------------------------------
 const MAT = new Matrix4();
@@ -252,7 +249,9 @@ function DeskCat({ say = false }: { say?: boolean }) {
         g.position.set(-2.7, 0, 0.9);
         g.rotation.set(0, 0, 0);
         g.scale.set(1 + 0.18 * squash, 1 - 0.28 * squash - 0.12 * c, 1);
-        head.current.position.set(lerp(0.5, 0.42, c), lerp(0.62, 0.46, c), 0);
+        // loaf head rests ON the chest front (v2 body is rounder/taller than
+        // the v1 box -- the old 0.42/0.46 target buried the skull in it)
+        head.current.position.set(lerp(0.5, 0.47, c), lerp(0.62, 0.57, c), 0);
         wrap = 1.4 * c;
         flick *= 1 - 0.6 * c; // calmer tail once loafed
       }
@@ -295,9 +294,10 @@ function DeskCat({ say = false }: { say?: boolean }) {
 
   return (
     <group ref={grp}>
-      {/* shared mascot (components/CatModel): lit-toon build, neutral perch;
+      {/* shared mascot (components/CatModel): lit-toon build, neutral perch,
+          Harley default palette (golden tabby, user directive 2026-07-03);
           head/paw/tail are driven per frame through the rig refs above */}
-      <CatModel mode="toon" pose="sitting" palette={CAT_PALETTE} rig={{ head, paw, tail }} />
+      <CatModel mode="toon" pose="sitting" rig={{ head, paw, tail }} />
       {/* bat motion lines: speed-line fan at the strike arc, scale = f(p4) */}
       <group ref={lines} position={[1.32, 0.95, 0.2]} scale={0.0001}>
         <mesh position={[0, 0.12, 0]} rotation={[0, 0, 0.5]}>
