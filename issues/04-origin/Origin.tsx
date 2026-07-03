@@ -248,7 +248,19 @@ function PanelFrame({ p, children }: { p: PanelDef; children?: ReactNode }) {
  * interior fill (z 0.03) is the placeholder, and the rest of the page
  * never unmounts.
  */
-function ArtPanel({ url, w, h, trim = 0 }: { url: string; w: number; h: number; trim?: number }) {
+export function ArtPanel({
+  url,
+  w,
+  h,
+  trim = 0,
+  z = 0.035,
+}: {
+  url: string;
+  w: number;
+  h: number;
+  trim?: number;
+  z?: number;
+}) {
   const tex = useLoader(TextureLoader, url);
 
   useLayoutEffect(() => {
@@ -274,7 +286,7 @@ function ArtPanel({ url, w, h, trim = 0 }: { url: string; w: number; h: number; 
   );
 
   return (
-    <mesh position={[0, 0, 0.035]}>
+    <mesh position={[0, 0, z]}>
       <planeGeometry args={[w, h]} />
       <meshBasicMaterial map={tex} />
     </mesh>

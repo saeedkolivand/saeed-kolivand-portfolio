@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { InstancedMesh, Object3D, type Group } from "three";
 import CatModel, { type CatPalette } from "@/components/CatModel";
+import { ArtPanel } from "../04-origin/Origin";
 import { colorWindow } from "@/shaders/colorWindow";
 import { toonRamp } from "@/lib/toon";
 import { stepTime } from "@/lib/steppedClock";
@@ -25,9 +26,7 @@ import { NOIR_SHOTS, NOIR_WINDOW } from "./shots";
 // S0.4 row 1 palette + working grays (post drives the final ink look)
 const PAPER = "#0E0E10";
 const INK = "#F5F1E8";
-const AMBER = "#FFB347";
-const PINK = "#FF4FA3";
-const TEAL = "#39D0D8";
+const AMBER = "#FFB347"; // PINK/TEAL accents now live in the baked art
 const WALL = "#23232A";
 const WALL_DARK = "#17171C";
 const GLASS_DARK = "#060609";
@@ -167,61 +166,21 @@ function TheWindow({ cx }: { cx: number }) {
         <planeGeometry args={[1.9, 2.3]} />
         <meshToonMaterial color={WALL_DARK} gradientMap={toonRamp()} />
       </mesh>
-      {/* warm backlit pane -- unlit, so the color stays flat and loud */}
-      <mesh>
-        <planeGeometry args={[1.6, 2.0]} />
-        <meshBasicMaterial color={AMBER} />
-      </mesh>
-      {/* interior story: pink lamp glow + teal monitor, the only accents
-          allowed inside the rect (S0.4 row 1) */}
-      <mesh position={[-0.42, -0.28, 0.02]}>
-        <circleGeometry args={[0.26, 20]} />
-        <meshBasicMaterial color={PINK} />
-      </mesh>
-      <mesh position={[0.42, -0.12, 0.02]}>
-        <planeGeometry args={[0.5, 0.34]} />
-        <meshBasicMaterial color={TEAL} />
-      </mesh>
-      {/* the human at the window: backlit dev, clean ink-black silhouette
-          shapes read against the amber pane / teal screen (flat unlit,
-          no gradients -- comic backlight). Desk line grounds the scene,
-          lamp stem grounds the pink glow. */}
-      <mesh position={[0, -0.66, 0.025]}>
-        <planeGeometry args={[1.5, 0.06]} />
-        <meshBasicMaterial color={SILHOUETTE} />
-      </mesh>
-      <mesh position={[-0.42, -0.5, 0.025]}>
-        <planeGeometry args={[0.035, 0.32]} />
-        <meshBasicMaterial color={SILHOUETTE} />
-      </mesh>
-      <mesh position={[0.4, -0.16, 0.03]}>
-        <circleGeometry args={[0.13, 24]} />
-        <meshBasicMaterial color={SILHOUETTE} />
-      </mesh>
-      <mesh position={[0.4, -0.16, 0.032]}>
-        <torusGeometry args={[0.145, 0.026, 8, 16, Math.PI]} />
-        <meshBasicMaterial color={SILHOUETTE} />
-      </mesh>
-      <mesh position={[0.4, -0.31, 0.03]}>
-        <planeGeometry args={[0.09, 0.1]} />
-        <meshBasicMaterial color={SILHOUETTE} />
-      </mesh>
-      <mesh position={[0.4, -0.5, 0.03]}>
-        <planeGeometry args={[0.54, 0.34]} />
-        <meshBasicMaterial color={SILHOUETTE} />
-      </mesh>
-      <mesh position={[0.14, -0.36, 0.03]}>
-        <circleGeometry args={[0.09, 16]} />
-        <meshBasicMaterial color={SILHOUETTE} />
-      </mesh>
-      <mesh position={[0.66, -0.36, 0.03]}>
-        <circleGeometry args={[0.09, 16]} />
-        <meshBasicMaterial color={SILHOUETTE} />
-      </mesh>
-      <mesh position={[0.02, -0.58, 0.028]}>
-        <planeGeometry args={[0.09, 0.1]} />
-        <meshBasicMaterial color={SILHOUETTE} />
-      </mesh>
+      {/* interior art (user-approved, exact 4:5): amber room + backlit dev
+          silhouette + pink lamp + teal monitor baked into one flat panel --
+          unlit meshBasicMaterial so the colorWindow rect stays the only
+          color source. Amber pane stands in while the texture loads
+          (local Suspense: the rest of the set never unmounts). */}
+      <Suspense
+        fallback={
+          <mesh>
+            <planeGeometry args={[1.6, 2.0]} />
+            <meshBasicMaterial color={AMBER} />
+          </mesh>
+        }
+      >
+        <ArtPanel url="/images/noir-window-figure.png" w={1.6} h={2.0} z={0} />
+      </Suspense>
       {/* mullions keep it reading as a window */}
       <mesh position={[0, 0, 0.04]}>
         <boxGeometry args={[0.07, 2.0, 0.02]} />
