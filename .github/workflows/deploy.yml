@@ -1,0 +1,62 @@
+name: Deploy to GitHub Pages
+
+# Builds the Next.js static export and publishes it to GitHub Pages.
+# Served at the apex custom domain iamsaeed.dev (public/CNAME) -- so
+# configure-pages is used WITHOUT `static_site_generator: next`, which would
+# otherwise force a basePath meant for project subpaths (user.github.io/repo)
+# and break asset paths at the domain root.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow one concurrent deployment; don't cancel an in-progress publish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "lts/*"
+          cache: npm
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v6
+
+      - name: Install dependencies
+        run: npm ci
+
+      # `npm run build` runs the prebuild bake (contributions JSON) then
+      # `next build`, which emits the static site to ./out (incl. CNAME).
+      - name: Build static export
+        run: npm run build
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: ./out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
