@@ -32,10 +32,21 @@ const DESK_START = RANGES[2]![0];
 const TITLE_WINDOW: [number, number] = [NOIR_RANGE[1] - 0.005, DESK_START + 0.012];
 const CAPTIONS = lettering.noirCaptions;
 
+/**
+ * Caption 1 (the opening street) holds past its shot by a small tail into
+ * the whip gutter / early shot 2 -- captions are a DOM overlay exempt from
+ * post, so nothing can smear them (user feedback 2026-07-03: the opening
+ * must hold longer). Captions 2-3 keep their exact shot-range windows.
+ */
+const CAP1_TAIL = 0.004;
+
 /** One caption window per noir shot when counts allow, else an even split of the issue range. */
 const CAPTION_WINDOWS: [number, number][] =
   NOIR_SHOTS.length >= CAPTIONS.length
-    ? CAPTIONS.map((_, i) => [NOIR_SHOTS[i]!.range[0], NOIR_SHOTS[i]!.range[1]])
+    ? CAPTIONS.map((_, i) => [
+        NOIR_SHOTS[i]!.range[0],
+        NOIR_SHOTS[i]!.range[1] + (i === 0 ? CAP1_TAIL : 0),
+      ])
     : CAPTIONS.map((_, i) => {
         const w = (NOIR_RANGE[1] - NOIR_RANGE[0]) / CAPTIONS.length;
         return [NOIR_RANGE[0] + i * w, NOIR_RANGE[0] + (i + 1) * w];

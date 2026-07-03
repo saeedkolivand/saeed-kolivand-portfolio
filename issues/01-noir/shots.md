@@ -5,9 +5,9 @@ Shares apply to the span left after gutters (see shots.ts `seg`).
 
 | # | kind | lens | share of issue | framing |
 |---|---|---|---|---|
-| 1 | hold | 24mm | 0.35 | low dutch from street; window upper-third; FG railing, MG rain, BG facade |
-| 2 | whip | 28mm | 0.23 | vertical whip up the facade; speed lines |
-| 3 | dolly | 50mm | 0.22 | slow push to window; cat silhouette enters frame-left on rooftop FG |
+| 1 | hold | 24mm | 0.45 | low dutch from street; window upper-third; FG railing, MG rain, BG facade |
+| 2 | whip | 28mm | 0.179 | vertical whip up the facade; speed lines |
+| 3 | dolly | 50mm | 0.171 | slow push to window; cat silhouette enters frame-left on rooftop FG |
 | 4 | crash | 85->35mm | 0.20 | crash to window; cat leaps frame-right at p~0.8 -- motivated cut |
 
 Notes
@@ -21,9 +21,15 @@ Notes
   the window dead-center for the cut (gate fix attempt 1, NDC-verified).
 - Depth planes: 1 railing/rain/facade; 2 rain/window-grid/roofline;
   3 parapet+cat/rain/window; 4 cat/window/facade wall.
-- Lettering.tsx maps the 3 noir captions onto shots 1-3 automatically.
+- Lettering.tsx maps the 3 noir captions onto shots 1-3 automatically;
+  caption 1 gets a +0.004 t tail past shot 1 (DOM overlay, post-exempt).
 - Screen direction: cat exits frame-right; Issue 2 opens on the landing.
 - Shares rebalanced 2026-07-02 (live feedback): wide->close travel was too
   compressed, so hold/whip grew (0.30/0.15 -> 0.35/0.23) at the dolly's
-  expense (0.35 -> 0.22). Shots 1-3 still sum to 0.80, so shot 4's t-range
-  (0.0962-0.1080) and its NDC-verified leap framing are unchanged.
+  expense (0.35 -> 0.22).
+- Rebalanced again 2026-07-03 (live feedback: opening street still read as
+  a flash): hold 0.35 -> 0.45, taken ~evenly from whip (0.23 -> 0.179) and
+  dolly (0.22 -> 0.171). The exact triple reproduces shot 4's t-range
+  (0.0962-0.1080) BIT-identically through the seg() float accumulation
+  (verified old===new); the NDC-verified leap framing is unchanged.
+  Shot 1 now spans 0.0400-0.0666 (~9 wheel notches, was ~7).

@@ -358,3 +358,16 @@ pinned 5.9.3, an external edit bumped it - kept, builds clean),
 - Every issue: shots.md first (S0.8), <=3 iterations per shot, motivated
   entrances/exits, one designed jaw-drop, cat placed, disposes clean,
   reduced-motion + low-tier paths verified, zero new live RTs anywhere.
+
+## 2026-07-03 - Post-Phase-3 fixes
+
+- Model routing substitution per S0.10: user at 85% weekly Fable quota -
+  issue-builder + shader-engineer frontmatter fable -> opus until the user
+  directs otherwise (S0.10 sanctioned this exact fallback at kickoff).
+- Noir opening dwell (user: shot 1 + "Rain again" caption still a flash):
+  shares hold 0.45 / whip 0.179 / dolly 0.171 / crash 0.20 (triple searched
+  so shot 4 stays BIT-identical through seg() float accumulation); caption 1
+  window = shot-1 range + 0.004 tail into the whip gutter (DOM captions are
+  post-exempt, smear-safe). Dwell ~7.1 -> ~9.2 notches, readable plateau
+  ~2.9 -> ~4.2 notches. Standing note: opening pacing is user-taste-tuned -
+  future rebalances take share from whip/dolly, never hold or crash.

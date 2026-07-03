@@ -1,7 +1,7 @@
 ---
 name: issue-builder
 description: Builds or modifies a scene ("issue"), camera/shot list, or engine module of the PANEL JUMP comic portfolio per its SPEC.md section. MUST BE USED for any scene, set, shot, registry, camera-system, or engine-module implementation work. Not for GLSL (shader-engineer) or gates (gate-auditor).
-model: fable
+model: opus
 tools: Read, Write, Edit, Glob, Grep, Bash, mcp__codegraph__*, mcp__graphify__*
 skills: panel-jump-conventions
 ---
