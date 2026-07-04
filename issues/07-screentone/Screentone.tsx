@@ -6,7 +6,7 @@ import { Text } from "@react-three/drei";
 import { Color, Object3D, type Group, type InstancedMesh, type Mesh } from "three";
 import IssueShell from "../_IssueShell";
 import { ISSUES } from "../registry";
-import CatModel, { type CatPalette } from "@/components/CatModel";
+import CatModel, { HARLEY, type CatPalette } from "@/components/CatModel";
 import { stepNoise, stepTime } from "@/lib/steppedClock";
 import { useScrollStore } from "@/lib/scrollStore";
 import { sayWord } from "@/lib/onomatopoeia";
@@ -61,11 +61,15 @@ const NAMES = content.timeline;
 const CAPTIONS = issueCopy.screentone.stationCaptions;
 const [CX] = issueCenter(7);
 
-// platform cameo: identity marks print in this issue's spot yellow (mono 0
-// world, S0.4 row 7 allows no teal/red -- ruling in shots.md)
+// platform cameo: the Harley mascot, warmed for the dark screentone world
+// (Neon precedent). Pure HARLEY.ink #A9743C sinks into the near-black paper,
+// so the fur is pushed to a warm amber #D4892E. Identity marks + tail tip
+// still print in this issue's spot yellow -- mono 0 / S0.4 row 7 color law
+// stands (shots.md ruling); only the fur warms so the cameo reads as Harley
+// instead of a black cat.
 const CAT_PALETTE: CatPalette = {
-  ink: "#2E2E36",
-  paper: INK,
+  ...HARLEY,
+  ink: "#D4892E",
   collar: YELLOW,
   tag: YELLOW,
   accent: YELLOW,

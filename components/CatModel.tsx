@@ -1,7 +1,7 @@
 "use client";
 
 import type { RefObject } from "react";
-import { BackSide, type Group } from "three";
+import { BackSide, Color, type Group } from "three";
 import { toonRamp } from "@/lib/toon";
 
 /**
@@ -95,6 +95,11 @@ type Vec3 = [number, number, number];
 const isSilhouette = (p: CatPalette) =>
   p.paper === p.ink && p.collar === p.ink && p.tag === p.ink;
 
+// far-side limb tint: p.ink multiplied toward black for a classic "far leg in
+// shade" depth read. Palette-derived so it works for every scene; skipped for
+// true silhouettes (a single flat ink shape must stay one tone).
+const darker = (hex: string, f: number) => new Color(hex).multiplyScalar(f).getStyle();
+
 /* ----------------------------------------------------- flat-print build -- */
 
 interface FlatBlob {
@@ -106,7 +111,8 @@ interface FlatBlob {
 interface FlatPose {
   body: FlatBlob[]; // overlapping ink masses: torso / belly / haunch / chest
   head: { pos: Vec3; rot: number };
-  legs: { pos: Vec3; rot: number; len: number }[]; // capsules, roots inside a mass
+  // capsules, roots inside a mass; far = off-side leg (behind torso, shaded)
+  legs: { pos: Vec3; rot: number; len: number; far?: boolean }[];
   socks: Vec3[]; // paper caps ON the forward paw tips
   collar: { pos: Vec3; rot: number; w: number };
   tag: Vec3;
@@ -125,15 +131,18 @@ const FLAT_POSES: Record<CatPose, FlatPose> = {
       { pos: [0.52, 0.13, 0.0006], r: 0.3, s: [0.95, 0.95] },
     ],
     head: { pos: [0.85, 0.42, 0.003], rot: 0.1 },
+    // near legs reach full-length in front of the torso; far legs staggered
+    // back in x, shortened, root tucked so a body mass hides their upper half
+    // (only the paw/lower shin peeks out behind the outline) -- side-view depth
     legs: [
       { pos: [0.98, 0.02, 0.0015], rot: -1.2, len: 0.5 },
-      { pos: [0.82, -0.06, -0.001], rot: -1.05, len: 0.46 },
+      { pos: [0.72, -0.08, -0.001], rot: -1.05, len: 0.34, far: true },
       { pos: [-0.66, -0.36, 0.0015], rot: -0.35, len: 0.46 },
-      { pos: [-0.84, -0.32, -0.001], rot: -0.72, len: 0.5 },
+      { pos: [-0.86, -0.28, -0.001], rot: -0.72, len: 0.4, far: true },
     ],
     socks: [
       [1.29, 0.14, 0.0035],
-      [1.09, 0.1, -0.0005],
+      [0.94, 0.04, -0.0005],
     ],
     collar: { pos: [0.6, 0.05, 0.005], rot: -0.75, w: 0.5 },
     tag: [0.67, -0.09, 0.006],
@@ -190,15 +199,18 @@ const FLAT_POSES: Record<CatPose, FlatPose> = {
       { pos: [0.5, 0.14, 0.0006], r: 0.28, s: [1.0, 1.0] },
     ],
     head: { pos: [0.78, 0.46, 0.003], rot: 0 },
+    // side-walk depth: near legs plant full-length in front; far legs pulled
+    // back in x, shortened, root tucked up so the belly/haunch overlaps their
+    // upper half and only the lower shin + paw peeks out behind the outline
     legs: [
       { pos: [0.52, -0.34, 0.0015], rot: 0.32, len: 0.46 },
-      { pos: [0.28, -0.32, -0.001], rot: -0.38, len: 0.46 },
+      { pos: [0.24, -0.28, -0.001], rot: -0.3, len: 0.34, far: true },
       { pos: [-0.5, -0.34, 0.0015], rot: -0.3, len: 0.46 },
-      { pos: [-0.66, -0.3, -0.001], rot: 0.55, len: 0.46 },
+      { pos: [-0.62, -0.26, -0.001], rot: 0.5, len: 0.34, far: true },
     ],
     socks: [
       [0.62, -0.64, 0.0035],
-      [0.17, -0.61, -0.0005],
+      [0.17, -0.52, -0.0005],
     ],
     collar: { pos: [0.55, 0.24, 0.005], rot: -1.0, w: 0.48 },
     tag: [0.62, 0.11, 0.006],
@@ -256,6 +268,7 @@ function FlatFace({ p }: { p: CatPalette }) {
 
 function FlatCat({ def, p, rig }: { def: FlatPose; p: CatPalette; rig?: CatRig }) {
   const sil = isSilhouette(p);
+  const farInk = sil ? p.ink : darker(p.ink, 0.7);
   return (
     <group>
       {/* overlapping body masses keep every limb rooted in one silhouette */}
@@ -270,7 +283,7 @@ function FlatCat({ def, p, rig }: { def: FlatPose; p: CatPalette; rig?: CatRig }
       {def.legs.map((l, i) => (
         <mesh key={i} position={l.pos} rotation={[0, 0, l.rot]}>
           <capsuleGeometry args={[0.08, l.len, 4, 10]} />
-          <meshBasicMaterial color={p.ink} />
+          <meshBasicMaterial color={l.far ? farInk : p.ink} />
         </mesh>
       ))}
       {/* paper socks ON the forward paw tips */}
@@ -361,7 +374,8 @@ interface ToonPose {
   lift: number; // body raise so pose leg tips still land at y ~ 0
   head: Vec3; // default group positions -- rig-ref parents override per frame
   paw: Vec3;
-  legs: { pos: Vec3; rot: number; len: number }[]; // static limbs (paw rig is its own)
+  // static limbs (paw rig is its own); far = off-side leg (deeper -z, shaded)
+  legs: { pos: Vec3; rot: number; len: number; far?: boolean }[];
   socks: Vec3[]; // paper sock spheres on forward tips
   /** rear-leg masses bulging off the body flanks so the cat reads
    *  four-limbed from behind and above (feet fix 2026-07-03); pos.y is
@@ -436,14 +450,17 @@ const TOON_POSES: Record<CatPose, ToonPose> = {
     lift: 0.12,
     head: [0.56, 0.66, 0],
     paw: [0.64, 0.4, 0.16],
+    // near front = paw rig (z +0.16), near rear = legs[2] (z +0.16); the two
+    // far legs pushed deeper (-0.24), staggered back in x and shortened, roots
+    // tucked into body -- reads as staggered side-view depth, not twin sticks
     legs: [
-      { pos: [0.4, 0.18, -0.16], rot: -0.2, len: 0.32 },
-      { pos: [-0.34, 0.18, -0.16], rot: 0.28, len: 0.32 },
+      { pos: [0.3, 0.15, -0.24], rot: -0.18, len: 0.24, far: true },
+      { pos: [-0.46, 0.15, -0.24], rot: 0.3, len: 0.24, far: true },
       { pos: [-0.28, 0.18, 0.16], rot: -0.22, len: 0.32 },
     ],
     socks: [
-      [0.44, 0.02, -0.16],
-      [-0.4, 0.02, -0.16],
+      [0.3, 0.0, -0.24],
+      [-0.41, 0.0, -0.24],
     ],
     // subtle stride haunches, flush with the flank (shading, not bulge)
     haunches: [
@@ -476,6 +493,7 @@ const TOON_POSES: Record<CatPose, ToonPose> = {
 function ToonCat({ def, p, rig }: { def: ToonPose; p: CatPalette; rig?: CatRig }) {
   const ramp = toonRamp();
   const sil = isSilhouette(p);
+  const farInk = sil ? p.ink : darker(p.ink, 0.7);
   const L = def.lift;
   return (
     <group scale={def.scale} rotation={[0, 0, def.rot]}>
@@ -540,7 +558,7 @@ function ToonCat({ def, p, rig }: { def: ToonPose; p: CatPalette; rig?: CatRig }
       {def.legs.map((l, i) => (
         <mesh key={i} position={l.pos} rotation={[0, 0, l.rot]}>
           <capsuleGeometry args={[0.065, l.len, 4, 10]} />
-          <meshToonMaterial color={p.ink} gradientMap={ramp} />
+          <meshToonMaterial color={l.far ? farInk : p.ink} gradientMap={ramp} />
         </mesh>
       ))}
       {!sil &&
