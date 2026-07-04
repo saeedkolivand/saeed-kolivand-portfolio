@@ -63,10 +63,17 @@ const [CX] = issueCenter(7);
 
 // platform cameo: the Harley mascot, warmed for the dark screentone world
 // (Neon precedent). Pure HARLEY.ink #A9743C sinks into the near-black paper,
-// so the fur is pushed to a warm amber #D4892E; the tail tip takes the scene
-// spot yellow. Teal collar + red tag identity marks stay (owner override
-// 2026-07-04, supersedes the earlier spot-yellow-only ruling).
-const CAT_PALETTE: CatPalette = { ...HARLEY, ink: "#D4892E", accent: YELLOW };
+// so the fur is pushed to a warm amber #D4892E. Identity marks + tail tip
+// still print in this issue's spot yellow -- mono 0 / S0.4 row 7 color law
+// stands (shots.md ruling); only the fur warms so the cameo reads as Harley
+// instead of a black cat.
+const CAT_PALETTE: CatPalette = {
+  ...HARLEY,
+  ink: "#D4892E",
+  collar: YELLOW,
+  tag: YELLOW,
+  accent: YELLOW,
+};
 /** S0 bench sits past the parked train's nose so the cameo always reads. */
 const CAT_BENCH_X = STATION_X[0]! + 9;
 
