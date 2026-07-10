@@ -10,7 +10,7 @@ import { ArtPanel } from "../04-origin/Origin";
 import { toonRamp } from "@/lib/toon";
 import { stepTime } from "@/lib/steppedClock";
 import { useScrollStore } from "@/lib/scrollStore";
-import { sayWord } from "@/lib/onomatopoeia";
+import { CAT_VOICE, sayWord } from "@/lib/onomatopoeia";
 import { uiSound } from "@/lib/audio/ui";
 import { issueCopy, lettering, links } from "@/lib/content";
 import { colorWindow } from "@/shaders/colorWindow";
@@ -197,7 +197,7 @@ function CatPhoto() {
       onClick={(e) => {
         e.stopPropagation();
         useScrollStore.getState().meow();
-        sayWord(lettering.onomatopoeia.cat, [issueCenter(6)[0] + 5.9, 7.7, -4], undefined, INK);
+        sayWord(CAT_VOICE, [issueCenter(6)[0] + 5.9, 7.7, -4], undefined, RED);
       }}
     >
       <PhotoFrame w={3.05} h={3.55} />
