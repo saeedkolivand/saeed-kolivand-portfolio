@@ -63,7 +63,7 @@ function ensure(): Pool | null {
   const { T, sfx } = m;
 
   const uiBeep = new T.Synth({
-    oscillator: { type: "triangle" },
+    oscillator: { type: "fattriangle", count: 2, spread: 10 },
     envelope: { attack: 0.002, decay: 0.06, sustain: 0, release: 0.05 },
     volume: -15,
   }).connect(sfx);
@@ -222,6 +222,27 @@ export function uiSound(kind: UiKind, seed = 0): void {
   }
 }
 
+/**
+ * The shared ME-OW voice: one pooled FMSynth + the canonical ME-OW frequency
+ * contour (dip up to base*1.32, settle to base*0.82). Exported so lib/audio/
+ * moments.ts fires the SAME voice for the cat sfx -- a single synth + a single
+ * contour, no duplicate. Gesture-gated + pool-lazy like every ui trigger
+ * (no-op until wireUi + the first ensure()).
+ */
+export function fireMeowVoice(now: number, base: number, harm: number): void {
+  const m = mod;
+  if (!m) return;
+  const p = ensure();
+  if (!p) return;
+  const s = p.meowSynth;
+  s.harmonicity.value = harm;
+  s.modulationIndex.value = 4;
+  s.triggerAttack(base, now, 0.8);
+  s.frequency.rampTo(base * 1.32, 0.1, now + 0.02); // ME-OW: dip up...
+  s.frequency.rampTo(base * 0.82, 0.2, now + 0.14); // ...then down
+  s.triggerRelease(now + 0.38);
+}
+
 /** Cat contours: 4 deterministic families selected by hash(count). */
 export function meow(count: number): void {
   const m = mod;
@@ -237,27 +258,26 @@ export function meow(count: number): void {
   const now = m.T.now();
   const s = p.meowSynth;
   const base = 480 + (h % 200);
-  s.harmonicity.value = 1.3 + fam * 0.13;
   if (fam === 2) {
     // CHIRP: single short pop, low modIndex, no dip
+    s.harmonicity.value = 1.3 + fam * 0.13;
     s.modulationIndex.value = 2;
     s.triggerAttackRelease(600 + (h % 120), 0.16, now, 0.8);
     return;
   }
-  s.modulationIndex.value = 4;
-  s.triggerAttack(base, now, 0.8);
   if (fam === 1) {
     // QUESTION: end freq ramps up, tail rises a touch more
+    s.harmonicity.value = 1.3 + fam * 0.13;
+    s.modulationIndex.value = 4;
+    s.triggerAttack(base, now, 0.8);
     const top = base * 1.4;
     s.frequency.rampTo(top, 0.24, now + 0.02);
     s.frequency.rampTo(top * 1.06, 0.08, now + 0.26);
     s.triggerRelease(now + 0.36);
-  } else {
-    // 0 ME-OW: dip up to the peak then back down
-    s.frequency.rampTo(base * 1.32, 0.1, now + 0.02);
-    s.frequency.rampTo(base * 0.82, 0.2, now + 0.14);
-    s.triggerRelease(now + 0.38);
+    return;
   }
+  // 0 ME-OW: the shared voice (also fired by moments' cat sfx)
+  fireMeowVoice(now, base, 1.3);
 }
 
 /** TRILL / PURR contour -- the purr flavor without hover (meow family 3). */

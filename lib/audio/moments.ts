@@ -11,9 +11,11 @@ import type {
   Synth,
 } from "tone";
 import { clamp01 } from "@/lib/shots";
+import { useScrollStore } from "@/lib/scrollStore";
 import { RANGES } from "@/issues/timeline";
 import type { ToneModule } from "./types";
 import { h01, hash, moveTo } from "./util";
+import { fireMeowVoice } from "./ui";
 // Read-only scene constants (all already exported). These are pure numbers /
 // pure f(t) helpers -- importing them adds NO Tone at module scope and no new
 // autoplay path (Tone stays lazy, handed in via scoreMoments' T argument).
@@ -89,6 +91,7 @@ const PART_HYST = 0.003;
 const STATION_HYST = 4; // world units (stations ~24 apart)
 const INK_HYST = 0.02;
 const STAR_HYST = 0.015;
+const PAW_HYST = 0.008; // < pawprint spacing (0.3/9) so each step re-arms alone
 
 const POP_RANGE = RANGES[8]!;
 /** ORBIT_F is not exported by 08-pop; derive it from ORBIT_START_T. */
@@ -177,6 +180,15 @@ interface Kit {
   edgeWhoosh: NoiseSynth;
   edgeWhooshBp: Filter;
   edgeHorn: FMSynth;
+  // cat interactions: desk soft-land + chirp, dot bat boop, sketch pad-steps.
+  // The meow voice itself is shared from ui.ts (one FMSynth + one ME-OW
+  // contour). All one-shots on the sfx bus (no continuous sources).
+  landThud: MembraneSynth;
+  landNoise: NoiseSynth;
+  landLp: Filter;
+  pawTick: NoiseSynth;
+  pawLp: Filter;
+  boopSyn: Synth;
 }
 
 function buildKit(T: ToneModule, sfx: Gain): Kit {
@@ -228,7 +240,7 @@ function buildKit(T: ToneModule, sfx: Gain): Kit {
   });
   partReact.connect(sfx);
   const partTs = new T.Synth({
-    oscillator: { type: "square" },
+    oscillator: { type: "fatsquare", count: 2, spread: 10 },
     envelope: { attack: 0.001, decay: 0.09, sustain: 0, release: 0.03 },
     volume: -16,
   });
@@ -263,8 +275,8 @@ function buildKit(T: ToneModule, sfx: Gain): Kit {
   hornLp.connect(hornDelay);
   hornDelay.connect(sfx);
   const hornEnv = { attack: 0.08, decay: 0.4, sustain: 0.2, release: 0.5 };
-  const hornA = new T.Synth({ oscillator: { type: "sine" }, envelope: hornEnv, volume: -20 });
-  const hornB = new T.Synth({ oscillator: { type: "triangle" }, envelope: hornEnv, volume: -22 });
+  const hornA = new T.Synth({ oscillator: { type: "fatsine", count: 2, spread: 12 }, envelope: hornEnv, volume: -20 });
+  const hornB = new T.Synth({ oscillator: { type: "fattriangle", count: 2, spread: 14 }, envelope: hornEnv, volume: -22 });
   hornA.connect(hornLp);
   hornB.connect(hornLp);
 
@@ -423,7 +435,7 @@ function buildKit(T: ToneModule, sfx: Gain): Kit {
   });
   titleMembrane.connect(sfx);
   const titleClang = new T.Synth({
-    oscillator: { type: "square" },
+    oscillator: { type: "fatsquare", count: 2, spread: 12 },
     envelope: { attack: 0.001, decay: 0.12, sustain: 0, release: 0.05 },
     volume: -16,
   });
@@ -444,7 +456,7 @@ function buildKit(T: ToneModule, sfx: Gain): Kit {
   });
   edgeMembrane.connect(sfx);
   const edgeScreech = new T.Synth({
-    oscillator: { type: "sawtooth" },
+    oscillator: { type: "fatsawtooth", count: 3, spread: 18 },
     envelope: { attack: 0.01, decay: 0.3, sustain: 0, release: 0.05 },
     volume: -20,
   });
@@ -465,6 +477,43 @@ function buildKit(T: ToneModule, sfx: Gain): Kit {
   });
   edgeHorn.connect(sfx);
 
+  // -- cat meow: no local synth -- moments fires ui.ts's shared meow voice
+  // (fireMeowVoice), so a single FMSynth + ME-OW contour serves click + sfx.
+
+  // -- cat soft-land on the desk: rounder/softer than the beat thump (2 octaves,
+  // brown-noise scuff through a lowpass) = a "fwump", not a boom.
+  const landThud = new T.MembraneSynth({
+    pitchDecay: 0.06,
+    octaves: 2,
+    envelope: { attack: 0.002, decay: 0.22, sustain: 0, release: 0.1 },
+    volume: -9,
+  });
+  landThud.connect(sfx);
+  const landLp = new T.Filter(500, "lowpass");
+  const landNoise = new T.NoiseSynth({
+    noise: { type: "brown" },
+    envelope: { attack: 0.001, decay: 0.08, sustain: 0 },
+    volume: -16,
+  });
+  landNoise.chain(landLp, sfx);
+
+  // -- paw-step tick (sketch walk pad-steps): very short brown-noise pad, quiet.
+  const pawLp = new T.Filter(700, "lowpass");
+  const pawTick = new T.NoiseSynth({
+    noise: { type: "brown" },
+    envelope: { attack: 0.001, decay: 0.02, sustain: 0 },
+    volume: -26,
+  });
+  pawTick.chain(pawLp, sfx);
+
+  // -- playful "boop" (cat bats the halftone dot): short triangle blip.
+  const boopSyn = new T.Synth({
+    oscillator: { type: "triangle" },
+    envelope: { attack: 0.004, decay: 0.12, sustain: 0, release: 0.05 },
+    volume: -15,
+  });
+  boopSyn.connect(sfx);
+
   return {
     clackNoise, clackBp, clackThock,
     ringSyn, ringBp, ringDelay, ringSnap, ringSnapHp,
@@ -479,12 +528,17 @@ function buildKit(T: ToneModule, sfx: Gain): Kit {
     newsMembrane, newsBody, newsTele, newsTeleHp,
     titleMembrane, titleClang, titleCrack,
     edgeMembrane, edgeScreech, edgeScreechBp, edgeWhoosh, edgeWhooshBp, edgeHorn,
+    landThud, landNoise, landLp, pawTick, pawLp, boopSyn,
   };
 }
 
 /* ---------------------------------------------------------- module state --- */
 let kit: Kit | null = null;
 let TM: ToneModule | null = null;
+// True only while the director is enabled (scoreMoments runs each tick). sfx
+// one-shots gate on this so a scene handler firing pre-enable / post-disable
+// (kit + TM survive disable for cheap re-enable) stays silent.
+let momentsActive = false;
 
 const clackEdges = Array.from({ length: 6 }, () => new Edge());
 const partEdges = Array.from({ length: 4 }, () => new Edge());
@@ -492,7 +546,16 @@ const stationEdges = Array.from({ length: 8 }, () => new Edge());
 const inkEdges = Array.from({ length: 6 }, () => new Edge());
 const washEdge = new Edge();
 const starEdges = Array.from({ length: 10 }, () => new Edge());
-const allEdges: Edge[] = [...clackEdges, ...partEdges, ...stationEdges, ...inkEdges, washEdge, ...starEdges];
+const pawEdges = Array.from({ length: 10 }, () => new Edge()); // sketch pad-steps
+const allEdges: Edge[] = [
+  ...clackEdges,
+  ...partEdges,
+  ...stationEdges,
+  ...inkEdges,
+  washEdge,
+  ...starEdges,
+  ...pawEdges,
+];
 
 // neon cascade: step-increment latch (own priming; scrub-back re-arms silent)
 let neonPrimed = false;
@@ -553,6 +616,32 @@ function fireStar(k: Kit, now: number, page: number): void {
   k.starBell.triggerAttackRelease(PENTA[page]!, 0.5, now, 0.4 + 0.2 * h01(page + 1));
 }
 
+/** 3 hash-varied base pitches so repeat meows never sound identical; fires the
+ * ui.ts shared voice (one FMSynth + one ME-OW contour, no duplicate synth). */
+const MEOW_BASE = [496, 560, 448] as const;
+function fireMeow(now: number, i: number): void {
+  const base = MEOW_BASE[hash(i * 7 + 1) % 3]!;
+  fireMeowVoice(now, base, 1.4 + 0.12 * h01(i + 5));
+}
+
+function fireLand(k: Kit, now: number): void {
+  k.landThud.triggerAttackRelease("C2", 0.16, now, 0.75);
+  k.landNoise.triggerAttackRelease(0.08, now, 0.6);
+}
+
+function firePaw(k: Kit, now: number, i: number): void {
+  k.pawLp.frequency.rampTo(600 + (hash(i * 5 + 3) % 240), 0.005, now);
+  k.pawTick.triggerAttackRelease(0.02, now, 0.4 + 0.2 * h01(i + 2));
+}
+
+function fireBoop(k: Kit, now: number): void {
+  const s = k.boopSyn;
+  s.triggerAttack(520, now, 0.7);
+  s.frequency.rampTo(360, 0.07, now + 0.01); // quick down = "boop"
+  s.frequency.rampTo(420, 0.05, now + 0.09); // tiny lift, playful
+  s.triggerRelease(now + 0.14);
+}
+
 /* --------------------------------------------------------- scoreMoments --- */
 /** Called once per director rAF tick while audio is enabled. */
 export function scoreMoments(
@@ -565,7 +654,9 @@ export function scoreMoments(
   void velocity; // reactions are pure f(t); velocity is unused here by design
   const k = kit ?? (kit = buildKit(T, sfx));
   if (!TM) TM = T;
+  momentsActive = true; // scoreMoments only runs while the director is enabled
   const now = T.now();
+  const { reducedMotion } = useScrollStore.getState();
 
   // -- desk keycap clacks (issue 2): 6 CLACKs on the visible keycap dips
   const kw = KEYS_R[1] - KEYS_R[0];
@@ -637,6 +728,15 @@ export function scoreMoments(
     if (inkEdges[i]!.crossed(u9, 0.16 + i * 0.075, INK_HYST)) fireInk(k, now, i);
   }
   if (washEdge.crossed(u9, FLOOD_U, INK_HYST)) fireWash(k, now);
+
+  // -- sketch cat pad-steps (issue 9): one soft pad per visible pawprint decal
+  // (pawprint uSeed = 0.22 + 0.3*k/9 in Sketchbook.tsx); scrub-safe both ways.
+  // Parked under reduced motion (the sketch cat is stopped, so no footsteps).
+  if (!reducedMotion) {
+    for (let i = 0; i < 10; i++) {
+      if (pawEdges[i]!.crossed(u9, 0.22 + (0.3 * i) / 9, PAW_HYST)) firePaw(k, now, i);
+    }
+  }
 
   // -- spread star-chart arp (issue 10): one shimmer per page reveal, stops at 10
   const u10 = clamp01((t - UNFOLD_RANGE[0]) / (UNFOLD_RANGE[1] - UNFOLD_RANGE[0]));
@@ -751,12 +851,53 @@ export function beatMoment(id: string, flash: number): boolean {
   }
 }
 
+/* ------------------------------------------------------------ sfxMoment --- */
+/** Scene-facing one-shot names (scenes pass these as string literals). */
+export type SfxName = "meow" | "softLand" | "boop" | "pad";
+
+/**
+ * Scene-local one-shot trigger. Scenes call this at the exact crossings that
+ * already fire sayWord (both scroll directions -- reverse-scrub hits are fine)
+ * so onomatopoeia and sound stay paired. No-op unless the director is enabled
+ * (momentsActive) AND scoreMoments has built the kit (gesture gate inherited,
+ * like beatMoment); try/catch-wrapped so any Tone failure degrades to silence.
+ * Scenes import ONLY this -- never Tone (moments.ts imports Tone as types only).
+ */
+export function sfxMoment(name: SfxName, seed = 0): void {
+  const T = TM;
+  const k = kit;
+  if (!momentsActive || !T || !k) return;
+  try {
+    const now = T.now();
+    switch (name) {
+      case "meow":
+        fireMeow(now, seed);
+        break;
+      case "softLand": // desk-touch thud PLUS a cat chirp ~80ms later
+        fireLand(k, now);
+        fireMeow(now + 0.08, seed + 17);
+        break;
+      case "boop":
+        fireBoop(k, now);
+        break;
+      case "pad":
+        firePaw(k, now, seed);
+        break;
+      default:
+        break;
+    }
+  } catch (e) {
+    void e; // silent degrade (matches director/ui wiring)
+  }
+}
+
 /* ----------------------------------------------------------- stopMoments --- */
 /** Disable path: silence + stop continuous sources, re-prime all latches. */
 export function stopMoments(): void {
   for (const e of allEdges) e.reset();
   neonPrimed = false;
   neonLast = -1;
+  momentsActive = false; // sfxMoment goes silent until the director re-enables
   const k = kit;
   if (!k) return;
   gWhoosh.v = 0;

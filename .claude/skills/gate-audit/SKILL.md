@@ -1,6 +1,6 @@
 ---
 name: gate-audit
-description: Procedures for auditing PANEL JUMP phase gates - driving the browser to exact t positions, screenshots, FPS measurement, scrub-determinism checks, flash and comfort audits. Load when running /gate or /shot-review.
+description: Procedures for auditing saeed-kolivand-portfolio phase gates - driving the browser to exact t positions, screenshots, FPS measurement, scrub-determinism checks, flash and comfort audits. Load when running /gate or /shot-review.
 ---
 
 # Gate audit procedures

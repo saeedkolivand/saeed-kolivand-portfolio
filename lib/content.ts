@@ -76,6 +76,7 @@ export const lettering = {
     blurb: "The origin issue: one dev, three worlds, zero ghosting.",
     barcode: "saeedkolivand", // GitHub handle, set as the cover barcode digits
     attractPrompt: "SCROLL TO CRACK THE SPINE",
+    premise: "The career of a senior frontend engineer, told as a comic.",
   },
   titleDrop: {
     name: "SAEED KOLIVAND",
@@ -94,6 +95,20 @@ export const lettering = {
     "One window lit on the whole dead block. Mine.",
     "Then the cat jumped. Cats always know the cut.",
   ],
+  sceneCaptions: {
+    desk: [
+      "Same desk every night. The keys know the way by now.",
+      "The monitor never blinks first. Neither do I.",
+    ],
+    neon: [
+      "The city runs on my stack. Every sign down there is a tool I ship with.",
+      "You learn a city by shipping in it. I know every block.",
+    ],
+    spread: [
+      "A year of green squares makes a decent sky.",
+      "Every star in that band is a commit. My real GitHub graph, pinned overhead.",
+    ],
+  },
   neonSigns: ["REACT", "TYPESCRIPT", "JAVASCRIPT", "NEXT.JS", "GRAPHQL", "NODE.JS", "TAURI", "AI OPEN 24H"],
 } as const;
 

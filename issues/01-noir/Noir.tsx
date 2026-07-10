@@ -11,6 +11,7 @@ import { stepTime } from "@/lib/steppedClock";
 import { useScrollStore } from "@/lib/scrollStore";
 import { clamp01, lerp } from "@/lib/shots";
 import { sayWord } from "@/lib/onomatopoeia";
+import { sfxMoment } from "@/lib/audio/moments";
 import { lettering } from "@/lib/content";
 import { issueCenter } from "../timeline";
 import { NOIR_SHOTS, NOIR_WINDOW } from "./shots";
@@ -232,7 +233,7 @@ function NoirCat({ cx }: { cx: number }) {
   useFrame(({ clock }) => {
     const g = group.current;
     if (!g) return;
-    const { t } = useScrollStore.getState(); // per-frame read, no selector
+    const { t, reducedMotion } = useScrollStore.getState(); // per-frame read, no selector
     const p3 = shotP(t, S3);
     const p4 = shotP(t, S4);
     const trot = clamp01(p4 / 0.72);
@@ -268,6 +269,9 @@ function NoirCat({ cx }: { cx: number }) {
       if (armed.current) {
         armed.current = false;
         sayWord(lettering.onomatopoeia.cat, [cx + x, y + 0.7, z], 0.37, INK);
+        // leap meow is skipped under reduced motion (the leap animation still
+        // plays; only the sfx is gated, matching the beat-sound suppression)
+        if (!reducedMotion) sfxMoment("meow", 3);
       }
     } else if (!armed.current && p4 < 0.67) {
       armed.current = true; // hysteresis re-arm for reverse scrollers

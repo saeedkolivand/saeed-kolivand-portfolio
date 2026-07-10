@@ -9,6 +9,7 @@ import { toonRamp } from "@/lib/toon";
 import { stepTime } from "@/lib/steppedClock";
 import { useScrollStore } from "@/lib/scrollStore";
 import { sayWord } from "@/lib/onomatopoeia";
+import { sfxMoment } from "@/lib/audio/moments";
 import { lettering } from "@/lib/content";
 import { clamp01, easeInOut, lerp } from "@/lib/shots";
 import { issueCenter } from "../timeline";
@@ -28,6 +29,8 @@ const ORANGE = "#F5A623";
 const TEAL = "#2BB3A3";
 const RED = "#E2574C";
 const WOOD = "#D9A967";
+const KEY_BEIGE = "#CFCBBE";
+const KEY_CHARCOAL = "#3B3E44";
 
 const CENTER = issueCenter(2);
 const CX = CENTER[0];
@@ -38,6 +41,24 @@ const COL = new Color();
 
 const crossed = (last: number, now: number, trig: number) =>
   (last < trig && now >= trig) || (last > trig && now <= trig);
+
+// Sound re-arm latch: sayWord still fires on every crossed() (visual behavior
+// unchanged), but each sfx fires once per genuine crossing and re-arms only
+// after t retreats >= SFX_REARM from the trigger -- so scroll jiggle around a
+// trigger can no longer machine-gun the audio (mirrors moments.ts Edge / Noir's
+// armed latch). Module-scope is safe: only the say=true DeskCat runs this block.
+const SFX_REARM = 0.004;
+type SfxLatch = { armed: boolean };
+const thumpLatch: SfxLatch = { armed: true };
+const batLatch: SfxLatch = { armed: true };
+function armedCross(l: SfxLatch, last: number, now: number, trig: number): boolean {
+  if (l.armed && crossed(last, now, trig)) {
+    l.armed = false;
+    return true;
+  }
+  if (!l.armed && Math.abs(now - trig) >= SFX_REARM) l.armed = true;
+  return false;
+}
 
 // -- onomatopoeia pools (from content.ts; single-word slices stay pooled) ----
 const CAT_WORDS = lettering.onomatopoeia.cat as readonly string[];
@@ -58,6 +79,16 @@ const KB_Z = 1.1;
 const KEY_Y = 0.16;
 const keyX = (col: number) => KB_X + (col - (KEY_COLS - 1) / 2) * 0.2;
 const keyZ = (row: number) => KB_Z + (row - (KEY_ROWS - 1) / 2) * 0.19;
+// DAREU 75% keycap map: beige alphas, charcoal mods, red Esc/Enter.
+// row 0 = back/top row, col 0 = left.
+const keyColor = (row: number, col: number): string => {
+  if (row === 0 && col === 0) return RED; // Esc
+  if (row === 2 && col === 12) return RED; // Enter
+  if (col === 0 || col >= 11) return KEY_CHARCOAL; // side modifier columns
+  if (row === 0 && col >= 5 && col <= 8) return KEY_CHARCOAL; // F5-F8 cluster
+  if (row === 4 && (col < 4 || col > 8)) return KEY_CHARCOAL; // bottom mods (spacebar stays beige)
+  return KEY_BEIGE;
+};
 
 /** CLACK triggers along the shot-2 track (camera moves -x -> +x). */
 const CLACK_ROWS = [2, 1, 3, 2, 1, 2] as const;
@@ -83,8 +114,7 @@ function KeyboardUnit({ say }: { say: boolean }) {
     const m = inst.current;
     if (!m) return;
     for (let i = 0; i < KEY_COUNT; i++) {
-      const accent = (i * 37) % 97 < 12;
-      COL.set(accent ? [ORANGE, TEAL, RED][i % 3]! : INK);
+      COL.set(keyColor(Math.floor(i / KEY_COLS), i % KEY_COLS));
       m.setColorAt(i, COL);
     }
     if (m.instanceColor) m.instanceColor.needsUpdate = true;
@@ -123,7 +153,15 @@ function KeyboardUnit({ say }: { say: boolean }) {
     <group>
       <mesh position={[KB_X, 0.06, KB_Z]}>
         <boxGeometry args={[3.0, 0.12, 1.15]} />
-        <meshToonMaterial color="#E7DECE" gradientMap={ramp} />
+        <meshToonMaterial color="#26231F" gradientMap={ramp} />
+      </mesh>
+      {/* knurled volume knob: sits ON the case back-right corner, clear of the
+          keycaps (keys end at x = KB_X + 1.28; knob r 0.08 at x KB_X + 1.40) and
+          inside the case (x +/- 1.5, z +/- 0.575). Case top y = 0.06 + 0.12/2 =
+          0.12; knob half-height 0.05 -> y 0.17. */}
+      <mesh position={[KB_X + 1.4, 0.17, KB_Z - 0.48]}>
+        <cylinderGeometry args={[0.08, 0.08, 0.1, 12]} />
+        <meshToonMaterial color={INK} gradientMap={ramp} />
       </mesh>
       <instancedMesh ref={inst} args={[undefined, undefined, KEY_COUNT]}>
         <boxGeometry args={[0.16, 0.09, 0.15]} />
@@ -290,7 +328,9 @@ function DeskCat({ say = false }: { say?: boolean }) {
       lastT.current = t;
       if (last !== null && !reducedMotion) {
         if (crossed(last, t, THUMP_T)) sayWord(THUMP.length ? THUMP : CAT_WORDS, THUMP_POS, 0, "#FFFFFF");
+        if (armedCross(thumpLatch, last, t, THUMP_T)) sfxMoment("softLand"); // desk-touch fwump + chirp
         if (crossed(last, t, BAT_T)) sayWord(PADD.length ? PADD : CAT_WORDS, BAT_POS, 0, TEAL);
+        if (armedCross(batLatch, last, t, BAT_T)) sfxMoment("boop"); // paw bats the halftone dot
       }
     }
   });

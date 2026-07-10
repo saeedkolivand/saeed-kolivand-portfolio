@@ -74,27 +74,46 @@ audioRecipes[1] = defineRecipe((T) => {
   const brushLp = new T.Filter(480, "lowpass");
   const swell = new T.Gain(0.1);
   brush.chain(brushLp, swell, out);
+  // harmonic bed: two fat-saw sub voices through a shared lowpass that breathes
+  // on the same hashed bar clock as the swell (moveTo; no per-frame alloc)
+  const droneLp = new T.Filter(300, "lowpass");
+  droneLp.connect(out);
+  const droneA = new T.FatOscillator("A1", "sawtooth", 20);
+  const droneB = new T.FatOscillator("E2", "sawtooth", 20);
+  droneA.volume.value = -26;
+  droneB.volume.value = -26;
+  droneA.connect(droneLp);
+  droneB.connect(droneLp);
   const ticks = new Stepper(9);
   const bars = new Stepper(0.6);
   const sw = { v: 0.1 };
+  const dfc = { v: 300 };
   return {
     out,
-    nodes: [crackle, crackleHp, brush, brushLp, swell, out],
+    nodes: [crackle, crackleHp, brush, brushLp, swell, droneLp, droneA, droneB, out],
     start: () => {
       ticks.reset();
       bars.reset();
       brush.start();
+      droneA.start();
+      droneB.start();
     },
-    stop: () => brush.stop(),
+    stop: () => {
+      brush.stop();
+      droneA.stop();
+      droneB.stop();
+    },
     update: () => {
       const now = T.now();
       const s = ticks.tick(now);
       if (s >= 0 && h01(s * 3 + 1) < 0.24)
         crackle.triggerAttackRelease(0.02, now, 0.25 + 0.5 * h01(s * 7 + 2));
       const b = bars.tick(now);
-      // slow brushed swells: mostly on, an occasional dropped bar breathes
-      if (b >= 0)
+      // slow brushed swells + a slow drone-filter breathe, both hashed per bar
+      if (b >= 0) {
         moveTo(swell.gain, sw, hash(b) % 4 === 0 ? 0.08 : 0.35 + 0.35 * h01(b * 5 + 3), 1.1, 0.01);
+        moveTo(droneLp.frequency, dfc, 220 + 220 * h01(b * 7 + 11), 2.5, 8);
+      }
     },
   };
 });
@@ -138,25 +157,42 @@ const NEON_NOTES = [110, 146.83, 220, 293.66, 440];
 audioRecipes[3] = defineRecipe((T) => {
   const out = new T.Gain(0.13);
   const synth = new T.Synth({
-    oscillator: { type: "square" },
+    oscillator: { type: "fatsquare", count: 2, spread: 12 },
     envelope: { attack: 0.002, decay: 0.07, sustain: 0, release: 0.03 },
     volume: -12,
   });
   const lp = new T.Filter(2200, "lowpass");
   synth.chain(lp, out);
+  // harmonic bed: fat-saw drone whose lowpass cutoff rides tLocal (same pure
+  // f(t) idiom as the glitch filter above -- scrub-safe both directions)
+  const droneLp = new T.Filter(200, "lowpass");
+  droneLp.connect(out);
+  const droneA = new T.FatOscillator("A1", "sawtooth", 18);
+  const droneB = new T.FatOscillator("A2", "sawtooth", 18);
+  droneA.volume.value = -24;
+  droneB.volume.value = -24;
+  droneA.connect(droneLp);
+  droneB.connect(droneLp);
   const clock = new Stepper(8);
   const fc = { v: 2200 };
+  const dfc = { v: 200 };
   return {
     out,
-    nodes: [synth, lp, out],
-    start: () => clock.reset(),
+    nodes: [synth, lp, droneA, droneB, droneLp, out],
+    start: () => {
+      clock.reset();
+      droneA.start();
+      droneB.start();
+    },
     stop: () => {
-      /* one-shot synth; nothing continuous */
+      droneA.stop();
+      droneB.stop();
     },
     update: (tLocal) => {
       const now = T.now();
       // filter opens across the issue -- pure f(t), scrub-safe
       moveTo(lp.frequency, fc, 1600 + 1400 * tLocal, 0.12, 60);
+      moveTo(droneLp.frequency, dfc, 200 + 900 * tLocal, 0.12, 20);
       const s = clock.tick(now);
       if (s < 0) return;
       if (h01((s >> 3) * 5 + 2) < 0.25) return; // glitch dropout bar
@@ -327,7 +363,7 @@ const POP_PAT = [0, 2, 1, 3, 2, 4, 3, 1];
 audioRecipes[8] = defineRecipe((T) => {
   const out = new T.Gain(0.13);
   const arp = new T.Synth({
-    oscillator: { type: "square" },
+    oscillator: { type: "fatsquare", count: 2, spread: 10 },
     envelope: { attack: 0.002, decay: 0.09, sustain: 0, release: 0.04 },
     volume: -14,
   });
@@ -446,7 +482,7 @@ audioRecipes[11] = defineRecipe((T) => {
   hum.connect(out);
   hum2.connect(out);
   const beep = new T.Synth({
-    oscillator: { type: "square" },
+    oscillator: { type: "fatsquare", count: 2, spread: 8 },
     envelope: { attack: 0.002, decay: 0.07, sustain: 0, release: 0.02 },
     volume: -14,
   });
