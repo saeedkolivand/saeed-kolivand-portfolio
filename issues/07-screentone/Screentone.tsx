@@ -519,7 +519,8 @@ function PlatformCat() {
       onClick={(e) => {
         e.stopPropagation();
         useScrollStore.getState().meow();
-        sayWord(CAT_VOICE, [CX + CAT_BENCH_X, 4.2, -2], undefined, "#FFFFFF");
+        const n = useScrollStore.getState().meowCount;
+        sayWord(CAT_VOICE, [CX + CAT_BENCH_X, 4.2, -2], (n * 0.618) % 1, "#FFFFFF");
       }}
     >
       <CatModel mode="flat" pose="sitting" palette={CAT_PALETTE} rig={{ tail }} />

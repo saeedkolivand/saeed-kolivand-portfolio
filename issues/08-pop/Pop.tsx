@@ -928,10 +928,11 @@ function DeskCat() {
       onClick={(e) => {
         e.stopPropagation();
         useScrollStore.getState().meow();
+        const n = useScrollStore.getState().meowCount;
         sayWord(
           CAT_VOICE,
           [e.point.x, e.point.y + 1.1, e.point.z],
-          undefined,
+          (n * 0.618) % 1,
           INK,
         );
       }}

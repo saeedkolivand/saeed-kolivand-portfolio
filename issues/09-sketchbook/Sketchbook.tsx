@@ -449,7 +449,8 @@ function PageCat() {
 
   const meow = (x: number, z: number) => {
     useScrollStore.getState().meow();
-    sayWord(CAT_VOICE, [CX + x, 3.4, z], undefined, WASH);
+    const n = useScrollStore.getState().meowCount;
+    sayWord(CAT_VOICE, [CX + x, 3.4, z], (n * 0.618) % 1, WASH);
   };
 
   return (
