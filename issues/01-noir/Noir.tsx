@@ -222,6 +222,7 @@ function NoirCat({ cx }: { cx: number }) {
   const leapTail = useRef<Group>(null);
   const walkPaw = useRef<Group>(null);
   const armed = useRef(true);
+  const crouchArmed = useRef(true);
 
   useEffect(() => {
     spotRect.enabled = 1;
@@ -269,12 +270,26 @@ function NoirCat({ cx }: { cx: number }) {
       if (armed.current) {
         armed.current = false;
         sayWord(lettering.onomatopoeia.cat, [cx + x, y + 0.7, z], 0.37, INK);
-        // leap meow is skipped under reduced motion (the leap animation still
-        // plays; only the sfx is gated, matching the beat-sound suppression)
-        if (!reducedMotion) sfxMoment("meow", 3);
+        // leap meow + whoosh are skipped under reduced motion (the leap
+        // animation still plays; only the sfx is gated, matching the beat-sound
+        // suppression)
+        if (!reducedMotion) {
+          sfxMoment("meow", 3);
+          sfxMoment("leap", 3); // whoosh as the cat leaves the parapet
+        }
       }
     } else if (!armed.current && p4 < 0.67) {
       armed.current = true; // hysteresis re-arm for reverse scrollers
+    }
+
+    // crouch plant: one soft pad as the cat sets for the leap (trot crosses
+    // 0.75); own hysteresis latch so reverse scrubbers hear it once
+    const setting = k === 0 && p4 > 0 && trot >= 0.75;
+    if (setting && crouchArmed.current) {
+      crouchArmed.current = false;
+      if (!reducedMotion) sfxMoment("pad", 11);
+    } else if (!setting && trot < 0.73) {
+      crouchArmed.current = true;
     }
 
     g.position.set(x, y, z);

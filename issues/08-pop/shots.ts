@@ -4,6 +4,7 @@ import { printRecipe } from "@/lib/recipes";
 import { registerJawDrop } from "@/lib/beats";
 import { PopPool } from "@/lib/pops";
 import { sayWord } from "@/lib/onomatopoeia";
+import { sfxMoment } from "@/lib/audio/moments";
 import { issueCopy, lettering } from "@/lib/content";
 import { issueCenter, RANGES } from "../timeline";
 
@@ -86,6 +87,9 @@ export function spawnChat(seed?: number): void {
   const slot = chatPool.spawn([x, y, z], seed);
   slot.data.line = CHAT_LINES[i % CHAT_LINES.length]!;
   slot.data.accent = ACCENT_CYCLE[i % ACCENT_CYCLE.length]!;
+  // one hook covers ambient cadence AND the orbit volley; the case gates on
+  // reduced motion + the issue window (silent while mounted at +/-1).
+  sfxMoment("chatPop", i);
 }
 
 // ---- donation beat (the issue's ONE budgeted flash, S2.16) ------------------

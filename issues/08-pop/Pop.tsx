@@ -105,21 +105,27 @@ const slab = (
 slab(0, 2.3, 0, 7.5, 0.35, 3, DESK);
 for (const lx of [-3.4, 3.4])
   for (const lz of [-1.2, 1.2]) slab(lx, 1.06, lz, 0.28, 2.12, 0.28, DARK);
-// monitor: bezel, glass, flat stream-layout UI (cyan header, pink chat
-// column, ink/cyan code lines)
-slab(0.4, 4.05, -0.7, 3.6, 2.3, 0.2, DARK);
-slab(0.4, 4.05, -0.56, 3.25, 1.95, 0.05, SCREEN);
-slab(0.4, 4.85, -0.53, 3.25, 0.28, 0.04, CYAN);
-slab(1.55, 3.85, -0.53, 0.75, 1.6, 0.04, PINK);
-slab(-0.35, 4.15, -0.53, 1.5, 0.12, 0.04, INK);
-slab(-0.5, 3.9, -0.53, 1.2, 0.12, 0.04, CYAN);
-slab(-0.25, 3.65, -0.53, 1.7, 0.12, 0.04, YELLOW);
-slab(-0.6, 3.4, -0.53, 1.0, 0.12, 0.04, INK);
+// wide main monitor: bezel, glass, cyan title bar, a 2-pane code editor
+// (center divider + two columns of ink/cyan/yellow code lines)
+slab(0.4, 4.05, -0.7, 4.6, 2.3, 0.2, DARK);
+slab(0.4, 4.05, -0.56, 4.25, 1.95, 0.05, SCREEN);
+slab(0.4, 4.85, -0.53, 4.0, 0.24, 0.04, CYAN);
+slab(0.4, 3.9, -0.53, 0.08, 1.55, 0.04, DARK);
+// left pane
+slab(-0.6, 4.35, -0.53, 1.3, 0.1, 0.04, CYAN);
+slab(-0.75, 4.15, -0.53, 1.0, 0.1, 0.04, INK);
+slab(-0.55, 3.95, -0.53, 1.4, 0.1, 0.04, YELLOW);
+slab(-0.8, 3.75, -0.53, 0.9, 0.1, 0.04, INK);
+// right pane
+slab(1.5, 4.35, -0.53, 1.3, 0.1, 0.04, YELLOW);
+slab(1.35, 4.15, -0.53, 1.0, 0.1, 0.04, CYAN);
+slab(1.55, 3.95, -0.53, 1.4, 0.1, 0.04, INK);
+slab(1.35, 3.75, -0.53, 0.9, 0.1, 0.04, CYAN);
 // monitor stand
 slab(0.4, 2.75, -0.75, 0.5, 0.55, 0.3, DARK);
 slab(0.4, 2.51, -0.7, 1.3, 0.08, 0.9, DARK);
 // monitor BACK detail + cable drop (the 360 films the set from behind)
-slab(0.4, 4.6, -0.83, 2.2, 0.16, 0.06, CYAN);
+slab(0.4, 4.6, -0.83, 3.0, 0.16, 0.06, CYAN);
 slab(-0.4, 3.7, -0.83, 0.9, 0.7, 0.06, PINK);
 slab(0.9, 3.1, -0.9, 0.1, 1.3, 0.1, YELLOW, 0.25);
 // PC tower + accent stripes (both faces -- the 360)
@@ -141,10 +147,9 @@ for (let i = 0; i < 6; i++)
     0.22,
     [PINK, CYAN, YELLOW][i % 3]!,
   );
-// mic arm + mic head (head raised clear of the tower cat, iteration 2)
+// mic boom arm (dynamic capsule + glowing CYAN ring live in Props, on the end)
 slab(-1.5, 2.95, 0.9, 0.12, 1.3, 0.12, DARK, 0.35);
 slab(-2.15, 3.75, 0.82, 0.12, 1.2, 0.12, DARK, 1.15);
-slab(-2.75, 4.1, 0.75, 0.42, 0.6, 0.42, PINK);
 // the empty chair, pushed aside to the far left-back quadrant, out of every
 // shot's sight line (iterations 1-2, loop log in shots.md) -- the cat is
 // running the stream
@@ -160,6 +165,47 @@ slab(-3.5, 3.15, -2.8, 0.22, 6.3, 0.22, GEAR);
 slab(-4.9, 6.35, -2.8, 3.2, 0.2, 0.2, GEAR);
 // ring light pole
 slab(-4.2, 2.15, 1.4, 0.14, 4.3, 0.14, GEAR);
+
+/* ---- real streamer setup (WS-D): monitors, softboxes, decks -------------- */
+// 2 studio monitors on foam pads + stand posts, flanking the main monitor;
+// fronts carry woofer/tweeter circles (Props), backs carry accent slabs for
+// the 360
+for (const [mx, mz, bc] of [
+  [-2.6, -0.55, PINK],
+  [3.2, -0.5, YELLOW],
+] as const) {
+  slab(mx, 2.53, mz, 1.15, 0.1, 0.85, GEAR); // foam pad
+  slab(mx, 2.95, mz, 0.35, 0.9, 0.35, DARK); // stand post
+  slab(mx, 4.2, mz, 1.1, 1.6, 0.9, DARK); // cabinet
+  slab(mx, 4.5, mz - 0.48, 0.7, 0.12, 0.06, CYAN); // back port stripe
+  slab(mx, 3.9, mz - 0.48, 0.5, 0.5, 0.06, bc); // back panel accent
+}
+// 2 softboxes hung from the ON AIR truss: DARK cabinet, bright INK diffusion
+// panel, dark egg-crate grid (3x3 = 4 slabs), GEAR back brace for the orbit
+for (const sx of [-5.5, -4.3] as const) {
+  slab(sx, 5.7, -2.62, 1.4, 1.0, 0.25, DARK);
+  slab(sx, 5.7, -2.49, 1.25, 0.85, 0.02, INK);
+  slab(sx - 0.21, 5.7, -2.46, 0.03, 0.85, 0.02, PAPER);
+  slab(sx + 0.21, 5.7, -2.46, 0.03, 0.85, 0.02, PAPER);
+  slab(sx, 5.84, -2.46, 1.25, 0.03, 0.02, PAPER);
+  slab(sx, 5.56, -2.46, 1.25, 0.03, 0.02, PAPER);
+  slab(sx, 5.7, -2.75, 0.5, 0.14, 0.05, GEAR);
+}
+// Stream Deck Plus: dark deck + cyan touch strip (4 dials in Props)
+slab(2.55, 2.55, 1.15, 1.05, 0.14, 0.48, DARK);
+slab(2.55, 2.63, 1.08, 0.85, 0.03, 0.14, CYAN);
+// Scarlett audio interface: pink body + yellow gain halo (2 knobs in Props)
+slab(-1.7, 2.65, 1.15, 0.9, 0.35, 0.45, PINK);
+slab(-1.95, 2.83, 1.0, 0.16, 0.02, 0.16, YELLOW);
+// monitor controller: dark body (big knurled knob in Props)
+slab(1.6, 2.6, 1.2, 0.5, 0.28, 0.44, DARK);
+// keyboard keycap deck (subtle) + 2 pink accent keys (Esc/Enter nod)
+slab(0.2, 2.63, 0.85, 2.0, 0.02, 0.66, PAPER);
+slab(-0.72, 2.65, 0.55, 0.14, 0.02, 0.14, PINK);
+slab(1.05, 2.65, 1.05, 0.18, 0.02, 0.16, PINK);
+// LED backglow slabs low behind the desk (the purple wall wash)
+slab(0, 1.2, -2.0, 6.5, 0.5, 0.1, PINK);
+slab(0, 0.55, -2.0, 6.5, 0.3, 0.1, CYAN);
 
 function Slabs() {
   const inst = useRef<InstancedMesh>(null);
@@ -206,6 +252,61 @@ function Props() {
       <mesh position={[-4.2, 4.4, 1.4]} rotation={[Math.PI / 2, 0, 0]}>
         <cylinderGeometry args={[0.62, 0.62, 0.14, 24]} />
         <meshBasicMaterial color={DARK} />
+      </mesh>
+      {/* studio monitor woofers (DARK ring + RUG cone) + CYAN tweeters --
+          the Shot-3 front-face read; backs carry accent slabs for the 360 */}
+      {(
+        [
+          // cabinets sit at z -0.55 / -0.50 with depth 0.9, so their front faces
+          // are at -0.10 / -0.05. Each driver's back (mz - 0.03) rests 0.03 proud
+          // of that face (the stacked-cylinder standoff), not the old 0.07 float.
+          [-2.6, -0.04],
+          [3.2, 0.01],
+        ] as const
+      ).map(([mx, mz]) => (
+        <group key={mx}>
+          <mesh position={[mx, 3.95, mz]} rotation={[Math.PI / 2, 0, 0]}>
+            <cylinderGeometry args={[0.32, 0.32, 0.06, 24]} />
+            <meshBasicMaterial color={DARK} />
+          </mesh>
+          <mesh position={[mx, 3.95, mz + 0.03]} rotation={[Math.PI / 2, 0, 0]}>
+            <cylinderGeometry args={[0.06, 0.2, 0.12, 20]} />
+            <meshBasicMaterial color={RUG} />
+          </mesh>
+          <mesh position={[mx, 4.62, mz]} rotation={[Math.PI / 2, 0, 0]}>
+            <cylinderGeometry args={[0.12, 0.12, 0.06, 16]} />
+            <meshBasicMaterial color={CYAN} />
+          </mesh>
+        </group>
+      ))}
+      {/* Stream Deck Plus dials */}
+      {[2.2, 2.42, 2.65, 2.88].map((kx) => (
+        <mesh key={kx} position={[kx, 2.65, 1.3]}>
+          <cylinderGeometry args={[0.06, 0.06, 0.07, 16]} />
+          <meshBasicMaterial color={GEAR} />
+        </mesh>
+      ))}
+      {/* Scarlett gain knobs */}
+      {[-1.95, -1.5].map((kx) => (
+        <mesh key={kx} position={[kx, 2.88, 1.0]}>
+          <cylinderGeometry args={[0.09, 0.09, 0.12, 16]} />
+          <meshBasicMaterial color={GEAR} />
+        </mesh>
+      ))}
+      {/* monitor-controller big knurled knob (echoes the Desk-scene knob) */}
+      <mesh position={[1.6, 2.85, 1.2]}>
+        <cylinderGeometry args={[0.18, 0.18, 0.16, 24]} />
+        <meshBasicMaterial color={GEAR} />
+      </mesh>
+      {/* dynamic mic capsule + glowing ring on the boom end (real ring is
+          green; CYAN is the palette-legal glow) */}
+      <mesh position={[-2.75, 4.0, 0.78]} rotation={[0, 0, -0.35]}>
+        <cylinderGeometry args={[0.14, 0.14, 0.55, 20]} />
+        <meshBasicMaterial color={DARK} />
+      </mesh>
+      <mesh position={[-2.84, 3.77, 0.78]} rotation={[0, 0, -0.35]}>
+        <cylinderGeometry args={[0.17, 0.17, 0.1, 24]} />
+        <meshBasicMaterial color={CYAN} />
       </mesh>
     </group>
   );

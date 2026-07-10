@@ -51,6 +51,28 @@ interface Voice {
   stop(): void;
 }
 
+/**
+ * Strictly-increasing start-time gate for one mono voice (local copy of the
+ * moments.ts class -- no cross-import). at() returns an admissible start,
+ * bumped past the voice's busy tail so a re-armed crossFwd (fast scrub, or a
+ * deep jump followed by an oscillating settle across a gutter boundary) never
+ * schedules a new triggerAttack earlier than the previous fire's still-pending
+ * future release -- which throws Tone's "The time must be greater than or equal
+ * to the last scheduled time" and trips the director loop catch (global audio
+ * disable). busy = the voice's longest scheduled tail.
+ */
+class VoiceGate {
+  private free = 0;
+  at(now: number, busy: number): number {
+    const a = now <= this.free ? this.free + 0.008 : now;
+    this.free = a + busy;
+    return a;
+  }
+  reset(): void {
+    this.free = 0;
+  }
+}
+
 const bell = (p: number): number => Math.sin(Math.PI * p);
 const tri = (p: number, c: number, w: number): number => clamp01(1 - Math.abs(p - c) / w);
 /** Gutter i->j window = [range i end, range j start] (never hardcoded). */
@@ -137,6 +159,7 @@ function buildCrash(T: ToneModule, sfx: Gain): Voice {
   const g: Gate = { on: false, quiet: 0 };
   const srcs: Src[] = [burst, body];
   const cx: Cross = { init: false, armed: true, last: 0 };
+  const accGate = new VoiceGate(); // crash (0.3 dur + 0.1 rel) + chirp fire together
   const gB = { v: 0 };
   const gY = { v: 0 };
   const fB = { v: 900 };
@@ -155,7 +178,7 @@ function buildCrash(T: ToneModule, sfx: Gain): Voice {
       moveTo(burstGain.gain, gB, burstT, 0.04, 0.008);
       moveTo(bodyGain.gain, gY, bodyT, 0.04, 0.008);
       if (crossFwd(cx, p, 0.3, 0.1) && av > 0.05) {
-        const now = T.now();
+        const now = accGate.at(T.now(), 0.4);
         crash.triggerAttackRelease("C1", 0.3, now, 0.5 * av);
         chirp.triggerAttackRelease(300, 0.18, now, 0.5 * av);
         chirp.frequency.rampTo(80, 0.18, now);
@@ -164,6 +187,7 @@ function buildCrash(T: ToneModule, sfx: Gain): Voice {
     stop() {
       gB.v = 0;
       gY.v = 0;
+      accGate.reset();
       burstGain.gain.rampTo(0, 0.1);
       bodyGain.gain.rampTo(0, 0.1);
       if (g.on) {
@@ -274,6 +298,7 @@ function buildStamp(T: ToneModule, sfx: Gain): Voice {
   const g: Gate = { on: false, quiet: 0 };
   const srcs: Src[] = [chunk, air];
   const cx: Cross = { init: false, armed: true, last: 0 };
+  const metalGate = new VoiceGate(); // metal contact transient (short mono NoiseSynth)
   const gC = { v: 0 };
   const gA = { v: 0 };
   const fC = { v: 220 };
@@ -290,11 +315,12 @@ function buildStamp(T: ToneModule, sfx: Gain): Voice {
       moveTo(chunkGain.gain, gC, chunkT, 0.03, 0.008);
       moveTo(airGain.gain, gA, airT, 0.05, 0.008);
       if (crossFwd(cx, p, 0.32, 0.1) && av > 0.05)
-        metal.triggerAttackRelease(0.01, T.now(), 0.5 * av);
+        metal.triggerAttackRelease(0.01, metalGate.at(T.now(), 0.05), 0.5 * av);
     },
     stop() {
       gC.v = 0;
       gA.v = 0;
+      metalGate.reset();
       chunkGain.gain.rampTo(0, 0.1);
       airGain.gain.rampTo(0, 0.1);
       if (g.on) {
@@ -323,6 +349,7 @@ function buildTear(T: ToneModule, sfx: Gain): Voice {
   const g: Gate = { on: false, quiet: 0 };
   const srcs: Src[] = [noise];
   const cx: Cross = { init: false, armed: true, last: 0 };
+  const flapGate = new VoiceGate(); // late tear-flap (mono NoiseSynth, 0.14 tail)
   const gC = { v: 0 };
   const fC = { v: 1200 };
   const fQ = { v: 1 };
@@ -339,10 +366,11 @@ function buildTear(T: ToneModule, sfx: Gain): Voice {
       moveTo(bp.Q, fQ, 1 + 2 * p, 0.08, 0.05);
       moveTo(gain.gain, gC, target, 0.04, 0.008);
       if (crossFwd(cx, p, 0.85, 0.08) && av > 0.05)
-        flap.triggerAttackRelease(0.14, T.now(), 0.4 * av);
+        flap.triggerAttackRelease(0.14, flapGate.at(T.now(), 0.15), 0.4 * av);
     },
     stop() {
       gC.v = 0;
+      flapGate.reset();
       gain.gain.rampTo(0, 0.1);
       if (g.on) {
         noise.stop();
@@ -461,6 +489,7 @@ function buildDotMatch(T: ToneModule, sfx: Gain): Voice {
   const g: Gate = { on: false, quiet: 0 };
   const srcs: Src[] = [pa, pb, zip, shimLfo];
   const cx: Cross = { init: false, armed: true, last: 0 };
+  const resolveGate = new VoiceGate(); // cursor-resolve Synth (0.15 dur + 0.05 rel)
   const gT = { v: 0 };
   const gZ = { v: 0 };
   const fA = { v: 400 };
@@ -484,11 +513,12 @@ function buildDotMatch(T: ToneModule, sfx: Gain): Voice {
       moveTo(zipGain.gain, gZ, zpT, 0.04, 0.008);
       // collapse the twinkle onto a single held ~1600Hz sine = the cursor
       if (crossFwd(cx, p, 0.92, 0.05) && av > 0.03)
-        resolve.triggerAttackRelease(1600, 0.15, T.now(), 0.3 * (0.5 + 0.5 * av));
+        resolve.triggerAttackRelease(1600, 0.15, resolveGate.at(T.now(), 0.2), 0.3 * (0.5 + 0.5 * av));
     },
     stop() {
       gT.v = 0;
       gZ.v = 0;
+      resolveGate.reset();
       twGain.gain.rampTo(0, 0.1);
       zipGain.gain.rampTo(0, 0.1);
       if (g.on) {

@@ -6,6 +6,7 @@ import { PopPool } from "@/lib/pops";
 import { snapshots } from "@/lib/snapshots";
 import { content, issueCopy, links } from "@/lib/content";
 import { uiSound } from "@/lib/audio/ui";
+import { sfxMoment } from "@/lib/audio/moments";
 import { issueCenter, RANGES } from "../timeline";
 
 /**
@@ -206,7 +207,10 @@ export function runCommand(cmd: string): boolean {
     return false;
   }
   spawnPanel(cmd, cmd === "contact" ? locked + "\n" + assembleEmail() : locked);
-  if (cmd === "resume") dropPool.spawn(RESUME_DROP_POS);
+  if (cmd === "resume") {
+    dropPool.spawn(RESUME_DROP_POS);
+    sfxMoment("resumeDrop"); // flutter down + fwump onto the desk snapshot
+  }
   if (cmd === "github" && links.githubUrl !== "") window.open(links.githubUrl, "_blank", "noopener");
   if (cmd === "linkedin" && links.linkedinUrl !== "") window.open(links.linkedinUrl, "_blank", "noopener");
   uiSound("cmdOk", charSum(cmd)); // per-command pitch identity (Enter + card click)
