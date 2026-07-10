@@ -1,4 +1,4 @@
-import type { Gain, MembraneSynth, Meter, Synth } from "tone";
+import type { EQ3, Filter, Gain, MembraneSynth, Meter, Reverb, Synth } from "tone";
 import { useScrollStore } from "@/lib/scrollStore";
 import { fx } from "@/lib/fx";
 import { setBeatSound } from "@/lib/beats";
@@ -18,9 +18,10 @@ import "./recipes"; // Wave B: fills the audioRecipes slots (side effect)
  * is wrapped: failure degrades to silence with a single console.warn.
  *
  * Chain: per-issue crossfade gains -> music bus \
- *                                                out gain -> Compressor ->
- *        one-shots (thump/chime/meow) -> sfx bus /  Limiter(-1) -> destination
- *        (destination volume ceiling -9 dB).
+ *                                                out gain -> EQ3(high -3) ->
+ *        one-shots (thump/chime/meow) -> sfx bus /  Compressor -> Limiter(-1)
+ *        -> destination (ceiling -9 dB). Both buses also SEND to a shared
+ *        highpass -> Reverb whose return sums back into out (dry paths intact).
  *
  * Beat sounds ride lib/beats.ts setBeatSound, which only fires from
  * BeatRunner crossings -- reduced motion already suppresses those, so the
@@ -30,7 +31,12 @@ import "./recipes"; // Wave B: fills the audioRecipes slots (side effect)
 interface Master {
   T: ToneModule;
   out: Gain;
+  eq: EQ3;
+  verbSend: Gain;
+  verbHp: Filter;
+  verb: Reverb;
   music: Gain;
+  duckGain: Gain;
   sfx: Gain;
   meter: Meter;
   thump: MembraneSynth;
@@ -132,16 +138,35 @@ export function disableAudio(): void {
 }
 
 function buildMaster(T: ToneModule): Master {
+  const eq = new T.EQ3({ low: 0, mid: 0, high: -3 }); // head: tame brittle square highs
   const comp = new T.Compressor({ threshold: -18, ratio: 3 });
   const limiter = new T.Limiter(-1);
   const out = new T.Gain(0);
-  out.chain(comp, limiter, T.getDestination());
+  out.chain(eq, comp, limiter, T.getDestination());
   T.getDestination().volume.value = -9; // master ceiling
 
-  const music = new T.Gain(1).connect(out);
+  // duckGain sits between music and out so the sidechain duck rides HERE, not
+  // on music.gain: the meter taps music PRE-duck, so ducking never pumps
+  // fx.audioPulse (the halftone-breathe shader) -- a duck must not move a visual.
+  const duckGain = new T.Gain(1).connect(out);
+  const music = new T.Gain(1).connect(duckGain);
   const sfx = new T.Gain(1).connect(out);
   const meter = new T.Meter({ smoothing: 0.9, normalRange: true });
-  music.connect(meter);
+  music.connect(meter); // pre-duck tap: visual meter stays clean
+
+  // Shared reverb SEND (not insert): both buses also feed a common send whose
+  // return sums back into `out`; the dry music/sfx -> out paths are untouched.
+  // Music feeds the send POST-duck (from duckGain) so the reverb tail ducks
+  // with the bed; sfx feeds it dry. Send gain rides at 0 until the async IR
+  // generates, then eases to 0.18; if generation fails we warn and stay fully
+  // dry (mix unaffected either way).
+  const verbSend = new T.Gain(0);
+  duckGain.connect(verbSend);
+  sfx.connect(verbSend);
+  const verbHp = new T.Filter(250, "highpass");
+  const verb = new T.Reverb({ decay: 2.2, preDelay: 0.02, wet: 1 });
+  verbSend.chain(verbHp, verb, out);
+  void verb.ready.then(() => verbSend.gain.rampTo(0.18, 0.5)).catch(warn);
 
   const thump = new T.MembraneSynth({
     pitchDecay: 0.08,
@@ -150,12 +175,12 @@ function buildMaster(T: ToneModule): Master {
     volume: -6,
   }).connect(sfx);
   const chime = new T.Synth({
-    oscillator: { type: "triangle" },
+    oscillator: { type: "fattriangle", count: 3, spread: 14 },
     envelope: { attack: 0.02, decay: 0.25, sustain: 0, release: 0.3 },
     volume: -18,
   }).connect(sfx);
   channels = audioRecipes.map(() => null);
-  return { T, out, music, sfx, meter, thump, chime };
+  return { T, out, eq, verbSend, verbHp, verb, music, duckGain, sfx, meter, thump, chime };
 }
 
 /** One-time subscriptions (survive disable; guarded by `enabled`). */
@@ -171,8 +196,20 @@ function wire(): void {
     const m = master;
     if (!enabled || !m) return;
     try {
-      if (beatMoment(id, flash)) return; // moment owns the hit (sound or silence)
       const now = m.T.now();
+      if (beatMoment(id, flash)) return; // moment owns the hit (sound or silence)
+      // sidechain duck: a strong director thump dips the bed, then recovers.
+      // BELOW the beatMoment return, so moment-owned beats (some deliberately
+      // silent, e.g. neon cascade) never duck. Rides duckGain (not music.gain)
+      // so the meter/visual pulse stays clean. Event-driven (fires on a beat
+      // crossing) -- zero per-frame alloc; inherits the beat hook's gates.
+      if (flash > 0.25) {
+        const g = m.duckGain.gain;
+        g.cancelScheduledValues(now);
+        g.setValueAtTime(g.value, now);
+        g.linearRampToValueAtTime(0.55, now + 0.03);
+        g.linearRampToValueAtTime(1, now + 0.53);
+      }
       if (flash > 0) m.thump.triggerAttackRelease("A1", 0.3, now, 0.4 + 0.6 * Math.min(flash, 1));
       else m.chime.triggerAttackRelease("D6", 0.2, now, 0.7);
     } catch (e) {
