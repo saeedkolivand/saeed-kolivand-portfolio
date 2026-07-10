@@ -8,6 +8,7 @@ import { RANGES } from "@/issues/timeline";
 import { NOIR_SHOTS } from "@/issues/01-noir/shots";
 import { KEYS_R, MON_R } from "@/issues/02-desk/shots";
 import { NEON_SHOTS } from "@/issues/03-neon/shots";
+import { COSMOS_R, CHART_R } from "@/issues/10-spread/ranges";
 import { clamp01 } from "@/lib/shots";
 
 /**
@@ -97,11 +98,12 @@ const CAPTION_DEFS: CaptionDef[] = [
   // this DOM layer. neon0 holds to the end of shot 1; neon1 spans shot 2 exactly.
   { text: lettering.sceneCaptions.neon[0], window: [0.232, NEON_SHOTS[0]!.range[1]], spot: CAPTION_SPOTS[1]! },
   { text: lettering.sceneCaptions.neon[1], window: NEON_SHOTS[1]!.range, spot: CAPTION_SPOTS[0]! },
-  // Spread captions stay literals: issues/10-spread/shots.ts has module side
-  // effects (gsap / registerJawDrop / snapshots) and is banned from this DOM
-  // layer. Source ranges: SPREAD_SHOTS[0].range and SPREAD_SHOTS[1].range.
-  { text: lettering.sceneCaptions.spread[0], window: [0.85, 0.864], spot: CAPTION_SPOTS[2]! },
-  { text: lettering.sceneCaptions.spread[1], window: [0.8677, 0.8857], spot: CAPTION_SPOTS[0]! },
+  // Spread captions reuse the shot windows from issues/10-spread/ranges.ts --
+  // PURE data shared with SPREAD_SHOTS[0]/[1], so the numbers cannot diverge.
+  // ./shots.ts itself has module side effects (gsap / registerJawDrop /
+  // snapshots) and stays banned from this DOM layer.
+  { text: lettering.sceneCaptions.spread[0], window: COSMOS_R, spot: CAPTION_SPOTS[2]! },
+  { text: lettering.sceneCaptions.spread[1], window: CHART_R, spot: CAPTION_SPOTS[0]! },
 ];
 
 type CardDef = { issue: number; title: string; kicker: string; window: [number, number] };

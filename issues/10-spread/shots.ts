@@ -4,6 +4,7 @@ import { printRecipe } from "@/lib/recipes";
 import { registerJawDrop } from "@/lib/beats";
 import { snapshots } from "@/lib/snapshots";
 import { issueCenter, RANGES } from "../timeline";
+import { COSMOS_R, CHART_R } from "./ranges";
 
 /**
  * Issue 10 THE SPREAD -- authored shots (S0.8 table in ./shots.md).
@@ -85,7 +86,7 @@ export const SPREAD_SHOTS: Shot[] = [
     // constellation arc + dome behind, krackle FG
     id: "spread-cosmos",
     issue: 10,
-    range: [at(0), at(0.2)],
+    range: COSMOS_R,
     kind: "dolly",
     from: { position: [CX - 24, 6, 22], target: [CX - 2, 5, -20], roll: -0.05, fov: 58 },
     to: { position: [CX - 16, 4.5, 17], target: [CX - 3, 6, -22], roll: -0.02, fov: 52 },
@@ -96,7 +97,7 @@ export const SPREAD_SHOTS: Shot[] = [
     // wide star band, green highs sparkling
     id: "spread-chart",
     issue: 10,
-    range: [at(0.24), at(0.46)],
+    range: CHART_R,
     kind: "dolly",
     from: { position: [CX + 4, 5, 10], target: [CX - 4, 11, -30], roll: 0.03, fov: 50 },
     to: { position: [CX - 2, 11, -13.2], target: [CX - 4, 11, -30], roll: 0, fov: 38 },
