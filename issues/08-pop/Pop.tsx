@@ -18,9 +18,9 @@ import { ISSUES } from "../registry";
 import CatModel, { HARLEY, type CatPalette } from "@/components/CatModel";
 import { stepTime } from "@/lib/steppedClock";
 import { useScrollStore } from "@/lib/scrollStore";
-import { sayWord } from "@/lib/onomatopoeia";
+import { CAT_VOICE, sayWord } from "@/lib/onomatopoeia";
 import { popScale } from "@/lib/pops";
-import { content, issueCopy, lettering } from "@/lib/content";
+import { content, issueCopy } from "@/lib/content";
 import {
   chatPool,
   CYAN,
@@ -928,10 +928,11 @@ function DeskCat() {
       onClick={(e) => {
         e.stopPropagation();
         useScrollStore.getState().meow();
+        const n = useScrollStore.getState().meowCount;
         sayWord(
-          lettering.onomatopoeia.cat,
+          CAT_VOICE,
           [e.point.x, e.point.y + 1.1, e.point.z],
-          undefined,
+          (n * 0.618) % 1,
           INK,
         );
       }}

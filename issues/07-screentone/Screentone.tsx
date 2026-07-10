@@ -9,7 +9,7 @@ import { ISSUES } from "../registry";
 import CatModel, { HARLEY, type CatPalette } from "@/components/CatModel";
 import { stepNoise, stepTime } from "@/lib/steppedClock";
 import { useScrollStore } from "@/lib/scrollStore";
-import { sayWord } from "@/lib/onomatopoeia";
+import { CAT_VOICE, sayWord } from "@/lib/onomatopoeia";
 import { content, issueCopy, lettering } from "@/lib/content";
 import { issueCenter } from "../timeline";
 import {
@@ -519,7 +519,8 @@ function PlatformCat() {
       onClick={(e) => {
         e.stopPropagation();
         useScrollStore.getState().meow();
-        sayWord(lettering.onomatopoeia.cat, [CX + CAT_BENCH_X, 4.2, -2], undefined, INK);
+        const n = useScrollStore.getState().meowCount;
+        sayWord(CAT_VOICE, [CX + CAT_BENCH_X, 4.2, -2], (n * 0.618) % 1, "#FFFFFF");
       }}
     >
       <CatModel mode="flat" pose="sitting" palette={CAT_PALETTE} rig={{ tail }} />

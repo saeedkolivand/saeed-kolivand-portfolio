@@ -16,8 +16,8 @@ import CatModel, { HARLEY, type CatPalette } from "@/components/CatModel";
 import { pawprintMaterial, sketchMaterial, SKETCH_PALETTE } from "@/shaders/sketchMaterials";
 import { stepTime } from "@/lib/steppedClock";
 import { useScrollStore } from "@/lib/scrollStore";
-import { sayWord } from "@/lib/onomatopoeia";
-import { issueCopy, lettering } from "@/lib/content";
+import { CAT_VOICE, sayWord } from "@/lib/onomatopoeia";
+import { issueCopy } from "@/lib/content";
 import { clamp01, lerp } from "@/lib/shots";
 import { issueCenter } from "../timeline";
 import { inkAt, SKETCH_SETTLE } from "./shots";
@@ -449,7 +449,8 @@ function PageCat() {
 
   const meow = (x: number, z: number) => {
     useScrollStore.getState().meow();
-    sayWord(lettering.onomatopoeia.cat, [CX + x, 3.4, z], undefined, INK);
+    const n = useScrollStore.getState().meowCount;
+    sayWord(CAT_VOICE, [CX + x, 3.4, z], (n * 0.618) % 1, WASH);
   };
 
   return (

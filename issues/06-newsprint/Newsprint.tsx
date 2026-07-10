@@ -10,9 +10,9 @@ import { ArtPanel } from "../04-origin/Origin";
 import { toonRamp } from "@/lib/toon";
 import { stepTime } from "@/lib/steppedClock";
 import { useScrollStore } from "@/lib/scrollStore";
-import { sayWord } from "@/lib/onomatopoeia";
+import { CAT_VOICE, sayWord } from "@/lib/onomatopoeia";
 import { uiSound } from "@/lib/audio/ui";
-import { issueCopy, lettering, links } from "@/lib/content";
+import { issueCopy, links } from "@/lib/content";
 import { colorWindow } from "@/shaders/colorWindow";
 import { issueCenter } from "../timeline";
 import { NEWS_FLOOD_POP, NEWS_PANEL_POS, NEWS_TICKER_Y, NEWS_TICKER_Z, newsFlood } from "./shots";
@@ -197,7 +197,8 @@ function CatPhoto() {
       onClick={(e) => {
         e.stopPropagation();
         useScrollStore.getState().meow();
-        sayWord(lettering.onomatopoeia.cat, [issueCenter(6)[0] + 5.9, 7.7, -4], undefined, INK);
+        const n = useScrollStore.getState().meowCount;
+        sayWord(CAT_VOICE, [issueCenter(6)[0] + 5.9, 7.7, -4], (n * 0.618) % 1, RED);
       }}
     >
       <PhotoFrame w={3.05} h={3.55} />

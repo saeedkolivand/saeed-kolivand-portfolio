@@ -1,5 +1,15 @@
 import type { Vector3 } from "three";
+import { lettering } from "./content";
 import { PopPool } from "./pops";
+
+/**
+ * Vocal-only cat words (S0.5: derive, don't re-type). THUMP/PADD are physical
+ * landing/step sounds Desk uses deliberately; a click is a vocal response, so
+ * the click sites fire from CAT_VOICE, never the full onomatopoeia.cat pool.
+ */
+export const CAT_VOICE = lettering.onomatopoeia.cat.filter(
+  (w) => w !== "THUMP" && w !== "PADD",
+);
 
 /**
  * Pooled comic onomatopoeia (S5b) -- a PopPool of word sprites. Scenes call
