@@ -63,6 +63,10 @@ let session = 0;
 let raf = 0;
 let lastNow = 0;
 let warned = false;
+// monotonic guard for the shared thump/chime one-shots: next Tone time they are
+// free to schedule. A deep jump can resolve two beat crossings in one frame, so
+// two hits arrive at the same `now` -- Tone throws if starts invert on a synth.
+let beatFree = 0;
 
 function warn(e: unknown): void {
   if (warned) return;
@@ -90,6 +94,7 @@ export function enableAudio(): void {
     enabled = true;
     pending = false;
     lastNow = performance.now();
+    beatFree = 0; // reset the one-shot gate on every (re-)enable
     cancelAnimationFrame(raf);
     raf = requestAnimationFrame(loop);
   })().catch((e) => {
@@ -198,11 +203,20 @@ function wire(): void {
     try {
       const now = m.T.now();
       if (beatMoment(id, flash)) return; // moment owns the hit (sound or silence)
+      // monotonic gate: two beats can resolve in one frame on a deep jump, so
+      // stagger the second start past the first. Consumed only for default hits
+      // (below the beatMoment return, so moment-owned beats never advance it).
+      const a = now <= beatFree ? beatFree + 0.008 : now;
+      beatFree = a + 0.35;
       // sidechain duck: a strong director thump dips the bed, then recovers.
       // BELOW the beatMoment return, so moment-owned beats (some deliberately
       // silent, e.g. neon cascade) never duck. Rides duckGain (not music.gain)
       // so the meter/visual pulse stays clean. Event-driven (fires on a beat
       // crossing) -- zero per-frame alloc; inherits the beat hook's gates.
+      // Based at `now`, NOT the gated `a`: params have no strict-time constraint,
+      // and cancel-from-now + setValueAtTime(g.value, now) is click-free. Only the
+      // thump/chime SYNTH triggers below take `a` (starts must be strictly
+      // increasing). Rebasing the ramps onto `a` popped when a is bumped ahead.
       if (flash > 0.25) {
         const g = m.duckGain.gain;
         g.cancelScheduledValues(now);
@@ -210,8 +224,8 @@ function wire(): void {
         g.linearRampToValueAtTime(0.55, now + 0.03);
         g.linearRampToValueAtTime(1, now + 0.53);
       }
-      if (flash > 0) m.thump.triggerAttackRelease("A1", 0.3, now, 0.4 + 0.6 * Math.min(flash, 1));
-      else m.chime.triggerAttackRelease("D6", 0.2, now, 0.7);
+      if (flash > 0) m.thump.triggerAttackRelease("A1", 0.3, a, 0.4 + 0.6 * Math.min(flash, 1));
+      else m.chime.triggerAttackRelease("D6", 0.2, a, 0.7);
     } catch (e) {
       warn(e);
     }

@@ -1,5 +1,6 @@
 import type { Filter, FMSynth, Gain, MembraneSynth, Noise, NoiseSynth, Synth } from "tone";
 import { useScrollStore } from "@/lib/scrollStore";
+import { logFire } from "./debug";
 import type { ToneModule } from "./types";
 import { hash } from "./util";
 
@@ -30,7 +31,8 @@ export type UiKind =
   | "keyBack"
   | "keyEsc"
   | "toggleOn"
-  | "toggleOff";
+  | "toggleOff"
+  | "hover";
 
 interface Mod {
   T: ToneModule;
@@ -50,6 +52,35 @@ interface Pool {
   swishGain: Gain;
   meowSynth: FMSynth;
 }
+
+/**
+ * Strictly-increasing start-time gate for one mono voice (local copy of the
+ * moments.ts class -- no cross-import). Bumps a new start past the voice's busy
+ * tail so a second trigger on a SHARED synth (two meows within one meow's
+ * future-scheduled triggerRelease(now+0.38): leap+softLand on a deep jump, a
+ * scene meow racing a click meow, or back-to-back cmdErr/linkPress on uiNoise)
+ * never attacks earlier than the pending release -- which throws Tone's "The
+ * time must be greater than or equal to the last scheduled time" and trips the
+ * director loop catch (global audio disable). No reset: ui.ts has no disable
+ * path (pool survives), and Tone's clock only advances, so a stale free is
+ * always in the past on re-enable.
+ */
+class VoiceGate {
+  private free = 0;
+  constructor(private maxLag = Infinity) {}
+  at(now: number, busy: number): number {
+    const a = now <= this.free ? this.free + 0.008 : now;
+    // backlog drop (wheelFree pattern): once the adjusted start would land more
+    // than maxLag past now, the voice is so far behind that the sound is already
+    // stale -- return -1 (leaving `free` untouched) so the caller skips it, else
+    // a rapid meow spam grows an ever-longer serialized tail. Infinity = no cap.
+    if (a > now + this.maxLag) return -1;
+    this.free = a + busy;
+    return a;
+  }
+}
+const meowGate = new VoiceGate(0.7); // shared meowSynth; drop once backlog > 0.7s
+const uiNoiseGate = new VoiceGate(); // shared uiNoise (cmdErr / linkPress / ctaPress)
 
 let mod: Mod | null = null;
 let pool: Pool | null = null;
@@ -161,16 +192,22 @@ export function uiSound(kind: UiKind, seed = 0): void {
       break;
     }
     case "cmdErr": {
-      // gritty descending bzzt through the fixed 800 Hz lowpass
+      // gritty descending bzzt through the fixed 800 Hz lowpass...
       p.uiBuzz.triggerAttack(200, now, 0.9);
       p.uiBuzz.frequency.rampTo(150, 0.13, now);
       p.uiBuzz.triggerRelease(now + 0.14);
+      // ...with a CRT static zap layered on (shared uiNoise voice, bp swept up
+      // then rested back to 1200 so linkPress/ctaPress snaps stay unchanged).
+      p.uiNoiseBp.frequency.rampTo(2400, 0.03, now);
+      p.uiNoise.triggerAttackRelease(0.05, uiNoiseGate.at(now, 0.06), 0.5);
+      p.uiNoiseBp.frequency.rampTo(1200, 0.08, now + 0.06);
+      logFire("cmdErr");
       break;
     }
     case "linkPress": {
       // ka-chunk (thud) + paper snap (noise) + page opening (rising beeps)
       p.uiThud.triggerAttackRelease("A1", 0.08, now, 0.8);
-      p.uiNoise.triggerAttackRelease(0.03, now, 0.5);
+      p.uiNoise.triggerAttackRelease(0.03, uiNoiseGate.at(now, 0.06), 0.5);
       p.uiBeep.triggerAttackRelease(700, 0.05, now, 0.7);
       p.uiBeep.triggerAttackRelease(1050, 0.05, now + 0.055, 0.7);
       break;
@@ -178,7 +215,7 @@ export function uiSound(kind: UiKind, seed = 0): void {
     case "ctaPress": {
       // heavier manufactured press + a downward swish hinting the scroll
       p.uiThud.triggerAttackRelease("F1", 0.1, now, 0.9);
-      p.uiNoise.triggerAttackRelease(0.03, now, 0.5);
+      p.uiNoise.triggerAttackRelease(0.03, uiNoiseGate.at(now, 0.06), 0.5);
       swish(p, m, 1100, 450, 0.18);
       break;
     }
@@ -219,6 +256,12 @@ export function uiSound(kind: UiKind, seed = 0): void {
       p.uiBeep.triggerAttackRelease(587.33, 0.05, now + 0.05, 0.55);
       break;
     }
+    case "hover": {
+      // tiny tick on button hover-in; call site latches false -> true only
+      p.uiTick.triggerAttackRelease(1800, 0.006, now, 0.3);
+      logFire("hover");
+      break;
+    }
   }
 }
 
@@ -234,6 +277,8 @@ export function fireMeowVoice(now: number, base: number, harm: number): void {
   if (!m) return;
   const p = ensure();
   if (!p) return;
+  now = meowGate.at(now, 0.55); // release scheduled at now+0.38; keep the next attack after it
+  if (now < 0) return; // backlog past maxLag -> drop this meow
   const s = p.meowSynth;
   s.harmonicity.value = harm;
   s.modulationIndex.value = 4;
@@ -260,20 +305,24 @@ export function meow(count: number): void {
   const base = 480 + (h % 200);
   if (fam === 2) {
     // CHIRP: single short pop, low modIndex, no dip
+    const gnow = meowGate.at(now, 0.55); // shared meowSynth: stagger past any pending release
+    if (gnow < 0) return; // backlog past maxLag -> drop
     s.harmonicity.value = 1.3 + fam * 0.13;
     s.modulationIndex.value = 2;
-    s.triggerAttackRelease(600 + (h % 120), 0.16, now, 0.8);
+    s.triggerAttackRelease(600 + (h % 120), 0.16, gnow, 0.8);
     return;
   }
   if (fam === 1) {
     // QUESTION: end freq ramps up, tail rises a touch more
+    const gnow = meowGate.at(now, 0.55); // shared meowSynth: stagger past any pending release
+    if (gnow < 0) return; // backlog past maxLag -> drop
     s.harmonicity.value = 1.3 + fam * 0.13;
     s.modulationIndex.value = 4;
-    s.triggerAttack(base, now, 0.8);
+    s.triggerAttack(base, gnow, 0.8);
     const top = base * 1.4;
-    s.frequency.rampTo(top, 0.24, now + 0.02);
-    s.frequency.rampTo(top * 1.06, 0.08, now + 0.26);
-    s.triggerRelease(now + 0.36);
+    s.frequency.rampTo(top, 0.24, gnow + 0.02);
+    s.frequency.rampTo(top * 1.06, 0.08, gnow + 0.26);
+    s.triggerRelease(gnow + 0.36);
     return;
   }
   // 0 ME-OW: the shared voice (also fired by moments' cat sfx)
@@ -286,7 +335,8 @@ export function catPurr(): void {
   if (!m) return;
   const p = ensure();
   if (!p) return;
-  const now = m.T.now();
+  const now = meowGate.at(m.T.now(), 0.55); // shared meowSynth: purr releases at now+0.42
+  if (now < 0) return; // backlog past maxLag -> drop
   const s = p.meowSynth;
   const base = 300;
   s.harmonicity.value = 1.6;

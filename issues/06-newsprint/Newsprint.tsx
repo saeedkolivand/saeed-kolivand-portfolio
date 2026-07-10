@@ -396,6 +396,7 @@ function PanelButton({ x, label, url }: { x: number; label: string; url: string 
       }}
       onPointerOver={(e) => {
         e.stopPropagation();
+        if (!hovered.current) uiSound("hover"); // tick on false -> true only
         hovered.current = true;
         document.body.style.cursor = "pointer";
       }}

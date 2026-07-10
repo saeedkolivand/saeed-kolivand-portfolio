@@ -12,6 +12,7 @@ import { stepTime, stepNoise } from "@/lib/steppedClock";
 import { useScrollStore } from "@/lib/scrollStore";
 import { clamp01 } from "@/lib/shots";
 import { lettering } from "@/lib/content";
+import { sfxMoment } from "@/lib/audio/moments";
 import { NEON_CASCADE_T, NEON_CASCADE_END } from "./shots";
 
 /**
@@ -303,6 +304,9 @@ export default function Neon({ index }: { index: number }) {
   const padMat = useRef<MeshBasicMaterial>(null);
   const cat = useRef<Group>(null);
   const lastRadius = useRef(-1);
+  // per-sign lit latch (preallocated at mount, primed to the mount state so a
+  // deep-jump into the cascade never fires a buzz burst); no per-frame alloc
+  const lit = useRef<boolean[]>([]);
 
   const applyRadius = (radius: number) => {
     const body = bodyRef.current;
@@ -374,6 +378,10 @@ export default function Neon({ index }: { index: number }) {
     const radius = cascadeRadius(useScrollStore.getState().t);
     lastRadius.current = radius;
     applyRadius(radius);
+    // prime the buzz latch to the mount state (no ignition sound on mount)
+    CITY.signs.forEach((s, i) => {
+      lit.current[i] = s.preLit || s.dist <= radius;
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -387,10 +395,24 @@ export default function Neon({ index }: { index: number }) {
       applyRadius(radius);
     }
 
-    // signs pop on when the wave reaches them (visibility step, no fade)
+    // signs pop on when the wave reaches them (visibility step, no fade); the
+    // ignition edge (false->true, non-pilot) fires a sign-buzz. Event marker,
+    // so it plays under reduced motion too; re-arms when a sign goes dark.
+    // A jump/teleport (print<->3D, JumpCover, scrollbar drag) can flip many
+    // signs in one frame -> serialized buzz volley. Count ignitions first; the
+    // normal cascade lights at most 1-2/frame, so more than 2 is a teleport:
+    // update lit[] silently (re-prime), no buzz.
+    let ignitions = 0;
     CITY.signs.forEach((s, i) => {
+      if (!s.preLit && s.dist <= radius && !lit.current[i]) ignitions++;
+    });
+    const jump = ignitions > 2;
+    CITY.signs.forEach((s, i) => {
+      const on = s.preLit || s.dist <= radius;
       const g = signRefs.current[i];
-      if (g) g.visible = s.preLit || s.dist <= radius;
+      if (g) g.visible = on;
+      if (on && !lit.current[i] && !s.preLit && !jump) sfxMoment("signBuzz", i);
+      lit.current[i] = on;
     });
 
     // krackle: stepped-time jitter (ambient loop, S2.8), gated by the wave

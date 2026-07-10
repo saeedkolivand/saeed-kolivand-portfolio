@@ -46,7 +46,7 @@ function progressToT(s: number): number {
 }
 
 /** Exact inverse of progressToT, so scrollToT(t) lands on precisely t. */
-function tToProgress(t: number): number {
+export function tToProgress(t: number): number {
   const [a, b] = SLOW_WINDOW;
   const u = t <= a ? t : t <= b ? a + (t - a) * SLOW_FACTOR : t + SLOW_EXTRA;
   return u / (1 + SLOW_EXTRA);
@@ -59,14 +59,19 @@ let activeLenis: Lenis | null = null;
  * Programmatic scroll surface for diegetic UI (e.g. the Issue 5 "See
  * projects" CTA): smooth-scroll the document so global progress lands on
  * `t`. lenis.limit is the max scroll value (lenis 1.3.25 README), matching
- * ScrollTrigger's 0->"max" progress mapping. Instant under reduced motion.
+ * ScrollTrigger's 0->"max" progress mapping. Instant under reduced motion,
+ * or when opts.immediate is set (print<->3D toggle jump: no scrub animation
+ * across a document swap).
  */
-export function scrollToT(t: number) {
+export function scrollToT(t: number, opts?: { immediate?: boolean }) {
   const lenis = activeLenis;
   if (!lenis) return;
   const target = tToProgress(Math.min(Math.max(t, 0), 1)) * lenis.limit;
-  if (useScrollStore.getState().reducedMotion) lenis.scrollTo(target, { immediate: true });
-  else lenis.scrollTo(target, { duration: 2.2 });
+  if (opts?.immediate || useScrollStore.getState().reducedMotion) {
+    lenis.scrollTo(target, { immediate: true });
+  } else {
+    lenis.scrollTo(target, { duration: 2.2 });
+  }
 }
 
 export default function ScrollProxy() {
