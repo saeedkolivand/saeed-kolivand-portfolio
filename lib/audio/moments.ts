@@ -1009,6 +1009,10 @@ export function scoreMoments(
   dtSec: number,
   velocity: number,
 ): void {
+  // RULING 2026-07-10 (PR 36): audio event EMISSION is deliberately not pure
+  // f(t) -- fires are velocity-gated (anti machine-gun) and deep jumps (>0.03 t)
+  // re-prime latches silently. Visual scroll state remains pure f(t); scrubbing
+  // back and forward slowly still replays every event.
   const k = kit ?? (kit = buildKit(T, sfx));
   if (!TM) TM = T;
   momentsActive = true; // scoreMoments only runs while the director is enabled

@@ -11,4 +11,5 @@ export function logFire(name: string): void {
   const w = window as unknown as { __audioLog?: { name: string; t: number }[] };
   if (!w.__audioLog) w.__audioLog = [];
   w.__audioLog.push({ name, t: useScrollStore.getState().t });
+  if (w.__audioLog.length > 2000) w.__audioLog.splice(0, w.__audioLog.length - 2000);
 }
