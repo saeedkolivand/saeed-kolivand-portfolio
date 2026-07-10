@@ -1,6 +1,6 @@
 ---
 name: gate-auditor
-description: Runs phase gates for PANEL JUMP via Chrome DevTools MCP - screenshots, performance traces, console checks, S5b.4 composition checklist, S2.16 comfort audit, flash budget. MUST BE USED for any gate, screenshot verification, or checklist audit. Returns a pass/fail table only; raw screenshots never leave this context.
+description: Runs phase gates for saeed-kolivand-portfolio via Chrome DevTools MCP - screenshots, performance traces, console checks, S5b.4 composition checklist, S2.16 comfort audit, flash budget. MUST BE USED for any gate, screenshot verification, or checklist audit. Returns a pass/fail table only; raw screenshots never leave this context.
 model: opus
 tools: Read, Glob, Grep, Bash, mcp__chrome-devtools__*
 skills: gate-audit

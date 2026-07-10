@@ -1,9 +1,9 @@
 ---
-name: panel-jump-conventions
-description: PANEL JUMP locked decisions - the S2 engine contract, S0.3 timeline, S5 transition specs, S5b cinematic rules, S2.16 comfort rule. Load before building or modifying any scene, shot, transition, or shader in this project.
+name: portfolio-conventions
+description: saeed-kolivand-portfolio locked decisions - the S2 engine contract, S0.3 timeline, S5 transition specs, S5b cinematic rules, S2.16 comfort rule. Load before building or modifying any scene, shot, transition, or shader in this project.
 ---
 
-# PANEL JUMP conventions (locked - do not re-litigate)
+# saeed-kolivand-portfolio conventions (locked - do not re-litigate)
 
 ## Engine contract (SPEC.md S2)
 - ONE persistent Canvas, frameloop="always", dpr [1,2] (low tier [1,1.5]).

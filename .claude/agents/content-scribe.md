@@ -1,6 +1,6 @@
 ---
 name: content-scribe
-description: Owns lib/content.ts, Print Edition copy, terminal command text, onomatopoeia word lists, and all user-facing strings in PANEL JUMP. MUST BE USED for copy changes, content structure, or lettering text. Never touches engine code or shaders.
+description: Owns lib/content.ts, Print Edition copy, terminal command text, onomatopoeia word lists, and all user-facing strings in saeed-kolivand-portfolio. MUST BE USED for copy changes, content structure, or lettering text. Never touches engine code or shaders.
 model: opus
 tools: Read, Write, Edit, Glob, Grep
 ---

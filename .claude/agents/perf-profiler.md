@@ -1,6 +1,6 @@
 ---
 name: perf-profiler
-description: Profiles PANEL JUMP frame rate and owns the S0.6 degradation ladder. MUST BE USED when a trace or FPS number is below target, or when a gate needs before/after perf evidence. Applies ladder rungs in order and stops at the first passing rung.
+description: Profiles saeed-kolivand-portfolio frame rate and owns the S0.6 degradation ladder. MUST BE USED when a trace or FPS number is below target, or when a gate needs before/after perf evidence. Applies ladder rungs in order and stops at the first passing rung.
 model: opus
 tools: Read, Write, Edit, Glob, Grep, Bash, mcp__chrome-devtools__*, mcp__codegraph__*
 ---
