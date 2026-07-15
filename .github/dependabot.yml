@@ -9,6 +9,10 @@ updates:
         update-types:
           - minor
           - patch
+    ignore:
+      # ponytail: TS 7 (native compiler) lacks the JS API next build needs; drop when Next supports it
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
