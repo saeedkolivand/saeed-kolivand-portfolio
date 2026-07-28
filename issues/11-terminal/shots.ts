@@ -249,6 +249,14 @@ registerJawDrop({
 });
 
 // ---- cat walk-off (pure f(t), scrub-safe -- S5b.1 guide exit) ---------------
-export const CAT_WALK_RANGE: [number, number] = [at(0.72), at(0.97)];
+/**
+ * Starts at 0.84, not 0.72: the floor in front of the desk only enters frame
+ * about halfway through the pullback, so the old window dropped the cat off
+ * the CRT into dead space below the frame edge (audit 2026-07-27). The cat
+ * now holds the monitor perch through the reveal and exits inside the wide
+ * frame -- and the walk plate parks in frame instead of leaving t=1.000
+ * catless (see TerminalCat).
+ */
+export const CAT_WALK_RANGE: [number, number] = [at(0.84), at(0.97)];
 export const catWalk = (t: number) =>
   clamp01((t - CAT_WALK_RANGE[0]) / (CAT_WALK_RANGE[1] - CAT_WALK_RANGE[0]));

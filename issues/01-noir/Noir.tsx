@@ -240,9 +240,12 @@ function NoirCat({ cx }: { cx: number }) {
     const trot = clamp01(p4 / 0.72);
     const k = clamp01((p4 - 0.72) / 0.28); // the leap window
 
-    // shot 3: walk in frame-left along the parapet (pure f(t))
+    // shot 3: walk in frame-left along the parapet (pure f(t)). y 9.328 sets
+    // every contact point ON the ledge top line (9.325) -- the toon walk
+    // pose's planted paws sit ~0.03 below its origin at this 1.2 scale
+    // (contact fix with the paw amplitude below, audit 2026-07-27).
     let x = lerp(-7.2, -1.6, p3);
-    let y = 9.32;
+    let y = 9.328;
     let z = 2.5;
     let ry = 0;
     let rz = 0;
@@ -251,7 +254,7 @@ function NoirCat({ cx }: { cx: number }) {
     if (p4 > 0) {
       // shot 4 pre-leap: trot toward the facade gap, crouch to anticipate
       x = lerp(-1.6, -0.9, trot);
-      y = lerp(9.32, 9.02, clamp01(trot * 2));
+      y = lerp(9.328, 9.02, clamp01(trot * 2));
       z = lerp(2.5, 0.8, trot);
       ry = lerp(0, 1.35, clamp01(trot * 4));
       squash = 1 - 0.25 * clamp01((trot - 0.75) / 0.25);
@@ -313,19 +316,27 @@ function NoirCat({ cx }: { cx: number }) {
     if (walkG.current) walkG.current.visible = !leaping && !crouching;
     if (crouchG.current) crouchG.current.visible = crouching;
     if (leapG.current) leapG.current.visible = leaping;
-    // 12 fps tail flick -- ambient stepped-time idle (S2.8)
-    const flick = Math.sin(stepTime(clock.elapsedTime, 12) * 2.4) * 0.45;
-    if (walkTail.current) walkTail.current.rotation.x = flick;
-    if (crouchTail.current) crouchTail.current.rotation.x = flick;
-    if (leapTail.current) leapTail.current.rotation.x = flick;
-    // stride swing derives from parapet x -- pure f(t), scrub-safe
-    if (walkPaw.current) walkPaw.current.rotation.z = Math.sin(x * 5.2) * 0.55;
+    // 12 fps tail flick -- ambient stepped-time idle (S2.8). Driven on
+    // rotation.z (the rig's own axis) around a RAISED base: CatModel's rest
+    // tail sweeps straight back, and shot 4 turns the cat rear-on, so a
+    // back-swept tail foreshortens onto its own haunch and the ink edge
+    // reads as a hole in the rump (audit 2026-07-27). -0.78 stands the
+    // shaft up clear of the haunch mass; +/-0.2 keeps the flick alive
+    // without dropping it back into the silhouette at any stepped phase.
+    const flick = -0.78 + Math.sin(stepTime(clock.elapsedTime, 12) * 2.4) * 0.2;
+    if (walkTail.current) walkTail.current.rotation.z = flick;
+    if (crouchTail.current) crouchTail.current.rotation.z = flick;
+    if (leapTail.current) leapTail.current.rotation.z = flick;
+    // stride swing derives from parapet x -- pure f(t), scrub-safe. Amplitude
+    // 0.3: the old 0.55 lifted the near sock a full paw off the parapet line
+    // while the planted legs stayed on it (contact fix, same audit).
+    if (walkPaw.current) walkPaw.current.rotation.z = Math.sin(x * 5.2) * 0.3;
   });
 
   return (
     <group
       ref={group}
-      position={[-7.2, 9.32, 2.5]}
+      position={[-7.2, 9.328, 2.5]}
       onClick={(e) => {
         e.stopPropagation();
         useScrollStore.getState().meow();

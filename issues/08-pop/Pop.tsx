@@ -5,13 +5,16 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { Text } from "@react-three/drei";
 import {
   Color,
+  FrontSide,
   Matrix4,
   Object3D,
   Quaternion,
+  Vector3,
   type Group,
   type InstancedMesh,
   type Mesh,
   type MeshBasicMaterial,
+  type PerspectiveCamera,
 } from "three";
 import IssueShell from "../_IssueShell";
 import { ISSUES } from "../registry";
@@ -20,6 +23,7 @@ import { stepTime } from "@/lib/steppedClock";
 import { useScrollStore } from "@/lib/scrollStore";
 import { CAT_VOICE, sayWord } from "@/lib/onomatopoeia";
 import { popScale } from "@/lib/pops";
+import { clamp01 } from "@/lib/shots";
 import { content, issueCopy } from "@/lib/content";
 import {
   chatPool,
@@ -71,6 +75,14 @@ const tmpM = new Matrix4();
 const tmpC = new Color();
 const tmpQ = new Quaternion();
 const tmpQ2 = new Quaternion();
+const tmpV = new Vector3();
+
+// Balloon print size + its half-extents in balloon-local units (halo width,
+// halo top -> tail tip). 0.72 keeps a chat line legible at the establish lens
+// while three balloons stack inside one frame (audit 2026-07-27).
+const BALLOON_SCALE = 0.72;
+const B_HALF_W = 2.6;
+const B_HALF_H = 1.5;
 
 const hash = (i: number, n: number) => {
   const x = Math.sin((i + 1) * n) * 43758.5453;
@@ -459,17 +471,27 @@ interface EmoteDef {
   s: number;
   y0: number;
   ph: number;
+  /** climb span: the height the sprite cycles through */
+  sp: number;
 }
 
 // inner radius 6.8 clears the ON AIR sign + desk sight lines (iteration 1)
-const EMOTES: EmoteDef[] = Array.from({ length: EMOTE_N }, (_, i) => ({
-  a: 2 * Math.PI * hash(i, 1.7),
-  r: 6.8 + 3.6 * hash(i, 2.9),
-  v: 0.5 + 0.55 * hash(i, 4.1),
-  s: 0.75 + 0.55 * hash(i, 6.3),
-  y0: 9.5 * hash(i, 8.8),
-  ph: 6.28 * hash(i, 9.9),
-}));
+const EMOTES: EmoteDef[] = Array.from({ length: EMOTE_N }, (_, i) => {
+  const a = 2 * Math.PI * hash(i, 1.7);
+  // sprites on the sign's arc climb a shorter band (top 5.6 + half a sprite
+  // stays under the sign's 6.5 bottom edge), so an emote can never park on
+  // the ON AIR face and hide its letters (audit 2026-07-27)
+  const sp = Math.cos(a) < -0.35 ? 5.2 : 9.5;
+  return {
+    a,
+    r: 6.8 + 3.6 * hash(i, 2.9),
+    v: 0.5 + 0.55 * hash(i, 4.1),
+    s: 0.75 + 0.55 * hash(i, 6.3),
+    y0: sp * hash(i, 8.8),
+    ph: 6.28 * hash(i, 9.9),
+    sp,
+  };
+});
 const EMOTE_MATS = EMOTES.map(() => new Matrix4());
 
 // flat part lists, emote-ordered (low tier trims by instance count)
@@ -533,7 +555,7 @@ function EmoteField() {
       const d = EMOTES[e]!;
       tmpO.position.set(
         Math.cos(d.a) * d.r + 0.35 * Math.sin(st * 0.8 + d.ph),
-        0.4 + ((d.y0 + d.v * st) % 9.5),
+        0.4 + ((d.y0 + d.v * st) % d.sp),
         Math.sin(d.a) * d.r + 0.35 * Math.cos(st * 0.7 + d.ph),
       );
       tmpO.quaternion.copy(tmpQ);
@@ -651,11 +673,15 @@ function ChatBalloons() {
   const bill = useRef(new Quaternion());
 
   useFrame(({ clock }) => {
+    const w = wrap.current;
+    if (!w) return;
     const { quality, reducedMotion } = useScrollStore.getState();
     const fps = quality === "low" ? 8 : 12;
     const el = clock.elapsedTime;
-    // ambient pop cadence: one locked chat line per interval (intensity 5)
-    const ivl = quality === "low" ? 0.8 : 0.5;
+    // ambient pop cadence: one locked chat line per interval (intensity 5).
+    // Stays above life / slots (2.6 / 3) so a wall slot is always free before
+    // the round-robin comes back to it (audit 2026-07-27).
+    const ivl = quality === "low" ? 1.15 : 0.95;
     const sp = Math.floor(el / ivl);
     if (sp !== lastSpawn.current) {
       lastSpawn.current = sp;
@@ -663,11 +689,13 @@ function ChatBalloons() {
     }
     // stepped billboard facing, shared by all balloons (S2.8 contrast)
     const stp = Math.floor(el * fps);
-    if (stp !== lastStep.current && wrap.current) {
+    if (stp !== lastStep.current) {
       lastStep.current = stp;
-      wrap.current.getWorldQuaternion(tmpQ2);
+      w.getWorldQuaternion(tmpQ2);
       bill.current.copy(tmpQ2).invert().multiply(camera.quaternion);
     }
+    const cam = camera as PerspectiveCamera;
+    const tanH = Math.tan((cam.fov * Math.PI) / 360);
     const now = performance.now();
     for (let i = 0; i < B_N; i++) {
       const g = groups.current[i];
@@ -697,18 +725,38 @@ function ChatBalloons() {
         g.visible = false;
         continue;
       }
-      const alpha = reducedMotion
-        ? Math.max(0, Math.min(1, age / 0.35, (chatPool.life - age) / 0.45))
-        : 1;
-      g.visible = true;
       g.position.copy(slot.pos);
-      if (!reducedMotion) g.position.y += 0.35 * stepTime(age, fps); // stepped rise
+      if (!reducedMotion) g.position.y += 0.12 * stepTime(age, fps); // stepped rise
+      // frame guard: a balloon that would cross a viewport edge fades out
+      // instead of printing half a chat line (audit 2026-07-27). Camera and
+      // anchors are both pure f(t), so the fade scrubs both directions.
+      tmpV.copy(g.position).applyMatrix4(w.matrixWorld);
+      const dist = tmpV.distanceTo(cam.position);
+      tmpV.project(cam);
+      const hx = (B_HALF_W * BALLOON_SCALE) / (dist * tanH * cam.aspect);
+      const hy = (B_HALF_H * BALLOON_SCALE) / (dist * tanH);
+      const framed =
+        tmpV.z > 1
+          ? 0
+          : clamp01(
+              Math.min(1 - hx - Math.abs(tmpV.x), 1 - hy - Math.abs(tmpV.y)) / 0.06,
+            );
+      const alpha =
+        framed *
+        (reducedMotion
+          ? Math.max(0, Math.min(1, age / 0.35, (chatPool.life - age) / 0.45))
+          : 1);
+      if (alpha <= 0.002) {
+        g.visible = false;
+        continue;
+      }
+      g.visible = true;
       g.quaternion.copy(bill.current);
       g.rotateZ(
         (slot.seed - 0.5) * 0.22 +
           (reducedMotion ? 0 : 0.04 * Math.sin(stepTime(age, fps) * 7)),
       );
-      g.scale.setScalar(s);
+      g.scale.setScalar(s * BALLOON_SCALE);
       for (let k = 0; k < 3; k++) {
         const m = mats.current[i * 3 + k];
         if (m) m.opacity = alpha;
@@ -729,7 +777,10 @@ function ChatBalloons() {
             }}
             visible={false}
           >
-            {/* accent halo rim behind the body */}
+            {/* accent halo rim behind the body. depthTest off on the whole
+                balloon: comic law -- lettering prints ON TOP of the art, so
+                no desk, truss or emote sprite can ever cut a chat line
+                (S2.16 readable content, audit 2026-07-27) */}
             <mesh position={[0, 0, -0.16]} scale={[2.55, 1.24, 0.6]}>
               <sphereGeometry args={[1, 20, 14]} />
               <meshBasicMaterial
@@ -738,6 +789,7 @@ function ChatBalloons() {
                 }}
                 color={PINK}
                 transparent
+                depthTest={false}
               />
             </mesh>
             <mesh scale={[2.35, 1.06, 0.6]}>
@@ -748,6 +800,7 @@ function ChatBalloons() {
                 }}
                 color={INK}
                 transparent
+                depthTest={false}
               />
             </mesh>
             <mesh position={[-0.95, -1.0, 0.05]} rotation={[0, 0, 2.55]}>
@@ -758,9 +811,12 @@ function ChatBalloons() {
                 }}
                 color={INK}
                 transparent
+                depthTest={false}
               />
             </mesh>
             <Text
+              material-depthTest={false}
+              material-side={FrontSide}
               ref={(el: unknown) => {
                 texts.current[i] = el as TText | null;
               }}
@@ -799,7 +855,11 @@ function DonationAlert() {
     gg.visible = o > 0.001;
     if (!gg.visible) return;
     gg.scale.setScalar(1 + 0.4 * DON_KICK.v);
-    for (const m of mats.current) if (m) m.opacity = o;
+    // the card backing reaches full opacity 3x ahead of the caption: the desk
+    // never reads through the copy, and the rear view stays a solid card back
+    // instead of a see-through mirrored caption (audit 2026-07-27)
+    const plate = Math.min(1, o * 3);
+    for (const m of mats.current) if (m) m.opacity = plate;
     if (txt.current) txt.current.fillOpacity = o;
   });
 
@@ -826,10 +886,13 @@ function DonationAlert() {
         />
       </mesh>
       <Suspense fallback={null}>
+        {/* single-sided: from behind, the orbit reads the card back, never a
+            mirrored caption (audit 2026-07-27) */}
         <Text
           ref={(el: unknown) => {
             txt.current = el as TText | null;
           }}
+          material-side={FrontSide}
           position={[0, 0, 0.14]}
           font={BANGERS}
           fontSize={0.4}
@@ -863,7 +926,6 @@ function DonationBoom() {
     m.visible = o > 0.001;
     if (!m.visible) return;
     m.fillOpacity = o;
-    m.outlineOpacity = o;
     m.scale.setScalar(1 + 0.5 * DON_KICK.v);
     const st = reducedMotion ? 0 : stepTime(clock.elapsedTime, quality === "low" ? 8 : 12);
     m.rotation.z = -0.06 + 0.05 * Math.sin(st * 1.4);
@@ -871,16 +933,18 @@ function DonationBoom() {
 
   return (
     <Suspense fallback={null}>
+      {/* ONE crisp layer, no outline: a fat paper halo fading with the fill
+          read as a second offset copy of the word (S2.16, audit 2026-07-27).
+          Single-sided so the orbit never films it mirrored. */}
       <Text
         ref={(el: unknown) => {
           txt.current = el as TText | null;
         }}
+        material-side={FrontSide}
         position={[0.3, 3.9, 2.8]}
         font={BANGERS}
         fontSize={1.65}
         color={YELLOW}
-        outlineWidth={0.18}
-        outlineColor={PAPER}
         anchorX="center"
         anchorY="middle"
         visible={false}

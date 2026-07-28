@@ -504,26 +504,47 @@ function Portal() {
         <meshBasicMaterial color={VOID} side={BackSide} />
       </mesh>
 
-      {/* deep in the dark: the robot, waiting (beat 7) */}
-      <group position={[PX, PY, -PORTAL_DEPTH + 0.3]}>
-        <mesh position={[-0.38, 0.25, 0]}>
-          <planeGeometry args={[0.34, 0.14]} />
-          <meshBasicMaterial color={RUST} />
-        </mesh>
-        <mesh position={[0.38, 0.25, 0]}>
-          <planeGeometry args={[0.34, 0.14]} />
-          <meshBasicMaterial color={RUST} />
-        </mesh>
-        <mesh position={[0, -0.35, 0]}>
-          <planeGeometry args={[0.6, 0.06]} />
+      {/* deep in the dark: the robot, waiting (beat 7). Every part overlaps
+          the mass it hangs off (torso <- neck <- head, torso <- arms/legs,
+          legs <- feet) so it reads as ONE figure -- the old build was five
+          floating primitives with no torso (audit 2026-07-27). Same flat
+          plane/circle vocabulary and BLUE/RUST palette as before; lowered
+          0.25 so the caption above it clears the head. */}
+      <group position={[PX, PY - 0.25, -PORTAL_DEPTH + 0.3]}>
+        <mesh position={[0, 0.42, 0]}>
+          <planeGeometry args={[0.66, 0.86]} />
           <meshBasicMaterial color={BLUE} />
         </mesh>
-        <mesh position={[0, 0.85, 0]}>
-          <planeGeometry args={[0.04, 0.5]} />
+        <mesh position={[0, 0.92, 0]}>
+          <planeGeometry args={[0.14, 0.24]} />
           <meshBasicMaterial color={BLUE} />
         </mesh>
-        <mesh position={[0, 1.15, 0]}>
-          <circleGeometry args={[0.07, 12]} />
+        <mesh position={[0, 1.12, 0]}>
+          <circleGeometry args={[0.22, 16]} />
+          <meshBasicMaterial color={RUST} />
+        </mesh>
+        <mesh position={[-0.38, 0.55, 0.001]}>
+          <planeGeometry args={[0.36, 0.14]} />
+          <meshBasicMaterial color={RUST} />
+        </mesh>
+        <mesh position={[0.38, 0.55, 0.001]}>
+          <planeGeometry args={[0.36, 0.14]} />
+          <meshBasicMaterial color={RUST} />
+        </mesh>
+        <mesh position={[-0.17, -0.2, 0]}>
+          <planeGeometry args={[0.16, 0.44]} />
+          <meshBasicMaterial color={BLUE} />
+        </mesh>
+        <mesh position={[0.17, -0.2, 0]}>
+          <planeGeometry args={[0.16, 0.44]} />
+          <meshBasicMaterial color={BLUE} />
+        </mesh>
+        <mesh position={[-0.17, -0.43, 0.001]}>
+          <planeGeometry args={[0.28, 0.11]} />
+          <meshBasicMaterial color={RUST} />
+        </mesh>
+        <mesh position={[0.17, -0.43, 0.001]}>
+          <planeGeometry args={[0.28, 0.11]} />
           <meshBasicMaterial color={RUST} />
         </mesh>
       </group>
@@ -539,11 +560,15 @@ const STACK = content.stack;
 // the blank bottom margin below the portal caption -- chips crossing captions
 // in the close shots read as occluded text, so the ring never enters the
 // panel/caption band
+// Lane pitch 1.1: tiles are 0.7 tall and squash/bob another ~0.24, so the old
+// 0.3/0.4 steps let same-lane neighbours (REACT/NEXT.JS, TYPESCRIPT/TAURI)
+// overlap in y and clip each other's words whenever their orbits crossed in x
+// (audit 2026-07-27). One clear row per tile per lane.
 const ICONS = STACK.map((label, i) => ({
   label,
   phase: (i / STACK.length) * Math.PI * 2,
   r: 9.2 + (i % 3) * 0.7,
-  y0: i % 2 ? -6.9 - (i >> 1) * 0.3 : 8.6 + (i >> 1) * 0.4,
+  y0: i % 2 ? -6.9 - (i >> 1) * 1.1 : 8.6 + (i >> 1) * 1.1,
   speed: 0.16 + (i % 3) * 0.04,
   sq: i * 1.7,
 }));
@@ -767,9 +792,15 @@ export default function Origin({ index }: { index: number }) {
           <NoirFallback />
         </PanelFrame>
 
-        {/* beat 7: the portal panel -- caption on the page below the opening */}
+        {/* beat 7: the portal panel. The caption hangs INSIDE the void, high
+            on the back wall: on the page below the opening it was out of
+            frame for the entire closing beat (the glide squares up on the
+            mouth, then crosses the page plane), leaving the issue's last
+            beat unlettered (audit 2026-07-27). Here it holds frame from the
+            square-up through the crossing, clear of the mouth, the robot
+            below it and the cat perched at the bottom of the opening. */}
         <Portal />
-        <Caption x={PX} y={-5.85} w={4.0} text={BEATS[6]!} size={0.22} />
+        <Caption x={PX} y={PY + 1.55} w={3.0} h={0.78} z={-5.0} text={BEATS[6]!} size={0.2} />
 
         <IconRing />
       </Suspense>
