@@ -250,13 +250,13 @@ registerJawDrop({
 
 // ---- cat walk-off (pure f(t), scrub-safe -- S5b.1 guide exit) ---------------
 /**
- * Starts at 0.84, not 0.72: the floor in front of the desk only enters frame
- * about halfway through the pullback, so the old window dropped the cat off
- * the CRT into dead space below the frame edge (audit 2026-07-27). The cat
- * now holds the monitor perch through the reveal and exits inside the wide
- * frame -- and the walk plate parks in frame instead of leaving t=1.000
- * catless (see TerminalCat).
+ * Starts at 0.78, not 0.72: the floor in front of the desk only enters frame
+ * partway through the pullback, so the original window dropped the cat off the
+ * CRT into dead space below the frame edge (audit 2026-07-27). 0.84 fixed that
+ * but crammed hop + land + walk + park into 0.0078 of t; 0.78 is the earliest
+ * start that still lands the hop on visible floor (PR #55 L1), and the walk
+ * plate still parks in frame so t=1.000 keeps its cat (see TerminalCat).
  */
-export const CAT_WALK_RANGE: [number, number] = [at(0.84), at(0.97)];
+export const CAT_WALK_RANGE: [number, number] = [at(0.78), at(0.97)];
 export const catWalk = (t: number) =>
   clamp01((t - CAT_WALK_RANGE[0]) / (CAT_WALK_RANGE[1] - CAT_WALK_RANGE[0]));

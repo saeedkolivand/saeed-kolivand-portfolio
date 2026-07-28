@@ -21,6 +21,7 @@ import { useScrollStore } from "@/lib/scrollStore";
 import { CAT_VOICE, sayWord } from "@/lib/onomatopoeia";
 import { issueCopy } from "@/lib/content";
 import { clamp01, lerp } from "@/lib/shots";
+import { authoredCamera } from "@/lib/authoredCamera";
 import { issueCenter } from "../timeline";
 import { inkAt, SKETCH_SETTLE } from "./shots";
 
@@ -70,7 +71,11 @@ const SWEEP_SPAN: [number, number] = [-30, 30];
 const tmpO = new Object3D();
 const tmpC = new Color();
 const tmpV = new Vector3();
-/** widest annotation half-width on the page (maxWidth 7 wrap) */
+/**
+ * Margin-guard half-width: the WRAP BOUND (maxWidth 7 / 2), not a measured
+ * glyph extent -- conservative on purpose, so a short snippet leaves the edge
+ * a little early rather than printing clipped.
+ */
 const ANNOT_HALF_W = 3.5;
 
 const hash = (i: number, n: number) => {
@@ -317,15 +322,19 @@ function Annotations() {
   const camera = useThree((s) => s.camera);
 
   useFrame(() => {
-    const u = inkAt(useScrollStore.getState().t);
-    const cam = camera as PerspectiveCamera;
+    const t = useScrollStore.getState().t;
+    const u = inkAt(t);
+    // AUTHORED pose, not the live camera: the live one is delta-smoothed and
+    // pointer-parallaxed by ShotDirector, which would make this fade depend on
+    // scroll history and the mouse (PR #55 H1). authoredCamera is pure f(t).
+    const cam = authoredCamera(t, (camera as PerspectiveCamera).aspect);
     const tanH = Math.tan((cam.fov * Math.PI) / 360);
     refs.current.forEach((h, i) => {
       if (!h) return;
       // side-margin guard: a snippet crossing the left/right viewport edge
       // fades instead of printing half a sentence during the pull-back
-      // (audit 2026-07-27). Camera + anchors are pure f(t) -- scrub-safe.
-      tmpV.set(CX + ANNOT_X[i]!, 0.85, ANNOT_Z[i]!); // set-local -> world
+      // (audit 2026-07-27). Anchor world pos comes off its own matrixWorld.
+      h.getWorldPosition(tmpV);
       const dist = tmpV.distanceTo(cam.position);
       tmpV.project(cam);
       const hx = ANNOT_HALF_W / (dist * tanH * cam.aspect);

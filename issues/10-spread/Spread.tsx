@@ -299,6 +299,11 @@ LABELS.forEach((text, i) => {
   CONST_LABELS.push({ text, x: cx, y: cy - 3.1, z: cz });
 });
 
+/** label z-bias off the star plane: clears its own cluster (cz +/-1), the
+ * chart lines and the near krackle dots that drift around the constellation,
+ * without moving the label perceptibly (labels sit ~40 units out). */
+const LABEL_Z = 1.6;
+
 const LINE_POS = new Float32Array(linePos);
 
 function Constellations() {
@@ -355,18 +360,18 @@ function Constellations() {
         </bufferGeometry>
         <lineBasicMaterial color={VIOLET} transparent opacity={0.38} />
       </lineSegments>
-      {/* labels print ON TOP of the field: a foreground krackle dot or the
-          drifting cat must never sit on a letter (S2.16 readable content,
-          audit 2026-07-27) */}
+      {/* labels sit LABEL_Z in front of their own cluster instead of turning
+          depthTest off: an unconditional overlay printed them over the closing
+          caption and the chart, which inverts S2.16 (PR #55 M1). depthWrite is
+          off so the fading label never punches a hole in the spread behind it. */}
       {CONST_LABELS.map((l, i) => (
         <Text
           key={l.text}
           ref={(el) => {
             labels.current[i] = el as unknown as Mesh | null;
           }}
-          material-depthTest={false}
-          renderOrder={3}
-          position={[l.x, l.y, l.z]}
+          material-depthWrite={false}
+          position={[l.x, l.y, l.z + LABEL_Z]}
           font={BANGERS}
           fontSize={1.15}
           color={INK}

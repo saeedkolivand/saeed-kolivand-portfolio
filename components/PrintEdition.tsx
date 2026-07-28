@@ -227,7 +227,13 @@ export default function PrintEdition() {
               </div>
             ))}
           </div>
-          <a className={styles.ctaLink} href="#projects">
+          {/* same visible words as the DOM Press CTA button -- the aria-label
+              keeps the two accessible names distinct (PR #55 a11y) */}
+          <a
+            className={styles.ctaLink}
+            href="#projects"
+            aria-label={issueCopy.press.cta + " - print edition"}
+          >
             {issueCopy.press.cta}
           </a>
         </Panel>

@@ -187,10 +187,13 @@ registerJawDrop({
       .timeline()
       .set(ORBIT_KICK, { v: 0 })
       .to(ORBIT_KICK, { v: 1, duration: 0.12, ease: "power2.in" })
-      .to(ORBIT_KICK, { v: 0, duration: 0.5, ease: "power2.out" });
-    spawnChat(0.17);
-    spawnChat(0.53);
-    spawnChat(0.89);
+      .to(ORBIT_KICK, { v: 0, duration: 0.5, ease: "power2.out" })
+      // staggered 0.15s apart on this timeline: fired in one frame the volley
+      // recycled ALL THREE pool slots at once, hard-swapping every live
+      // balloon's glyphs mid-read (PR #55 L4)
+      .call(spawnChat, [0.17], 0)
+      .call(spawnChat, [0.53], 0.15)
+      .call(spawnChat, [0.89], 0.3);
     sayWord(lettering.onomatopoeia.whip, [CX, 9.5, 0], undefined, CYAN);
   },
 });

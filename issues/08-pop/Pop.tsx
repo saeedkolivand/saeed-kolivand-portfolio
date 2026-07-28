@@ -24,6 +24,7 @@ import { useScrollStore } from "@/lib/scrollStore";
 import { CAT_VOICE, sayWord } from "@/lib/onomatopoeia";
 import { popScale } from "@/lib/pops";
 import { clamp01 } from "@/lib/shots";
+import { authoredCamera } from "@/lib/authoredCamera";
 import { content, issueCopy } from "@/lib/content";
 import {
   chatPool,
@@ -675,7 +676,7 @@ function ChatBalloons() {
   useFrame(({ clock }) => {
     const w = wrap.current;
     if (!w) return;
-    const { quality, reducedMotion } = useScrollStore.getState();
+    const { t, quality, reducedMotion } = useScrollStore.getState();
     const fps = quality === "low" ? 8 : 12;
     const el = clock.elapsedTime;
     // ambient pop cadence: one locked chat line per interval (intensity 5).
@@ -694,7 +695,11 @@ function ChatBalloons() {
       w.getWorldQuaternion(tmpQ2);
       bill.current.copy(tmpQ2).invert().multiply(camera.quaternion);
     }
-    const cam = camera as PerspectiveCamera;
+    // frame guard projects through the AUTHORED pose, never the live camera:
+    // ShotDirector delta-smooths and pointer-parallaxes the live one, which
+    // would tie this fade to scroll history and the mouse (PR #55 H1). The
+    // billboard above still faces the live camera -- only the fade is f(t).
+    const cam = authoredCamera(t, (camera as PerspectiveCamera).aspect);
     const tanH = Math.tan((cam.fov * Math.PI) / 360);
     const now = performance.now();
     for (let i = 0; i < B_N; i++) {
@@ -728,13 +733,14 @@ function ChatBalloons() {
       g.position.copy(slot.pos);
       if (!reducedMotion) g.position.y += 0.12 * stepTime(age, fps); // stepped rise
       // frame guard: a balloon that would cross a viewport edge fades out
-      // instead of printing half a chat line (audit 2026-07-27). Camera and
-      // anchors are both pure f(t), so the fade scrubs both directions.
+      // instead of printing half a chat line (audit 2026-07-27). The authored
+      // camera makes it pure f(t); the half-extents carry `s` because the pop
+      // envelope overshoots past BALLOON_SCALE (~1.35x peak, PR #55 M2).
       tmpV.copy(g.position).applyMatrix4(w.matrixWorld);
       const dist = tmpV.distanceTo(cam.position);
       tmpV.project(cam);
-      const hx = (B_HALF_W * BALLOON_SCALE) / (dist * tanH * cam.aspect);
-      const hy = (B_HALF_H * BALLOON_SCALE) / (dist * tanH);
+      const hx = (B_HALF_W * BALLOON_SCALE * s) / (dist * tanH * cam.aspect);
+      const hy = (B_HALF_H * BALLOON_SCALE * s) / (dist * tanH);
       const framed =
         tmpV.z > 1
           ? 0

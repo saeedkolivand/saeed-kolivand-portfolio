@@ -25,15 +25,17 @@ const NOIR_RANGE = RANGES[1]!;
 const DESK_START = RANGES[2]![0];
 
 /**
- * Cover DOM overlay (premise chip + attract prompt) window. The print layers
- * separate from t=0, and by ~0.012 the 3D price box sweeps into the premise
- * band while the barcode label crosses the prompt (audit 2026-07-27) -- so
- * the overlay holds full opacity through COVER_UI_HOLD and is fully gone by
- * COVER_UI_END, before the first glyph can touch it. Opacity only: reduced
- * motion still gets the fade, it just never had the breathe.
+ * Cover DOM overlay windows -- SEPARATE, because the two chips have different
+ * collision partners (PR #55 L2). The 3D price box sweeps into the premise
+ * band (top) by ~0.012, so the premise keeps the tight window; the prompt
+ * (bottom) only meets the barcode label from ~0.017, so it holds longer and
+ * gets the attract beat it exists for. Opacity only: reduced motion still gets
+ * the fade, it just never had the breathe.
  */
-const COVER_UI_HOLD = 0.005;
-const COVER_UI_END = 0.01;
+const PREMISE_HOLD = 0.005;
+const PREMISE_END = 0.01;
+const PROMPT_HOLD = 0.012;
+const PROMPT_END = 0.016;
 
 /**
  * Title-drop card scroll window (user ruling 2026-07-03: the card lives and
@@ -163,15 +165,14 @@ export default function Lettering() {
       raf = requestAnimationFrame(loop);
       const { t, reducedMotion } = useScrollStore.getState();
 
-      // cover-segment window shared by the attract prompt (bottom) and the
-      // premise chip (top) -- both fade out as the print separates, opacity only.
-      const coverO = clamp01((COVER_UI_END - t) / (COVER_UI_END - COVER_UI_HOLD));
-      const coverVis = coverO > 0.001 ? "visible" : "hidden";
+      // cover-segment fades, one window each (their collision partners differ)
+      const promptO = clamp01((PROMPT_END - t) / (PROMPT_END - PROMPT_HOLD));
+      const premiseO = clamp01((PREMISE_END - t) / (PREMISE_END - PREMISE_HOLD));
 
       const prompt = promptRef.current;
       if (prompt) {
-        prompt.style.opacity = coverO.toFixed(3);
-        prompt.style.visibility = coverVis;
+        prompt.style.opacity = promptO.toFixed(3);
+        prompt.style.visibility = promptO > 0.001 ? "visible" : "hidden";
         // centering + 2.4s breathe live HERE, not in a CSS class: the
         // .pj-breathe rule in globals.css never reached the element under
         // Turbopack, which left the prompt un-centered (barcode collision)
@@ -181,8 +182,8 @@ export default function Lettering() {
 
       const premise = premiseRef.current;
       if (premise) {
-        premise.style.opacity = coverO.toFixed(3);
-        premise.style.visibility = coverVis;
+        premise.style.opacity = premiseO.toFixed(3);
+        premise.style.visibility = premiseO > 0.001 ? "visible" : "hidden";
       }
 
       const card = cardRef.current;
