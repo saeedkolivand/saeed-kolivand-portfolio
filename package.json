@@ -10,7 +10,8 @@
     "prebuild": "node scripts/bake-contributions.mjs",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "bake:audio": "node scripts/bake-audio.mjs"
   },
   "dependencies": {
     "@gsap/react": "2.1.2",
