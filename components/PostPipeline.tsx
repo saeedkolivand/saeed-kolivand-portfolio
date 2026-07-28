@@ -3,7 +3,16 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { EffectComposer, EffectPass, NormalPass, RenderPass } from "postprocessing";
-import { Color, HalfFloatType, Matrix4, Vector3, type Texture } from "three";
+import {
+  Color,
+  HalfFloatType,
+  Matrix4,
+  Vector2,
+  Vector3,
+  type Camera,
+  type Object3D,
+  type Texture,
+} from "three";
 import { PrintEffect } from "@/shaders/PrintEffect";
 import { TransitionEffect } from "@/shaders/TransitionEffect";
 import { colorWindow, spotRect } from "@/shaders/colorWindow";
@@ -55,6 +64,88 @@ function whipAxis(a: Pose, b: Pose): [number, number] {
   }
   const l = Math.hypot(x, y);
   return l < 1e-4 ? [1, 0] : [x / l, y / l];
+}
+
+/**
+ * WORD-ART INK EXEMPTION (frame audit 2026-07-27, S2.16). troika SDF
+ * lettering writes neither depth nor normals, so PrintEffect's ink line --
+ * the one term that samples the geometry buffers -- draws whatever stands
+ * BEHIND a word straight over its glyphs. Every troika mesh tags its material
+ * with isTroikaTextMaterial, so the largest block of lettering in frame is
+ * found generically here and handed to the shader as a screen rect; no scene
+ * file registers anything. Captions and labels stay below WORD_MIN_AREA:
+ * they sit on panels that already occlude the line, so they need nothing.
+ */
+const WORD_MIN_AREA = 0.05; // viewport share that counts as word art, not a label
+
+/** blockBounds is the glyph box; the SDF outline sits just outside it */
+const WORD_PAD = 1.06;
+
+type TroikaMaterial = { isTroikaTextMaterial?: boolean };
+type TroikaMesh = Object3D & {
+  material?: TroikaMaterial | TroikaMaterial[];
+  textRenderInfo?: { blockBounds: ArrayLike<number> } | null;
+  fillOpacity?: number;
+};
+
+/** outlined troika text reports material as [fill, outline], plain text as one */
+function isTroikaText(m: TroikaMesh): boolean {
+  const mat = m.material;
+  if (!mat) return false;
+  return Array.isArray(mat)
+    ? mat.some((x) => x?.isTroikaTextMaterial === true)
+    : mat.isTroikaTextMaterial === true;
+}
+
+const wv0 = new Vector3();
+const wv1 = new Vector3();
+const wv2 = new Vector3();
+/** winner of the last scan: rect in screen uv + the word plane's buffer depth */
+const word = { score: 0, cx: 0.5, cy: 0.5, ux: 0, uy: 0, vx: 0, vy: 0, depth: 1, strength: 0 };
+
+function scanWordRect(scene: Object3D, camera: Camera): void {
+  word.score = 0;
+  word.strength = 0;
+  // the camera matrices are one frame stale until the renderer refreshes them
+  camera.updateMatrixWorld();
+  camera.matrixWorldInverse.copy(camera.matrixWorld).invert();
+  scene.traverseVisible((o) => {
+    const m = o as TroikaMesh;
+    if (!isTroikaText(m)) return;
+    const b = m.textRenderInfo?.blockBounds; // [minX, minY, maxX, maxY], anchored
+    if (!b) return;
+    const op = typeof m.fillOpacity === "number" ? m.fillOpacity : 1;
+    if (op < 0.02) return; // faded out: the glyphs are not there to protect
+    const cx = (b[0]! + b[2]!) * 0.5;
+    const cy = (b[1]! + b[3]!) * 0.5;
+    const hu = (b[2]! - b[0]!) * 0.5 * WORD_PAD;
+    const hv = (b[3]! - b[1]!) * 0.5 * WORD_PAD;
+    if (hu <= 0 || hv <= 0) return;
+    m.updateWorldMatrix(true, false);
+    wv0.set(cx, cy, 0).applyMatrix4(m.matrixWorld).project(camera);
+    if (wv0.z < -1 || wv0.z > 1) return; // behind the camera or past the far plane
+    wv1.set(cx + hu, cy, 0).applyMatrix4(m.matrixWorld).project(camera);
+    wv2.set(cx, cy + hv, 0).applyMatrix4(m.matrixWorld).project(camera);
+    const ux = (wv1.x - wv0.x) * 0.5; // ndc delta -> uv delta
+    const uy = (wv1.y - wv0.y) * 0.5;
+    const vx = (wv2.x - wv0.x) * 0.5;
+    const vy = (wv2.y - wv0.y) * 0.5;
+    const score = Math.abs(ux * vy - uy * vx) * 4 * op;
+    if (score <= word.score) return;
+    word.score = score;
+    word.cx = wv0.x * 0.5 + 0.5;
+    word.cy = wv0.y * 0.5 + 0.5;
+    word.ux = ux;
+    word.uy = uy;
+    word.vx = vx;
+    word.vy = vy;
+    // a word turned away from the camera is nearer on one side: take the
+    // NEAREST corner so the whole plane counts as "in front of the scene"
+    const dz = Math.abs(wv1.z - wv0.z) + Math.abs(wv2.z - wv0.z);
+    word.depth = (wv0.z - dz) * 0.5 + 0.5;
+    word.strength = op;
+  });
+  if (word.score < WORD_MIN_AREA) word.strength = 0;
 }
 
 export default function PostPipeline() {
@@ -160,6 +251,16 @@ export default function PostPipeline() {
       print.u<Vector3>("uSpotV").value.fromArray(spotRect.halfV);
       print.u<number>("uSpotDepth").value = spotRect.depth;
     }
+    // word rect: exempts the ink line over the frame's biggest lettering
+    scanWordRect(scene, camera);
+    print.u<number>("uWordEdge").value = word.strength;
+    if (word.strength > 0) {
+      print.u<Vector2>("uWordCenter").value.set(word.cx, word.cy);
+      print.u<Vector2>("uWordU").value.set(word.ux, word.uy);
+      print.u<Vector2>("uWordV").value.set(word.vx, word.vy);
+      print.u<number>("uWordDepth").value = word.depth;
+    }
+
     if (colorWindow.enabled > 0 || spotRect.enabled > 0) {
       camera.updateMatrixWorld();
       print
