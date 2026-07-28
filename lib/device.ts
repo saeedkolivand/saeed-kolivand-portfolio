@@ -41,11 +41,27 @@ const MIN_WIDTH = 820;
  * of it with room on either side.
  *
  * Deliberately NOT screen.width/screen.height, which would be chrome-independent
- * but would also not shrink in iPad Split View -- a 507px Slide Over pane would
- * then read as a tablet and get the cropped compositions the 390px audit
- * rejected.
+ * but would also not shrink in iPad Split View, so every pane would read as a
+ * full tablet and get the cropped compositions the 390px audit rejected.
  */
 const MIN_SHORT_SIDE = 560;
+
+/**
+ * Width floor for coarse devices, on top of the short side. The short side
+ * alone cuts straight THROUGH the iPad Split View pane range rather than around
+ * it: a 10.2" half-pane is 507 wide and fails, but an 11" half-pane is 570 and
+ * a 12.9" half-pane is 678, so both would clear 560 on their width while being
+ * far narrower than anything these compositions were authored for.
+ *
+ * 700 fails every half-pane and clears every real tablet orientation (mini
+ * portrait 744 is the tightest). It also brings the coarse path within 120px of
+ * the fine-pointer MIN_WIDTH instead of 250px apart, which is hard to justify
+ * when both are looking at the same authored-wide artwork.
+ *
+ * Perf matters here too: a Split View pane means a second app is live on the
+ * same GPU and memory budget, and nothing trims the 3-RT pipeline for tablets.
+ */
+const COARSE_MIN_WIDTH = 700;
 
 export interface DeviceGate {
   /** prefers-reduced-motion: reduce */
@@ -67,7 +83,7 @@ export function readDeviceGate(): DeviceGate {
   // Locking every portrait tablet out over that would cost far more than it
   // saves.
   const shortSide = Math.min(window.innerWidth, window.innerHeight);
-  const tablet = coarse && shortSide >= MIN_SHORT_SIDE;
+  const tablet = coarse && shortSide >= MIN_SHORT_SIDE && window.innerWidth >= COARSE_MIN_WIDTH;
   const narrow = coarse ? !tablet : window.innerWidth < MIN_WIDTH;
   // ?low forces the low tier for profiling. It does NOT block the experience --
   // a flag that dumped you into Print Edition could never be used to measure
