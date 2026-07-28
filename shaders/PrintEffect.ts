@@ -1,5 +1,5 @@
 import { Effect, EffectAttribute } from "postprocessing";
-import { Color, Matrix4, Uniform, Vector3, type Texture } from "three";
+import { Color, Matrix4, Uniform, Vector2, Vector3, type Texture } from "three";
 
 /**
  * The shared "print" pass (S2.6): color-window mask -> mono grade ->
@@ -29,6 +29,29 @@ import { Color, Matrix4, Uniform, Vector3, type Texture } from "three";
  * with it per-frame (shaders/colorWindow.ts spotRect/setSpotRect).
  * uSpotStrength < 1 keeps partial mono/hatch on the subject; halftone and
  * ink line stay full (S2.16 clean, single-layer color op).
+ *
+ * INK-LINE EXEMPTIONS (2026-07-27 frame audit). The ink line is the only
+ * term here that samples the LIVE scene's geometry buffers (tNormal +
+ * readDepth), so it is wrong wherever the pixel's colour no longer comes
+ * from that geometry:
+ *  - pjtCovered, written by TransitionEffect. EffectPass sorts merged
+ *    effects by attributes, CONVOLUTION before DEPTH, so the transition
+ *    composites FIRST and this pass prints the result -- without the gate
+ *    the incoming issue's ink line drew as a wireframe over every snapshot
+ *    gutter, and doubled edges beside every DISPLACED frame (whip smear,
+ *    crash punch, stamp descent). See shaders/TransitionEffect.ts for the
+ *    shared global -- which only exists if both effects stay merged into
+ *    ONE EffectPass (components/PostPipeline.tsx); split, this will not
+ *    compile.
+ *  - uWord*, the WORD RECT: troika SDF lettering writes neither depth nor
+ *    normals, so the geometry BEHIND a word inks straight over its glyphs
+ *    (S2.16: lettering is a crisp single layer, exempt from post). The
+ *    screen-space rect + plane depth come from PostPipeline, which picks
+ *    the largest troika block in frame each frame. The depth test is the
+ *    inverse of the window/spot rects: those match geometry AT the plane,
+ *    a word has no depth of its own, so the exemption applies where the
+ *    depth buffer sits BEHIND the word plane -- anything in FRONT of the
+ *    lettering keeps its line.
  *
  * verified 2026-07 (postprocessing v6.39): uniforms must be a Map of
  * three.Uniform; mainImage signature with EffectAttribute.DEPTH gains a
@@ -62,6 +85,11 @@ const fragment = /* glsl */ `
   uniform vec3 uSpotV;
   uniform float uSpotDepth;
   uniform mat4 uInvViewProjection;
+  uniform float uWordEdge;
+  uniform vec2 uWordCenter;
+  uniform vec2 uWordU;
+  uniform vec2 uWordV;
+  uniform float uWordDepth;
 
   float pjLuma(const in vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
 
@@ -129,6 +157,24 @@ const fragment = /* glsl */ `
     return edge * (1.0 - step(1.0, n));
   }
 
+  // WORD RECT mask: the lettering block already projected to screen space by
+  // PostPipeline (center + two half-axes in uv), so no world reconstruction
+  // and no ray/plane intersect here. Perspective turns a world rect into a
+  // general quad; the parallelogram through the projected half-axes is the
+  // cheap approximation, which is enough for a block that faces the camera.
+  // "sceneDepth >= uWordDepth" keeps anything standing IN FRONT of the word
+  // fully inked -- only the geometry the glyphs hide loses its line.
+  float pjWordMask(const in vec2 uv, const in float sceneDepth) {
+    if (uWordEdge < 0.001) return 0.0;
+    float det = uWordU.x * uWordV.y - uWordU.y * uWordV.x;
+    if (abs(det) < 1e-7) return 0.0;
+    vec2 q = uv - uWordCenter;
+    float a = (q.x * uWordV.y - q.y * uWordV.x) / det;
+    float b = (uWordU.x * q.y - uWordU.y * q.x) / det;
+    float inside = 1.0 - smoothstep(0.86, 1.0, max(abs(a), abs(b)));
+    return inside * step(uWordDepth, sceneDepth) * uWordEdge;
+  }
+
   void mainImage(const in vec4 inputColor, const in vec2 uv, const in float depth, out vec4 outputColor) {
     vec3 col = inputColor.rgb;
     vec2 fragPx = uv * resolution;
@@ -180,7 +226,12 @@ const fragment = /* glsl */ `
     // 1-texel radius is the old modulation's mean, so line weight is
     // unchanged; the sub-texel offset keeps the hand-drawn wobble.
     float e = pjEdge(uv + uBoilJitter * texelSize, texelSize);
-    col = mix(col, uEdgeColor, e * uEdge);
+    // ...but only where the pixel still SHOWS that geometry: transition
+    // composites (pjtCovered) and troika lettering (word rect) both replace
+    // the colour without touching the normal/depth buffers this line reads.
+    // Both are exactly 0.0 on settled frames -- no-op outside gutters/words.
+    float inkEx = max(pjtCovered, pjWordMask(uv, depth));
+    col = mix(col, uEdgeColor, e * uEdge * (1.0 - inkEx));
 
     // 4 -- paper fiber + stepped grain, multiplicative (never a color fringe)
     float fiber = pjHash(floor(fragPx * 0.5) / 0.5 * 0.013);
@@ -231,6 +282,11 @@ export class PrintEffect extends Effect {
         ["uSpotV", new Uniform(new Vector3(0, 1, 0))],
         ["uSpotDepth", new Uniform(0.6)],
         ["uInvViewProjection", new Uniform(new Matrix4())],
+        ["uWordEdge", new Uniform(0)],
+        ["uWordCenter", new Uniform(new Vector2(0.5, 0.5))],
+        ["uWordU", new Uniform(new Vector2(0, 0))],
+        ["uWordV", new Uniform(new Vector2(0, 0))],
+        ["uWordDepth", new Uniform(1)],
       ]),
     });
   }

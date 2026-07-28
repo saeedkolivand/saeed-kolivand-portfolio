@@ -3,7 +3,16 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { EffectComposer, EffectPass, NormalPass, RenderPass } from "postprocessing";
-import { Color, HalfFloatType, Matrix4, Vector3, type Texture } from "three";
+import {
+  Color,
+  HalfFloatType,
+  Matrix4,
+  Vector2,
+  Vector3,
+  type Camera,
+  type Object3D,
+  type Texture,
+} from "three";
 import { PrintEffect } from "@/shaders/PrintEffect";
 import { TransitionEffect } from "@/shaders/TransitionEffect";
 import { colorWindow, spotRect } from "@/shaders/colorWindow";
@@ -57,6 +66,115 @@ function whipAxis(a: Pose, b: Pose): [number, number] {
   return l < 1e-4 ? [1, 0] : [x / l, y / l];
 }
 
+/**
+ * WORD-ART INK EXEMPTION (frame audit 2026-07-27, S2.16). troika SDF
+ * lettering writes neither depth nor normals, so PrintEffect's ink line --
+ * the one term that samples the geometry buffers -- draws whatever stands
+ * BEHIND a word straight over its glyphs. Every troika mesh tags its material
+ * with isTroikaTextMaterial, so the largest block of lettering in frame is
+ * found generically here and handed to the shader as a screen rect; no scene
+ * file registers anything. Captions and labels stay below WORD_MIN_AREA:
+ * they sit on panels that already occlude the line, so they need nothing.
+ */
+// projected viewport share that counts as word art, not a label. Compared
+// against pure AREA, never area * opacity: a fading word must not cross the
+// threshold mid-fade and pop the exemption on in one frame (uWordEdge rides
+// the opacity instead, so the exemption itself fades).
+const WORD_MIN_AREA = 0.05;
+
+/** visibleBounds is the glyph box; the SDF outline sits just outside it */
+const WORD_PAD = 1.06;
+
+type TroikaMaterial = { isTroikaTextMaterial?: boolean };
+type TroikaMesh = Object3D & {
+  material?: TroikaMaterial | TroikaMaterial[];
+  textRenderInfo?: {
+    blockBounds: ArrayLike<number>;
+    /** tighter glyph extents; absent on older troika builds */
+    visibleBounds?: ArrayLike<number>;
+  } | null;
+  fillOpacity?: number;
+};
+
+/** outlined troika text reports material as [fill, outline], plain text as one */
+function isTroikaText(m: TroikaMesh): boolean {
+  const mat = m.material;
+  if (!mat) return false;
+  return Array.isArray(mat)
+    ? mat.some((x) => x?.isTroikaTextMaterial === true)
+    : mat.isTroikaTextMaterial === true;
+}
+
+const wv0 = new Vector3();
+const wv1 = new Vector3();
+const wv2 = new Vector3();
+/** winner of the last scan: rect in screen uv + the word plane's buffer depth */
+const word = { score: 0, cx: 0.5, cy: 0.5, ux: 0, uy: 0, vx: 0, vy: 0, depth: 1, strength: 0 };
+
+/**
+ * Known limit: ONE rect is exempt per frame (the biggest block wins), which is
+ * why off-screen candidates are rejected below -- a neighbour set's lettering
+ * must never take the single slot from the block actually in shot.
+ */
+function scanWordRect(scene: Object3D, camera: Camera): void {
+  word.score = 0;
+  word.strength = 0;
+  // matrices are one frame stale until the renderer refreshes them. ONE walk
+  // for the whole scene beats updateWorldMatrix(true) per troika node (that
+  // re-walks every ancestor chain); Camera.updateMatrixWorld also refreshes
+  // matrixWorldInverse, which is what project() reads.
+  camera.updateMatrixWorld();
+  scene.updateMatrixWorld();
+  scene.traverseVisible((o) => {
+    const m = o as TroikaMesh;
+    if (!isTroikaText(m)) return;
+    // [minX, minY, maxX, maxY], anchored. visibleBounds is the glyph extent,
+    // tighter than the line box -> a smaller hole in the ink line
+    const b = m.textRenderInfo?.visibleBounds ?? m.textRenderInfo?.blockBounds;
+    if (!b) return;
+    const op = typeof m.fillOpacity === "number" ? m.fillOpacity : 1;
+    if (op < 0.02) return; // faded out: the glyphs are not there to protect
+    const cx = (b[0]! + b[2]!) * 0.5;
+    const cy = (b[1]! + b[3]!) * 0.5;
+    const hu = (b[2]! - b[0]!) * 0.5 * WORD_PAD;
+    const hv = (b[3]! - b[1]!) * 0.5 * WORD_PAD;
+    // empty text reports infinite visibleBounds; a NaN rect would win forever
+    if (!(hu > 0) || !(hv > 0) || !Number.isFinite(cx + cy + hu + hv)) return;
+    wv0.set(cx, cy, 0).applyMatrix4(m.matrixWorld).project(camera);
+    if (wv0.z < -1 || wv0.z > 1) return; // behind the camera or past the far plane
+    wv1.set(cx + hu, cy, 0).applyMatrix4(m.matrixWorld).project(camera);
+    wv2.set(cx, cy + hv, 0).applyMatrix4(m.matrixWorld).project(camera);
+    const ux = (wv1.x - wv0.x) * 0.5; // ndc delta -> uv delta
+    const uy = (wv1.y - wv0.y) * 0.5;
+    const vx = (wv2.x - wv0.x) * 0.5;
+    const vy = (wv2.y - wv0.y) * 0.5;
+    const cu = wv0.x * 0.5 + 0.5;
+    const cv = wv0.y * 0.5 + 0.5;
+    // screen-overlap reject: the parallelogram's bounding box must touch the
+    // viewport, else an off-screen block could silently hold the one slot
+    const hx = Math.abs(ux) + Math.abs(vx);
+    const hy = Math.abs(uy) + Math.abs(vy);
+    if (cu + hx < -0.02 || cu - hx > 1.02 || cv + hy < -0.02 || cv - hy > 1.02) return;
+    // PURE projected area (F2): opacity drives uWordEdge, not the threshold,
+    // so a fading word leaves the exemption smoothly instead of snapping
+    const score = Math.abs(ux * vy - uy * vx) * 4;
+    if (score <= word.score) return;
+    word.score = score;
+    word.cx = cu;
+    word.cy = cv;
+    word.ux = ux;
+    word.uy = uy;
+    word.vx = vx;
+    word.vy = vy;
+    // a word turned away from the camera is nearer on one side: take the
+    // NEAREST corner so the whole plane counts as "in front of the scene"
+    const dz = Math.abs(wv1.z - wv0.z) + Math.abs(wv2.z - wv0.z);
+    word.depth = (wv0.z - dz) * 0.5 + 0.5;
+    word.strength = op;
+  });
+  if (word.score < WORD_MIN_AREA) word.strength = 0;
+}
+
 export default function PostPipeline() {
   const gl = useThree((s) => s.gl);
   const scene = useThree((s) => s.scene);
@@ -70,6 +188,8 @@ export default function PostPipeline() {
     composer.addPass(normalPass);
     const print = new PrintEffect(normalPass.texture);
     const transition = new TransitionEffect();
+    // MUST stay one EffectPass: PrintEffect reads the pjtCovered global that
+    // TransitionEffect declares, so splitting them fails to compile
     composer.addPass(new EffectPass(camera, print, transition));
     return { composer, print, transition };
   }, [gl, scene, camera]);
@@ -160,6 +280,19 @@ export default function PostPipeline() {
       print.u<Vector3>("uSpotV").value.fromArray(spotRect.halfV);
       print.u<number>("uSpotDepth").value = spotRect.depth;
     }
+    // word rect: exempts the ink line over the frame's biggest lettering.
+    // No line in the cross-faded recipe -> nothing to exempt, so skip the
+    // whole scene walk (the exemption is a no-op at uEdge 0 anyway)
+    if (c.edge < 0.005) word.strength = 0;
+    else scanWordRect(scene, camera);
+    print.u<number>("uWordEdge").value = word.strength;
+    if (word.strength > 0) {
+      print.u<Vector2>("uWordCenter").value.set(word.cx, word.cy);
+      print.u<Vector2>("uWordU").value.set(word.ux, word.uy);
+      print.u<Vector2>("uWordV").value.set(word.vx, word.vy);
+      print.u<number>("uWordDepth").value = word.depth;
+    }
+
     if (colorWindow.enabled > 0 || spotRect.enabled > 0) {
       camera.updateMatrixWorld();
       print

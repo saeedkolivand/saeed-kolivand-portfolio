@@ -31,6 +31,17 @@ import { Color, Uniform, type Texture } from "three";
  * S2.16: every mode is a single-layer color op -- no channel offsets, no
  * ghosting; page-flip's backside is flat paper (no mirrored content);
  * stamp's impact frame is one paper-tone pop, same class as cut's blink.
+ *
+ * PASS ORDER (verified 2026-07-27, postprocessing EffectPass source: the
+ * merged effects are sorted by `b.attributes - a.attributes`): CONVOLUTION
+ * outranks DEPTH, so THIS effect runs FIRST and PrintEffect prints the
+ * composite afterwards. That is what makes inputBuffer pre-print -- and it
+ * means the print pass would otherwise stamp the LIVE issue's ink line over
+ * the outgoing snapshot. pjtCovered is the channel that stops it -- and it
+ * covers DISPLACED live frames too (whip smear, crash punch, stamp descent):
+ * there the pixel comes from a tapped uv while the ink line would still be
+ * computed at its own uv, i.e. doubled edges (S2.16). Every writer fades
+ * with the effect that caused it, so the line always returns smoothly.
  */
 const fragment = /* glsl */ `
   uniform sampler2D uSnapshot;
@@ -44,6 +55,17 @@ const fragment = /* glsl */ `
   uniform float uSmearHalftone;
   uniform float uSmearScale;
   uniform vec3 uSmearPaper;
+
+  // COVERAGE CHANNEL -> PrintEffect. 1.0 where this pass replaced the live
+  // frame with the outgoing snapshot or an authored paper/ink fill, 0.0 where
+  // the incoming frame survives. Both effects are merged into ONE fragment
+  // shader and this one is emitted first, so the print pass reads this global
+  // and skips the only term that samples the LIVE scene's geometry buffers
+  // (the ink line) over pixels that no longer show that geometry. EffectPass
+  // prefixes function/uniform/define names only, so a plain global keeps the
+  // same name in both halves -- it is the cheapest legal channel between two
+  // merged effects (no extra RT, no varying, no second pass).
+  float pjtCovered = 0.0;
 
   float pjtLuma(const in vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
 
@@ -109,6 +131,10 @@ const fragment = /* glsl */ `
   void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
     vec3 col = inputColor.rgb;
     float p = clamp(uP, 0.0, 1.0);
+    // explicit reset: global initializers run once per invocation, but the
+    // modes below are the only writers and mode 0 (none / drift) must leave
+    // the print pass bit-identical to the pre-fix build
+    pjtCovered = 0.0;
 
     // whip intensity peaks mid-gutter; velocity lines fade in on hard scroll
     float whipK = uMode == 1.0 ? sin(p * 3.14159) : 0.0;
@@ -124,7 +150,13 @@ const fragment = /* glsl */ `
         float s = (float(i) + j) / 7.0 - 0.5;
         acc += texture2D(inputBuffer, uv + uWhipDir * spread * s).rgb;
       }
-      col = mix(col, pjtGrade(acc * 0.125), smoothstep(0.0, 0.35, whipK));
+      float smear = smoothstep(0.0, 0.35, whipK);
+      col = mix(col, pjtGrade(acc * 0.125), smear);
+      // a smeared pixel no longer shows the geometry under it, so the print
+      // pass's ink line -- computed from the UN-displaced normal/depth
+      // buffers -- would land beside the smeared edge (doubled edges,
+      // S2.16). Rides the smear itself: the line fades back, never pops.
+      pjtCovered = max(pjtCovered, smear);
     }
 
     float velK = clamp((abs(uVelocity) - 0.35) * 1.2, 0.0, 0.6);
@@ -143,10 +175,13 @@ const fragment = /* glsl */ `
       float aa = fwidth(d) + 1e-4;
       float cover = 1.0 - smoothstep(r - aa, r + aa, d);
       col = mix(col, pjtSnap(uv), cover);
+      pjtCovered = cover;
     } else if (uMode == 3.0) {
       // cut: quick paper-tone page blink centered on the pose jump
       float q = 1.0 - abs(2.0 * p - 1.0);
-      col = mix(col, uFallback, smoothstep(0.62, 0.95, q));
+      float blink = smoothstep(0.62, 0.95, q);
+      col = mix(col, uFallback, blink);
+      pjtCovered = blink;
     } else if (uMode == 4.0) {
       // crash-through: the live incoming frame takes a settling zoom punch
       // while the printed cover bursts center-out into paper fragments.
@@ -155,7 +190,11 @@ const fragment = /* glsl */ `
       // pjtPrint re-grades the pre-print tap so the punch frames match the
       // printed frame they settle into (PR #22 ruling 3 polish, zero RTs)
       vec3 live = pjtPrint(texture2D(inputBuffer, zuv).rgb, uv);
-      col = mix(col, live, clamp(punch * 2.5, 0.0, 1.0));
+      float punchK = clamp(punch * 2.5, 0.0, 1.0);
+      col = mix(col, live, punchK);
+      // zuv != uv: the punched frame is displaced, same doubled-edge case as
+      // the whip smear. Fades out with the punch, so the line returns smoothly
+      pjtCovered = max(pjtCovered, punchK);
 
       // polar fragment grid: each cell departs when p passes its threshold
       // (radius + hash), so the tear opens at the center and races outward
@@ -176,7 +215,11 @@ const fragment = /* glsl */ `
         vec2 e2 = min(fract(cell), 1.0 - fract(cell));
         float torn = smoothstep(0.10, 0.02, min(e2.x, e2.y)) * step(0.001, f);
         snap = mix(snap, uFallback, torn * 0.9);
-        col = mix(col, snap, 1.0 - smoothstep(0.85, 1.0, f));
+        float held = 1.0 - smoothstep(0.85, 1.0, f);
+        col = mix(col, snap, held);
+        // max, not assign: where a fragment has mostly left (held low) the
+        // punched live frame underneath still needs its coverage
+        pjtCovered = max(pjtCovered, held);
       }
     } else if (uMode == 5.0) {
       // panel-wipe: paper gutter bars sweep in over the outgoing page,
@@ -197,6 +240,9 @@ const fragment = /* glsl */ `
       float rim = 1.0 - smoothstep(0.005, 0.005 + aaR * 2.0, abs(rd));
       rim *= step(0.001, g) * (1.0 - smoothstep(0.8, 0.95, p));
       col = mix(col, vec3(0.10, 0.09, 0.08), rim);
+      // outside the growing panel the page is snapshot, and the ink rim is
+      // authored -- neither belongs to the incoming issue's geometry
+      pjtCovered = max(1.0 - inside, rim);
     } else if (uMode == 6.0) {
       // paper-tear: the outgoing page rips left to right with a fibered
       // white edge, dragged slightly as it goes; the incoming page sits
@@ -210,6 +256,7 @@ const fragment = /* glsl */ `
         float fiberN = pjtHash(uv * vec2(240.0, 900.0));
         float band = 1.0 - smoothstep(0.0, 0.014 + fiberN * 0.02, dd);
         col = mix(page, mix(uFallback, vec3(1.0), 0.55), band);
+        pjtCovered = 1.0; // un-torn side: outgoing page + its fibered edge
       } else {
         col *= 1.0 - (1.0 - smoothstep(0.0, 0.06, -dd)) * 0.22;
       }
@@ -227,6 +274,7 @@ const fragment = /* glsl */ `
       if (d < 0.0) {
         // paper coord of the turned-over tail lying face-down on top
         float s3 = 2.0 * c + 3.14159 * R - uv.x;
+        pjtCovered = 1.0; // turned page: backside paper or outgoing face
         if (s3 <= 1.0) {
           col = back * (0.88 + 0.12 * smoothstep(0.0, 0.4, -d));
           col *= 1.0 - (1.0 - smoothstep(0.0, 0.012, 1.0 - s3)) * 0.3;
@@ -244,8 +292,10 @@ const fragment = /* glsl */ `
           if (s2 <= 1.0) {
             col = back * (0.72 + 0.28 * sin(theta));
             col *= 1.0 - (1.0 - smoothstep(0.0, 0.012, 1.0 - s2)) * 0.3;
+            pjtCovered = 1.0; // backside paper riding over the roll
           } else if (s1 <= 1.0) {
             col = pjtSnap(vec2(s1, uv.y)) * (1.0 - 0.38 * sin(theta));
+            pjtCovered = 1.0; // outgoing face still rising on the curl
           }
         }
       }
@@ -267,6 +317,11 @@ const fragment = /* glsl */ `
       col = mix(page, mix(col, face, disp), appear);
       float hit = smoothstep(0.53, 0.57, p) * (1.0 - smoothstep(0.60, 0.70, p));
       col = mix(col, uFallback, hit * 0.55);
+      // before the stamp lands the page is snapshot; the impact pop is paper;
+      // and while the face is still scaled (disp) it is a DISPLACED live
+      // frame, so the un-displaced ink line would double its edges (S2.16).
+      // All three terms fade, so the line fades back as the stamp settles.
+      pjtCovered = max(max(1.0 - appear, hit * 0.55), appear * disp);
       col = mix(col, vec3(1.0), pjtSpeedLines(uv, hit * 0.9) * 0.85);
       float ed = min(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y));
       float ring = smoothstep(0.02, 0.05, ed) - smoothstep(0.05, 0.12, ed);
@@ -286,6 +341,7 @@ const fragment = /* glsl */ `
       float rim = 1.0 - smoothstep(0.005, 0.005 + aa * 2.0, abs(rad - r));
       rim *= smoothstep(0.02, 0.08, p) * (1.0 - smoothstep(0.85, 0.97, p));
       col = mix(col, vec3(0.10, 0.09, 0.08), rim);
+      pjtCovered = max(1.0 - inside, rim); // outside the iris + the inked rim
     } else if (uMode == 10.0) {
       // ink-flood: ink pours from the top and swallows the page around
       // mid-gutter (full cover hides the camera cut like cut's blink --
@@ -298,6 +354,7 @@ const fragment = /* glsl */ `
       float front = smoothstep(0.0, 0.82, q) * (length(vec2(0.5 * aspect, 1.15)) * 1.38 + 0.08);
       float m = 1.0 - smoothstep(front - 0.05, front, radn);
       col = mix(col, vec3(0.07, 0.06, 0.05), m);
+      pjtCovered = m; // flooded ink is authored, not printed geometry
     }
 
     outputColor = vec4(col, inputColor.a);
