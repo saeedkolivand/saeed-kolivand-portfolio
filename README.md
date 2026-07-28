@@ -28,15 +28,19 @@ The scroll wheel is the reader's thumb on the page corner.
   files). Gesture-gated, off by default. The halftone dots breathe with it.
 - **The cat is the through-line** — Harley (a real, fluffy golden tabby) guides
   the journey scene to scene and hides in every issue.
-- **The Print Edition** — for reduced-motion, mobile, and low-power devices, a
+- **The Print Edition** — for reduced-motion, phones, and no-WebGL devices, a
   genuinely designed *static* comic renders instead: same content, same
   lettering, zero WebGL, zero motion. First-class, not a fallback. This is also
   the accessible, crawlable copy — all text lives in the DOM.
 
 ## Accessibility
 
-- `prefers-reduced-motion`, mobile, low tier, and no-WebGL all get the static
+- `prefers-reduced-motion`, phones, and no-WebGL all get the static
   **Print Edition** — no animation, no flashes, no WebGL context created.
+  Tablets run the full experience at the low quality tier; the split is by the
+  device's short side, not pointer type. A phone's short side never exceeds its
+  portrait width (440px at most), while a tablet's clears 660px even after the
+  browser toolbar is subtracted — the threshold sits between them.
 - All content is real DOM text (SEO + screen readers); real `<a>` links; one
   `<h1>`, proper landmarks and heading order; a skip link; keyboard focus is
   never trapped under the canvas.
@@ -59,7 +63,9 @@ npm run dev        # http://localhost:3000
 Other scripts: `npm run build` (static export to `./out`) · `npm run typecheck`.
 
 Try the Print Edition locally by enabling your OS "reduce motion" setting, or
-append `?low` to the URL, or narrow the window below 820px.
+narrow the window below 820px. `?low` forces the low quality tier *without*
+switching to print — a flag that dropped you into the Print Edition could never
+be used to measure the tier it names.
 
 > Open the browser console for a small easter egg. 🐈
 
