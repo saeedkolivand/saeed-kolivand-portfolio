@@ -7,6 +7,45 @@ body {
   background: #f2ead9;
 }
 
+/*
+ * The WebGL stage, shared by the canvas and every full-screen overlay that has
+ * to stay registered with it. NOT `inset: 0`.
+ *
+ * On iOS the layout viewport a fixed element resolves against is the LARGE
+ * viewport -- the one with the browser toolbar hidden. Measured on an iPad Pro
+ * 11 in Chrome, that toolbar is 168 CSS px: the screen is 834 tall but
+ * innerHeight is 666. So `inset: 0` sized the stage a quarter taller than what
+ * was on screen, and the bottom of every scene sat below the fold until the
+ * user scrolled far enough to collapse the toolbar.
+ *
+ * `dvh` tracks the visible height, so the scene always fills exactly what is
+ * there. `svh` would also stop the clipping, but at 168 px it would leave a
+ * quarter of the screen as dead paper whenever the toolbar hid -- which is
+ * most of the time while scrolling down.
+ *
+ * The cost of dvh is that the canvas resizes when the toolbar animates, which
+ * reallocates the live render targets. That is handled where it belongs, by
+ * debouncing R3F's resize observer (see Experience.tsx) rather than by picking
+ * a worse height.
+ */
+.stage {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100vh;
+}
+/*
+ * @supports, not a second `height` in the rule above: the CSS minifier dedupes
+ * duplicate properties, which drops the fallback and leaves a browser without
+ * dvh with no height at all -- a collapsed stage and a blank canvas.
+ */
+@supports (height: 100dvh) {
+  .stage {
+    height: 100dvh;
+  }
+}
+
 /* Lenis recommended styles */
 html.lenis,
 html.lenis body {

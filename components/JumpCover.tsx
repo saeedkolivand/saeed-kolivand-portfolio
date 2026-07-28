@@ -41,9 +41,8 @@ export default function JumpCover() {
     <div
       ref={el}
       aria-hidden
+      className="stage"
       style={{
-        position: "fixed",
-        inset: 0,
         zIndex: 30, // above the canvas and Lettering (z-20)
         opacity: 0,
         pointerEvents: "none",
