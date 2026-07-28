@@ -29,10 +29,23 @@ const MIN_WIDTH = 820;
  * blocks can drop under the ink-exemption threshold and lose their exemption.
  *
  * The short side separates the two classes with a wide margin and needs no
- * per-device list: every iPad short side is 744 or more (mini), every iPhone is
- * at most 440.
+ * per-device list.
+ *
+ * The threshold sits at 560 rather than something nearer the raw device sizes
+ * because this is measured against innerWidth/innerHeight, which EXCLUDE the
+ * browser's tab bar and toolbar. In landscape the short side is innerHeight, so
+ * an iPad mini's 744 screen height arrives here as roughly 664. Meanwhile a
+ * phone's short side can never exceed its portrait width (440 on a 16 Pro Max),
+ * because in landscape the min is the height -- and chrome only ever shrinks
+ * both. That leaves a safe band of about 440 to 660, and 560 sits in the middle
+ * of it with room on either side.
+ *
+ * Deliberately NOT screen.width/screen.height, which would be chrome-independent
+ * but would also not shrink in iPad Split View -- a 507px Slide Over pane would
+ * then read as a tablet and get the cropped compositions the 390px audit
+ * rejected.
  */
-const MIN_SHORT_SIDE = 700;
+const MIN_SHORT_SIDE = 560;
 
 export interface DeviceGate {
   /** prefers-reduced-motion: reduce */

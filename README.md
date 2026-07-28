@@ -38,8 +38,9 @@ The scroll wheel is the reader's thumb on the page corner.
 - `prefers-reduced-motion`, phones, and no-WebGL all get the static
   **Print Edition** — no animation, no flashes, no WebGL context created.
   Tablets run the full experience at the low quality tier; the split is by the
-  device's short side (700px), not pointer type, because every iPhone is at most
-  440px on its short side and every iPad is at least 744px.
+  device's short side, not pointer type. A phone's short side never exceeds its
+  portrait width (440px at most), while a tablet's clears 660px even after the
+  browser toolbar is subtracted — the threshold sits between them.
 - All content is real DOM text (SEO + screen readers); real `<a>` links; one
   `<h1>`, proper landmarks and heading order; a skip link; keyboard focus is
   never trapped under the canvas.

@@ -126,7 +126,11 @@ export default function ExperienceGate() {
     // never creates a WebGL context no matter how often it is resized.
     let granted = false;
 
-    const evaluate = (fromResize: boolean) => {
+    // `initial` distinguishes the one call where there is nothing to capture
+    // from every later one, which is a LIVE grant over someone already reading
+    // the print doc. Keying this on "did a resize cause it" missed the
+    // reduce-motion path, which grants exactly the same way.
+    const evaluate = (initial: boolean) => {
       const gate = readDeviceGate();
       store.setReducedMotion(gate.reduced);
       if (gate.low) store.setQuality("low");
@@ -135,16 +139,15 @@ export default function ExperienceGate() {
       // && short-circuits, so the print path still never creates a WebGL context.
       if (!granted && !gate.reduced && !gate.narrow && probeWebGL()) {
         granted = true;
-        // A rotation grant mounts over someone already reading the print doc.
         // Capture where they were, exactly as the deliberate opt-in does -- the
         // WS-E mapping effect reads this, and without it their scrollY is
         // reinterpreted against the 2400vh spacer and lands at an arbitrary t.
-        if (fromResize) pendingExperienceT.current = measurePrintT();
+        if (!initial) pendingExperienceT.current = measurePrintT();
         setShowExperience(true);
       }
     };
 
-    evaluate(false);
+    evaluate(true);
 
     // An OS-level reduce-motion change should be picked up on its own, not only
     // if the user also happens to resize the window (ScrollProxy already
@@ -161,7 +164,7 @@ export default function ExperienceGate() {
     let resizeTimer = 0;
     const onResize = () => {
       clearTimeout(resizeTimer);
-      resizeTimer = window.setTimeout(() => evaluate(true), 150);
+      resizeTimer = window.setTimeout(() => evaluate(false), 150);
     };
     const coarse = matchMedia("(pointer: coarse)").matches;
     if (coarse) {
