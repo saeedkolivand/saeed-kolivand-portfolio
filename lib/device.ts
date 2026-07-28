@@ -17,8 +17,22 @@
  * reports itself as macOS.
  */
 
-/** Below this the authored wide compositions do not fit; Print Edition wins. */
+/** Fine-pointer (desktop) minimum width. Below this the compositions do not fit. */
 const MIN_WIDTH = 820;
+
+/**
+ * Coarse-pointer devices are separated by their SHORT side, not their width.
+ * Width alone fails badly in landscape: an iPhone 15 Pro is 852 CSS px wide and
+ * a 16 Pro Max is 956, so a width test at 820 admits every current iPhone above
+ * the mini -- with roughly 430 px of height, and at an aspect of 2.17 where
+ * projected word-art area SHRINKS by 0.74x against the desktop baseline, so
+ * blocks can drop under the ink-exemption threshold and lose their exemption.
+ *
+ * The short side separates the two classes with a wide margin and needs no
+ * per-device list: every iPad short side is 744 or more (mini), every iPhone is
+ * at most 440.
+ */
+const MIN_SHORT_SIDE = 700;
 
 export interface DeviceGate {
   /** prefers-reduced-motion: reduce */
@@ -34,11 +48,17 @@ export interface DeviceGate {
 export function readDeviceGate(): DeviceGate {
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const coarse = matchMedia("(pointer: coarse)").matches;
-  const narrow = window.innerWidth < MIN_WIDTH;
+  // Portrait iPad DOES auto-mount: its short side clears 700 (mini is 744).
+  // Deliberate -- the audit found portrait one crop short of clean (spread's
+  // "THE HEADLIN[E]"), which is a blemish in one scene, and rotating fixes it.
+  // Locking every portrait tablet out over that would cost far more than it
+  // saves.
+  const shortSide = Math.min(window.innerWidth, window.innerHeight);
+  const tablet = coarse && shortSide >= MIN_SHORT_SIDE;
+  const narrow = coarse ? !tablet : window.innerWidth < MIN_WIDTH;
   // ?low forces the low tier for profiling. It does NOT block the experience --
   // a flag that dumped you into Print Edition could never be used to measure
   // the low tier it names.
   const forced = new URLSearchParams(location.search).has("low");
-  const tablet = coarse && !narrow;
   return { reduced, narrow, tablet, low: tablet || forced };
 }

@@ -116,6 +116,7 @@ export default function ExperienceGate() {
   const [showExperience, setShowExperience] = useState(false);
   const [forceReader, setForceReader] = useState(false);
   const [forceExperience, setForceExperience] = useState(false);
+  const [narrow, setNarrow] = useState(false);
   const [reduced, setReduced] = useState(false);
   const [noWebGL, setNoWebGL] = useState(false);
 
@@ -125,34 +126,51 @@ export default function ExperienceGate() {
     // never creates a WebGL context no matter how often it is resized.
     let granted = false;
 
-    const evaluate = () => {
+    const evaluate = (fromResize: boolean) => {
       const gate = readDeviceGate();
       store.setReducedMotion(gate.reduced);
       if (gate.low) store.setQuality("low");
       setReduced(gate.reduced);
+      setNarrow(gate.narrow);
       // && short-circuits, so the print path still never creates a WebGL context.
       if (!granted && !gate.reduced && !gate.narrow && probeWebGL()) {
         granted = true;
+        // A rotation grant mounts over someone already reading the print doc.
+        // Capture where they were, exactly as the deliberate opt-in does -- the
+        // WS-E mapping effect reads this, and without it their scrollY is
+        // reinterpreted against the 2400vh spacer and lands at an arbitrary t.
+        if (fromResize) pendingExperienceT.current = measurePrintT();
         setShowExperience(true);
       }
     };
 
-    evaluate();
+    evaluate(false);
 
-    // Re-evaluate on rotate/resize, but GRANT ONLY -- never revoke. An iPad 9th
-    // gen (810pt) or mini (744pt) loads portrait below MIN_WIDTH and would
-    // otherwise stay stuck in Print Edition even after being rotated into
-    // landscape. Revoking would be worse than the asymmetry: it would tear a
-    // live canvas down mid-scroll on a desktop window drag.
-    let t = 0;
+    // An OS-level reduce-motion change should be picked up on its own, not only
+    // if the user also happens to resize the window (ScrollProxy already
+    // subscribes to the same query properly).
+    const motion = matchMedia("(prefers-reduced-motion: reduce)");
+    const onMotion = () => evaluate(false);
+    motion.addEventListener("change", onMotion);
+
+    // Re-evaluate on rotate, GRANT ONLY -- never revoke, or a window drag would
+    // tear a live canvas down mid-scroll. Coarse pointers only: this listener
+    // exists so a portrait tablet rotated to landscape stops being stuck in
+    // Print Edition. A desktop window drag has no rotation story behind it and
+    // must not mount the 3D stack uninvited over someone who is reading.
+    let resizeTimer = 0;
     const onResize = () => {
-      clearTimeout(t);
-      t = window.setTimeout(evaluate, 150);
+      clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(() => evaluate(true), 150);
     };
-    addEventListener("resize", onResize);
-    addEventListener("orientationchange", onResize);
+    const coarse = matchMedia("(pointer: coarse)").matches;
+    if (coarse) {
+      addEventListener("resize", onResize);
+      addEventListener("orientationchange", onResize);
+    }
     return () => {
-      clearTimeout(t);
+      clearTimeout(resizeTimer);
+      motion.removeEventListener("change", onMotion);
       removeEventListener("resize", onResize);
       removeEventListener("orientationchange", onResize);
     };
@@ -176,7 +194,12 @@ export default function ExperienceGate() {
   // them. The Print Edition is the better phone experience until the scenes
   // carry narrow-safe framing (the frame-guard pattern in Pop.tsx:742 and
   // Sketchbook.tsx:340 is the model for that).
-  const offerExperience = !effectiveShow && !noWebGL && (reduced || forceReader);
+  //
+  // `|| showExperience` keeps the UNDO working: a tablet that was granted the
+  // experience and then rotated to portrait must still be able to come back
+  // from the reader. It only ever re-offers what this session already had.
+  const offerExperience =
+    !effectiveShow && !noWebGL && (reduced || forceReader) && (!narrow || showExperience);
 
   // WS-E: map scroll position across the print <-> 3D toggle. Runs whenever the
   // mount decision flips. Into the experience: restore the t captured from the
