@@ -315,22 +315,37 @@ function DeskCat({ say = false }: { say?: boolean }) {
       g.rotation.set(0, -0.3, 0.3 * up);
       g.scale.setScalar(1 + 0.09 * pop);
       head.current.position.set(0.5, 0.74, 0);
-      head.current.rotation.z = 0.15 * up + 0.06 * Math.sin(s * 2.4); // tracks the dot bob
-      // planted gaze stance (feet fix 2026-07-03). The shoulder stays rooted
-      // INSIDE the chest sphere (center 0.32/0.38, r 0.26) at every p4 -- the
-      // reach to the dot is bought by stretching the limb along its own axis
-      // (comic smear), never by detaching the root and floating it up the face
-      paw.current.position.set(lerp(0.44, 0.57, punch), lerp(0.32, 0.45, punch), 0.16);
-      pawStretch = lerp(1, 1.78, punch);
-      pawSwing = -0.7 * rear + 2.26 * punch; // arc peaks below the muzzle line
+      // idle head roll on stepped time. It shares the dot's 2.4 rate but it
+      // does NOT track the dot: the dot's bob fades to 0 across p4 0.8-0.86
+      // (so the contact frame is pure f(t)) while this roll keeps running
+      head.current.rotation.z = 0.15 * up + 0.06 * Math.sin(s * 2.4);
+      // planted gaze stance (feet fix 2026-07-03). Verified 3D invariant: the
+      // shoulder root stays INSIDE the chest ellipsoid (center [0.32,0.38,0],
+      // semi-axes 0.26/0.26/0.273 = r 0.26 with z scale 1.05) at EVERY p4.
+      // Ellipsoid sum ((x-.32)/.26)^2+((y-.38)/.26)^2+(z/.273)^2 = 0.610 at
+      // punch 0, 0.972 at punch 1, and the sum is convex along the lerp, so no
+      // intermediate punch can exceed the endpoints. Reach is bought by
+      // stretching the limb along its own axis (comic smear), never by
+      // detaching the root and floating it up the face (audit 3 fix)
+      paw.current.position.set(lerp(0.44, 0.52, punch), lerp(0.32, 0.43, punch), 0.16);
+      // stretch/swing retuned for the pulled-back root so the sock center still
+      // lands on the same contact point, cat-local [1.1397, 0.4439, 0.16]
+      pawStretch = lerp(1, 1.937, punch);
+      pawSwing = -0.7 * rear + 2.293 * punch; // arc peaks below the muzzle line
       flick += 0.9 * up;
       wrap = 0.35;
-      arc = Math.sin(Math.PI * clamp01((p4 - 0.85) / 0.075)); // lines only around contact
+      // impact fan: peaks EXACTLY at p4 0.86 (= BAT_T, the contact frame) and
+      // is gone by p4 0.8975, before the paw starts retracting at p4 0.9
+      arc = Math.sin(Math.PI * clamp01((p4 - 0.8225) / 0.075));
     }
 
     tail.current.rotation.set(flick, wrap, 0.9);
     paw.current.rotation.set(0, 0, pawSwing);
-    paw.current.scale.set(1, pawStretch, 1); // limb axis only: thickness stays
+    // scaled on the limb axis only, so the capsule keeps its thickness -- but
+    // the paper sock is a child sphere, so it stretches too: a 0.075 ball
+    // becomes a 0.075 x 0.145 egg at peak stretch. That elongation is
+    // load-bearing (the egg's tip is what meets the dot rim), not an artifact
+    paw.current.scale.set(1, pawStretch, 1);
     lines.current.scale.setScalar(Math.max(arc, 1e-4));
 
     if (say) {

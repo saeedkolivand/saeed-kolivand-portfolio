@@ -677,30 +677,34 @@ function ToonCat({ def, p, rig }: { def: ToonPose; p: CatPalette; rig?: CatRig }
               <coneGeometry args={[0.05, 0.1, 3]} />
               <meshBasicMaterial color={p.nose ?? p.tag} />
             </mesh>
-            {/* whiskers: three paper strokes per side, swept FORWARD off the
-                muzzle pad (ry ~0.05) with the fan carried in rz, not in yaw.
-                A sideways sweep runs nearly parallel to the view axis at 3/4
-                angles, so the near triplet foreshortens into dashes lying
-                flat on the cheek -- projected against the Desk shot-4 camera
-                the old builds put that tip 60-92px INSIDE the skull outline;
-                this one clears it by ~26px on both sides across the whole
-                idle head-roll sweep. Rows sit below the eye ovals (y -0.09
-                and down) so no stroke ever crosses an iris, and the back
-                halves stay buried in the skull (0.44 of 1), so each whisker
-                emerges from fur exactly like the flat build's do.
-                (Desk audit-3 fix 2026-07-27.) */}
+            {/* whiskers: three paper strokes per side, length 0.5, swept
+                mostly FORWARD off the muzzle pad with the fan carried in rz
+                (+/-0.24) and only a mild outward yaw (ry +/-0.25). The two
+                sweeps are a tradeoff: a wide yaw (the pre-audit 0.95) runs
+                near-parallel to the view axis at 3/4 angles and foreshortens
+                the far triplet into dashes lying flat on the cheek; a
+                near-zero yaw with a long stroke (the 0.66/0.05 first fix)
+                reads as six straws laid over the face. Roots stay buried --
+                the back end sits at skull-ellipsoid (0.3024/0.2646/0.2862)
+                sum 0.26-0.37, i.e. well inside the fur -- and every row sits
+                below the eye ovals (y -0.09 and down). Verified on all five
+                toon-cat frames: Desk 0.204 + 0.208 (fan, no dashes on the
+                cheek, no stroke on an iris), Noir 0.096 profile (six-stroke
+                fan clear of the parapet) and 0.102 (rear view, hidden), Neon
+                0.256 (clears the keyboard prop), Pop 0.686.
+                (Desk audit-3 fix 2026-07-27, tempered 2026-07-28.) */}
             {(
               [
-                [0.29, -0.09, -0.1, 0.05, 0.24],
-                [0.29, -0.135, -0.1, 0.05, 0],
-                [0.29, -0.18, -0.1, 0.05, -0.24],
-                [0.29, -0.09, 0.1, -0.05, 0.24],
-                [0.29, -0.135, 0.1, -0.05, 0],
-                [0.29, -0.18, 0.1, -0.05, -0.24],
+                [0.29, -0.09, -0.1, 0.25, 0.24],
+                [0.29, -0.135, -0.1, 0.25, 0],
+                [0.29, -0.18, -0.1, 0.25, -0.24],
+                [0.29, -0.09, 0.1, -0.25, 0.24],
+                [0.29, -0.135, 0.1, -0.25, 0],
+                [0.29, -0.18, 0.1, -0.25, -0.24],
               ] as const
             ).map(([x, y, z, ry, rz], i) => (
               <mesh key={i} position={[x, y, z]} rotation={[0, ry, rz]}>
-                <boxGeometry args={[0.66, 0.012, 0.012]} />
+                <boxGeometry args={[0.5, 0.012, 0.012]} />
                 <meshBasicMaterial color={p.paper} />
               </mesh>
             ))}
