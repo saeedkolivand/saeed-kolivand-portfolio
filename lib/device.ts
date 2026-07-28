@@ -31,7 +31,7 @@ const MIN_WIDTH = 820;
  * The short side separates the two classes with a wide margin and needs no
  * per-device list.
  *
- * The threshold sits at 560 rather than something nearer the raw device sizes
+ * The threshold sits at 500 rather than something nearer the raw device sizes
  * because this is measured against innerWidth/innerHeight, which EXCLUDE the
  * browser's tab bar and toolbar. In landscape the short side is innerHeight, so
  * an iPad mini's 744 screen height arrives here as roughly 664. Meanwhile a
@@ -44,7 +44,7 @@ const MIN_WIDTH = 820;
  * but would also not shrink in iPad Split View, so every pane would read as a
  * full tablet and get the cropped compositions the 390px audit rejected.
  */
-const MIN_SHORT_SIDE = 560;
+const MIN_SHORT_SIDE = 500;
 
 /**
  * Width floor for coarse devices, on top of the short side. The short side

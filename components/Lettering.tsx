@@ -221,8 +221,11 @@ export default function Lettering() {
     return () => cancelAnimationFrame(raf);
   }, []);
 
+  // `stage`, not `inset-0`: the lettering is composed against the canvas and
+  // must share its exact box, or the two drift apart by the toolbar height on
+  // iOS.
   return (
-    <div className="pointer-events-none fixed inset-0 z-20 select-none" aria-hidden>
+    <div className="stage pointer-events-none z-20 select-none" aria-hidden>
       {/* premise chip -- cover segment only, top-center ABOVE the cover art.
           Solid INK chip (legible over anything), opacity via the shared
           cover window in the rAF loop (no breathe/transform). */}

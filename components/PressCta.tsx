@@ -60,7 +60,9 @@ export default function PressCta() {
       }}
       className="fixed left-1/2 z-30"
       style={{
-        bottom: "9vh",
+        // dvh, not vh: vh is the LARGE viewport on iOS, so a vh offset is
+        // measured against a box 168 px taller than what is on screen.
+        bottom: "9dvh",
         opacity: 0,
         visibility: "hidden",
         pointerEvents: "none",

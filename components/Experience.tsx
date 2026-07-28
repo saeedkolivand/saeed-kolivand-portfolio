@@ -15,9 +15,14 @@ import { useScrollStore } from "@/lib/scrollStore";
 export default function Experience() {
   const quality = useScrollStore((s) => s.quality);
   return (
-    <div className="fixed inset-0" aria-hidden>
+    <div className="stage" aria-hidden>
       <Canvas
         frameloop="always"
+        // The stage is sized in dvh, so the mobile toolbar collapsing resizes
+        // the canvas mid-scroll and reallocates every live render target.
+        // Debounced so one toolbar animation costs one reallocation at the end
+        // rather than one per frame of it.
+        resize={{ debounce: 200 }}
         dpr={quality === "high" ? [1, 2] : [1, 1.5]}
         gl={{ antialias: false, stencil: false, depth: true, powerPreference: "high-performance" }}
         camera={{ fov: 45, near: 0.1, far: 400, position: [0, 2, 10] }}
