@@ -57,7 +57,12 @@ function logConsoleEgg(): void {
 function probeWebGL(): boolean {
   try {
     const c = document.createElement("canvas");
-    return !!(c.getContext("webgl2") || c.getContext("webgl"));
+    const gl = c.getContext("webgl2") || c.getContext("webgl");
+    // Release it immediately. A detached canvas is not promptly GC'd on
+    // WebKit and iOS caps live contexts per page, so a probe left holding one
+    // costs a context right as R3F is about to ask for the real one.
+    gl?.getExtension("WEBGL_lose_context")?.loseContext();
+    return !!gl;
   } catch {
     return false;
   }
@@ -113,18 +118,46 @@ export default function ExperienceGate() {
   const [forceExperience, setForceExperience] = useState(false);
   const [narrow, setNarrow] = useState(false);
   const [reduced, setReduced] = useState(false);
+  const [noWebGL, setNoWebGL] = useState(false);
 
   useEffect(() => {
-    const gate = readDeviceGate();
-
     const store = useScrollStore.getState();
-    store.setReducedMotion(gate.reduced);
-    if (gate.low) store.setQuality("low");
+    // Latch: once granted we never re-probe, so a device that stays narrow
+    // never creates a WebGL context no matter how often it is resized.
+    let granted = false;
 
-    setReduced(gate.reduced);
-    setNarrow(gate.narrow);
-    // && short-circuits, so the print path still never creates a WebGL context.
-    setShowExperience(!gate.reduced && !gate.narrow && probeWebGL());
+    const evaluate = () => {
+      const gate = readDeviceGate();
+      store.setReducedMotion(gate.reduced);
+      if (gate.low) store.setQuality("low");
+      setReduced(gate.reduced);
+      setNarrow(gate.narrow);
+      // && short-circuits, so the print path still never creates a WebGL context.
+      if (!granted && !gate.reduced && !gate.narrow && probeWebGL()) {
+        granted = true;
+        setShowExperience(true);
+      }
+    };
+
+    evaluate();
+
+    // Re-evaluate on rotate/resize, but GRANT ONLY -- never revoke. An iPad 9th
+    // gen (810pt) or mini (744pt) loads portrait below MIN_WIDTH and would
+    // otherwise stay stuck in Print Edition even after being rotated into
+    // landscape. Revoking would be worse than the asymmetry: it would tear a
+    // live canvas down mid-scroll on a desktop window drag.
+    let t = 0;
+    const onResize = () => {
+      clearTimeout(t);
+      t = window.setTimeout(evaluate, 150);
+    };
+    addEventListener("resize", onResize);
+    addEventListener("orientationchange", onResize);
+    return () => {
+      clearTimeout(t);
+      removeEventListener("resize", onResize);
+      removeEventListener("orientationchange", onResize);
+    };
   }, []);
 
   // Decorative DevTools console greeting. ExperienceGate always mounts, so this
@@ -137,9 +170,9 @@ export default function ExperienceGate() {
   const effectiveShow = !forceReader && (showExperience || forceExperience);
   // Offer "watch the animated version" to anyone in print mode who did not
   // choose it by hardware: the reduced-motion opt-in, the narrow-viewport
-  // (phone) opt-in, and the undo for a manual switch. A wide desktop whose
-  // WebGL probe failed gets no offer -- there is nothing to opt into.
-  const offerExperience = !effectiveShow && (reduced || narrow || forceReader);
+  // (phone) opt-in, and the undo for a manual switch. Withdrawn once a probe
+  // has actually failed, so the button is never a dead control.
+  const offerExperience = !effectiveShow && !noWebGL && (reduced || narrow || forceReader);
 
   // WS-E: map scroll position across the print <-> 3D toggle. Runs whenever the
   // mount decision flips. Into the experience: restore the t captured from the
@@ -208,12 +241,14 @@ export default function ExperienceGate() {
           onClick={() => {
             // First WebGL probe on this path -- the offer is shown without one so
             // the print path stays zero-WebGL until the user actually asks.
-            if (!probeWebGL()) return;
+            // On failure, withdraw the offer rather than leaving a dead button.
+            if (!probeWebGL()) {
+              setNoWebGL(true);
+              return;
+            }
             // print -> 3D: measure the in-view section synchronously, BEFORE the
             // state change collapses the print layout, then restore in the effect.
             pendingExperienceT.current = measurePrintT();
-            // A phone that opted in gets the same tier as a tablet.
-            if (narrow) useScrollStore.getState().setQuality("low");
             setForceReader(false);
             setForceExperience(true);
           }}

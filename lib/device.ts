@@ -1,7 +1,9 @@
 /**
  * The device gate -- the single place that decides who gets the 3D experience
- * and at which quality tier. Both ExperienceGate (the mount decision) and
- * ScrollProxy (the quality flag) read it, so the two can never drift.
+ * and at which quality tier. ExperienceGate is the ONLY caller and the only
+ * writer of the quality tier; keeping the policy here rather than inline keeps
+ * the decision reviewable in one piece and out of a component that is already
+ * doing four other jobs.
  *
  * Client only: call from an effect, never at render scope. The server and the
  * first client paint render Print Edition with every state default false, and
@@ -25,7 +27,7 @@ export interface DeviceGate {
   narrow: boolean;
   /** touch-first but wide enough: iPad and friends */
   tablet: boolean;
-  /** low quality tier -- tablets, or the ?low override */
+  /** low quality tier -- any touch/narrow device that ends up running 3D, or ?low */
   low: boolean;
 }
 
@@ -38,5 +40,9 @@ export function readDeviceGate(): DeviceGate {
   // the low tier it names.
   const forced = new URLSearchParams(location.search).has("low");
   const tablet = coarse && !narrow;
-  return { reduced, narrow, tablet, low: tablet || forced };
+  // `narrow` is included because the only way a narrow viewport ever runs 3D
+  // is the explicit opt-in, and when it does it wants exactly the tablet tier.
+  // Folding it in here keeps the tier decision in one expression instead of an
+  // ad-hoc branch in the opt-in click handler that disagreed with this module.
+  return { reduced, narrow, tablet, low: tablet || narrow || forced };
 }

@@ -4,7 +4,6 @@ import { useEffect } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Lenis from "lenis";
-import { readDeviceGate } from "@/lib/device";
 import { useScrollStore } from "@/lib/scrollStore";
 
 /**
@@ -98,7 +97,6 @@ export default function ScrollProxy() {
     gsap.ticker.add(tick);
     gsap.ticker.lagSmoothing(0);
 
-    const store = useScrollStore.getState();
     const st = ScrollTrigger.create({
       start: 0,
       end: "max",
@@ -121,7 +119,10 @@ export default function ScrollProxy() {
     onMq();
     mq.addEventListener("change", onMq);
 
-    if (readDeviceGate().low) store.setQuality("low");
+    // No quality tier read here. ScrollProxy only ever mounts once
+    // ExperienceGate's gate effect has already run and set the tier, so a
+    // second read would duplicate the decision and could disagree with it.
+    // ExperienceGate is the single writer.
 
     return () => {
       removeEventListener("pointermove", onPointer);
