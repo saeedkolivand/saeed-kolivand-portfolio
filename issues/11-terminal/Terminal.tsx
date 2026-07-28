@@ -768,10 +768,18 @@ function BackCoverPage() {
 
 const [TCX] = issueCenter(11);
 
-/** first fraction of the catWalk range = the hop-down; the walk plate owns
- * the rest. Sit visible u < HOP, walk u >= HOP: NO frame without a cat
- * (continuity fix, user feedback 2026-07-03). All pure f(t), scrub-safe. */
-const CAT_HOP = 0.22;
+/** Exit shape over the catWalk range, all pure f(t), scrub-safe. The hop
+ * ARC lands by CAT_ARC and the sit build then rests ON the floor until
+ * CAT_HOP hands over to the walk plate at the same spot -- the arc used to
+ * run right up to the handover, so the cat's last sit frame was mid-air and
+ * the swap read as a pop (audit 2026-07-27). The plate walks to CAT_PARK and
+ * then holds, staying in frame through t=1.000: the closing frame of the
+ * whole book keeps its cat. */
+const CAT_ARC = 0.28;
+const CAT_HOP = 0.5;
+const CAT_PARK = 0.95;
+/** plate's parked x -- right of the command-card wall, on the lit floor */
+const CAT_PARK_X = 9.5;
 /** sit perch on the CRT top (shots 1-2, on/near the monitor throughout) */
 const SIT_FROM: [number, number, number] = [1.9, 6.25, 0.4];
 /** floor landing IN FRONT of the desk edge (z 3.5) and LEFT of the command
@@ -799,7 +807,7 @@ function TerminalCat() {
   useFrame(({ clock }) => {
     const { t, quality, reducedMotion } = useScrollStore.getState();
     const u = catWalk(t); // pure f(t), scrub-safe both directions
-    const k = u <= 0 ? 0 : Math.min(u / CAT_HOP, 1); // hop progress
+    const k = u <= 0 ? 0 : Math.min(u / CAT_ARC, 1); // hop-arc progress
     const sitting = u < CAT_HOP;
     const s = sit.current;
     if (s) {
@@ -825,14 +833,18 @@ function TerminalCat() {
     }
     const g = walk.current;
     if (g) {
-      // takes over EXACTLY at the hop landing, walks the floor frame-right
-      // past the page edge (u=1: off-panel, the journey's last exit)
-      g.visible = u >= CAT_HOP && u < 1;
-      g.position.x = lerp(SIT_LAND[0], 16.5, clamp01((u - CAT_HOP) / (1 - CAT_HOP)));
+      // takes over EXACTLY where the hop landed, walks the floor frame-right
+      // and settles at CAT_PARK_X -- no upper bound, so the plate is still
+      // there at t=1.000 (the last frame used to lose the cat entirely)
+      const stride = clamp01((u - CAT_HOP) / (CAT_PARK - CAT_HOP));
+      g.visible = u >= CAT_HOP;
+      g.position.x = lerp(SIT_LAND[0], CAT_PARK_X, stride);
       const fps = quality === "low" ? 8 : 12;
-      // stride bob is ambient life -- dropped under reduced motion
+      // stride bob is ambient life -- dropped under reduced motion, and it
+      // stops with the walk so the parked plate rests dead still
+      const bob = reducedMotion ? 0 : 1 - stride;
       g.position.y =
-        -0.12 + (reducedMotion ? 0 : 0.09 * Math.abs(Math.sin(stepTime(clock.elapsedTime, fps) * 6)));
+        -0.12 + bob * 0.09 * Math.abs(Math.sin(stepTime(clock.elapsedTime, fps) * 6));
     }
   });
 
@@ -883,12 +895,17 @@ function DeskSet() {
         <boxGeometry args={[4.2, 0.3, 2.6]} />
         <meshToonMaterial color={CASE} gradientMap={ramp} />
       </mesh>
-      {/* power LED + blank amber sticky note (accents, S0.4 row 11) */}
+      {/* power LED + blank amber sticky note (accents, S0.4 row 11). The
+          note lives on the case CHIN, below the glass: stuck on the bezel it
+          sat coplanar with the screen plane (z 1.77), hatching a sliver
+          inside the tube and covering the "h" of hello visitor (audit
+          2026-07-27). z 1.79 is in front of the case face -- nothing to
+          intersect, nothing to z-fight. */}
       <mesh position={[2.7, 1.05, 1.79]}>
         <circleGeometry args={[0.09, 16]} />
         <meshBasicMaterial color={AMBER} />
       </mesh>
-      <mesh position={[-2.9, 4.9, 1.77]} rotation={[0, 0, 0.12]}>
+      <mesh position={[-2.9, 0.44, 1.79]} rotation={[0, 0, 0.06]}>
         <planeGeometry args={[0.85, 0.85]} />
         <meshBasicMaterial color={AMBER} />
       </mesh>

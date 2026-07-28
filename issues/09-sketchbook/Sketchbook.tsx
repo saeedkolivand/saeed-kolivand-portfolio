@@ -1,13 +1,15 @@
 "use client";
 
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef } from "react";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import { Text } from "@react-three/drei";
 import {
   Color,
   Object3D,
+  Vector3,
   type Group,
   type InstancedMesh,
+  type PerspectiveCamera,
   type ShaderMaterial,
 } from "three";
 import IssueShell from "../_IssueShell";
@@ -19,6 +21,7 @@ import { useScrollStore } from "@/lib/scrollStore";
 import { CAT_VOICE, sayWord } from "@/lib/onomatopoeia";
 import { issueCopy } from "@/lib/content";
 import { clamp01, lerp } from "@/lib/shots";
+import { authoredCamera } from "@/lib/authoredCamera";
 import { issueCenter } from "../timeline";
 import { inkAt, SKETCH_SETTLE } from "./shots";
 
@@ -54,12 +57,26 @@ const [CX] = issueCenter(9);
 const NODE_X = [-27, -18, -9, 0, 9, 18, 27];
 /** annotation anchors -- DB + Search share one snippet between them */
 const ANNOT_X = [-27, -18, -9, 0, 13.5, 27];
+/**
+ * Per-annotation depth south of the chain. The Workers snippet sat under the
+ * gears bench and the DB + Search snippet under the chain dashes, so from the
+ * low tracking lens the props printed straight through the handwriting; both
+ * drop 1.5 further south onto clean page (audit 2026-07-27).
+ */
+const ANNOT_Z = [3.9, 3.9, 5.4, 3.9, 5.4, 3.9];
 /** dot(localPos, uSweepDir) bracket over every sketch mesh (set-local) */
 const SWEEP_SPAN: [number, number] = [-30, 30];
 
 // ---- shared scratch (zero per-frame allocation) -----------------------------
 const tmpO = new Object3D();
 const tmpC = new Color();
+const tmpV = new Vector3();
+/**
+ * Margin-guard half-width: the WRAP BOUND (maxWidth 7 / 2), not a measured
+ * glyph extent -- conservative on purpose, so a short snippet leaves the edge
+ * a little early rather than printing clipped.
+ */
+const ANNOT_HALF_W = 3.5;
 
 const hash = (i: number, n: number) => {
   const x = Math.sin((i + 1) * n) * 43758.5453;
@@ -302,11 +319,28 @@ type TextHandle = Object3D & { fillOpacity: number };
 
 function Annotations() {
   const refs = useRef<(TextHandle | null)[]>([]);
+  const camera = useThree((s) => s.camera);
 
   useFrame(() => {
-    const u = inkAt(useScrollStore.getState().t);
+    const t = useScrollStore.getState().t;
+    const u = inkAt(t);
+    // AUTHORED pose, not the live camera: the live one is delta-smoothed and
+    // pointer-parallaxed by ShotDirector, which would make this fade depend on
+    // scroll history and the mouse (PR #55 H1). authoredCamera is pure f(t).
+    const cam = authoredCamera(t, (camera as PerspectiveCamera).aspect);
+    const tanH = Math.tan((cam.fov * Math.PI) / 360);
     refs.current.forEach((h, i) => {
-      if (h) h.fillOpacity = clamp01((u - (0.16 + i * 0.075)) / 0.05);
+      if (!h) return;
+      // side-margin guard: a snippet crossing the left/right viewport edge
+      // fades instead of printing half a sentence during the pull-back
+      // (audit 2026-07-27). Anchor world pos comes off its own matrixWorld.
+      h.getWorldPosition(tmpV);
+      const dist = tmpV.distanceTo(cam.position);
+      tmpV.project(cam);
+      const hx = ANNOT_HALF_W / (dist * tanH * cam.aspect);
+      const framed =
+        tmpV.z > 1 ? 0 : clamp01((1 - hx - Math.abs(tmpV.x)) / 0.05);
+      h.fillOpacity = framed * clamp01((u - (0.16 + i * 0.075)) / 0.05);
     });
   });
 
@@ -319,7 +353,7 @@ function Annotations() {
             ref={(o: unknown) => {
               refs.current[i] = o as TextHandle | null;
             }}
-            position={[ANNOT_X[i]!, 0.85, 3.9]}
+            position={[ANNOT_X[i]!, 0.85, ANNOT_Z[i]!]}
             rotation={[-Math.PI / 2 + 0.4, 0, 0]}
             font={CAVEAT}
             fontSize={0.75}
@@ -366,6 +400,16 @@ const pathPos = (w: number): [number, number] => [
   lerp(CAT_A[0], CAT_B[0], w),
   lerp(CAT_A[1], CAT_B[1], w),
 ];
+
+/**
+ * Paw contact heights (CatModel flat build, scale 0.9): the sit pose reaches
+ * its lowest sock at local y -0.93, the walk at -0.72. At the old shared 0.12
+ * the page ate the sit pose's whole lower half -- it printed as a legless
+ * bust cut flat at the page plane (audit 2026-07-27). Both poses now stand
+ * their paws on the paper.
+ */
+const SIT_Y = 0.86;
+const WALK_Y = 0.67;
 
 function Pawprints() {
   const base = useMemo(() => pawprintMaterial(), []);
@@ -436,11 +480,11 @@ function PageCat() {
     const [x, z] = pathPos(w);
     if (walkG.current) {
       walkG.current.visible = walking;
-      walkG.current.position.set(x, 0.12 + 0.07 * Math.abs(Math.sin(st * 7)), z);
+      walkG.current.position.set(x, WALK_Y + 0.07 * Math.abs(Math.sin(st * 7)), z);
     }
     if (sitG.current) {
       sitG.current.visible = !walking;
-      sitG.current.position.set(x, 0.12, z);
+      sitG.current.position.set(x, SIT_Y, z);
     }
     const flick = 0.85 + Math.sin(st * 1.6) * 0.14;
     if (walkTail.current) walkTail.current.rotation.z = flick;

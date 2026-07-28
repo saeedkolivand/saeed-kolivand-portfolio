@@ -145,7 +145,10 @@ const KRACKLE = Array.from({ length: KRACKLE_N }, (_, i) => {
   const r = mulberry32(300 + i * 7);
   return {
     x: (r() - 0.5) * 60,
-    y: -6 + r() * 20,
+    // floor lifted from -6: the closing card sits at y -9.6 and the unfold
+    // lens is a low pull-back, so anything under -3 in this field can drift
+    // across the card's letters (audit 2026-07-27)
+    y: -3 + r() * 20,
     z: -12 + r() * 26,
     s: 0.06 + r() * 0.14,
     ci: Math.floor(r() * 3),
@@ -296,6 +299,11 @@ LABELS.forEach((text, i) => {
   CONST_LABELS.push({ text, x: cx, y: cy - 3.1, z: cz });
 });
 
+/** label z-bias off the star plane: clears its own cluster (cz +/-1), the
+ * chart lines and the near krackle dots that drift around the constellation,
+ * without moving the label perceptibly (labels sit ~40 units out). */
+const LABEL_Z = 1.6;
+
 const LINE_POS = new Float32Array(linePos);
 
 function Constellations() {
@@ -352,13 +360,18 @@ function Constellations() {
         </bufferGeometry>
         <lineBasicMaterial color={VIOLET} transparent opacity={0.38} />
       </lineSegments>
+      {/* labels sit LABEL_Z in front of their own cluster instead of turning
+          depthTest off: an unconditional overlay printed them over the closing
+          caption and the chart, which inverts S2.16 (PR #55 M1). depthWrite is
+          off so the fading label never punches a hole in the spread behind it. */}
       {CONST_LABELS.map((l, i) => (
         <Text
           key={l.text}
           ref={(el) => {
             labels.current[i] = el as unknown as Mesh | null;
           }}
-          position={[l.x, l.y, l.z]}
+          material-depthWrite={false}
+          position={[l.x, l.y, l.z + LABEL_Z]}
           font={BANGERS}
           fontSize={1.15}
           color={INK}
@@ -669,10 +682,13 @@ function SpreadCat() {
     const fps = quality === "low" ? 8 : 12;
     const s = reducedMotion ? 0 : stepTime(clock.elapsedTime, fps);
     const p = clamp01((t - CAT_DRIFT[0]) / (CAT_DRIFT[1] - CAT_DRIFT[0]));
-    // weightless drift, pure f(t); gentle stepped bob + sway on 2s
+    // weightless drift, pure f(t); gentle stepped bob + sway on 2s. The arc
+    // rides 2.2 above the old line so the cat clears the constellation label
+    // band (label tops reach y 4.4) instead of parking on a name -- it used
+    // to sit on THE RAIN for the whole chart approach (audit 2026-07-27).
     g.position.set(
       lerp(-16, 12, p),
-      4.0 + 0.5 * Math.sin(Math.PI * p) + (reducedMotion ? 0 : 0.1 * Math.sin(s * 1.3)),
+      6.2 + 0.5 * Math.sin(Math.PI * p) + (reducedMotion ? 0 : 0.1 * Math.sin(s * 1.3)),
       -15,
     );
     g.rotation.z = reducedMotion ? 0 : 0.08 * Math.sin(s * 0.9);

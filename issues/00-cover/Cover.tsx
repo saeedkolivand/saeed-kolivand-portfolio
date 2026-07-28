@@ -7,7 +7,7 @@ import type { Group, Mesh } from "three";
 import IssueShell from "../_IssueShell";
 import { ISSUES } from "../registry";
 import { RANGES } from "../timeline";
-import CatModel from "@/components/CatModel";
+import CatModel, { HARLEY, type CatPalette } from "@/components/CatModel";
 import { toonRamp } from "@/lib/toon";
 import { stepTime } from "@/lib/steppedClock";
 import { useScrollStore } from "@/lib/scrollStore";
@@ -36,6 +36,12 @@ const TEAL = "#2BB3A3";
 
 const BANGERS = "/fonts/Bangers-Regular.ttf";
 const COVER_END = RANGES[0]![1];
+
+// The hero cat sits ON the teal sunburst disc, and the default Harley collar
+// is that exact teal -- the band reads as a hole punched through the neck
+// (audit 2026-07-27). Same teal family, two steps darker: identity mark kept,
+// separation gained. Cover-local; every other issue keeps HARLEY as-is.
+const COVER_CAT: CatPalette = { ...HARLEY, collar: "#12695F" };
 
 // Masthead splits into a small kicker line + a big main line so long names
 // ("SAEED KOLIVAND", 14 chars) never clip or collide with the price box.
@@ -203,7 +209,7 @@ export default function Cover({ index }: { index: number }) {
                 Harley default palette (golden tabby, user directive
                 2026-07-03); tail rig ref is flicked on stepped time in the
                 useFrame above, its pivot sits INSIDE the haunch */}
-            <CatModel mode="flat" pose="leaping" rig={{ tail }} />
+            <CatModel mode="flat" pose="leaping" palette={COVER_CAT} rig={{ tail }} />
 
             {/* speed dashes trailing the pounce (technique vocabulary, S1) */}
             <mesh position={[-1.8, -0.55, 0.001]}>

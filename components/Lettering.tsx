@@ -21,9 +21,21 @@ import { clamp01 } from "@/lib/shots";
  * fills, zero-blur shadows (comfort rule).
  */
 
-const COVER_END = RANGES[0]![1];
 const NOIR_RANGE = RANGES[1]!;
 const DESK_START = RANGES[2]![0];
+
+/**
+ * Cover DOM overlay windows -- SEPARATE, because the two chips have different
+ * collision partners (PR #55 L2). The 3D price box sweeps into the premise
+ * band (top) by ~0.012, so the premise keeps the tight window; the prompt
+ * (bottom) only meets the barcode label from ~0.017, so it holds longer and
+ * gets the attract beat it exists for. Opacity only: reduced motion still gets
+ * the fade, it just never had the breathe.
+ */
+const PREMISE_HOLD = 0.005;
+const PREMISE_END = 0.01;
+const PROMPT_HOLD = 0.012;
+const PROMPT_END = 0.016;
 
 /**
  * Title-drop card scroll window (user ruling 2026-07-03: the card lives and
@@ -106,7 +118,26 @@ const CAPTION_DEFS: CaptionDef[] = [
   { text: lettering.sceneCaptions.spread[1], window: CHART_R, spot: CAPTION_SPOTS[0]! },
 ];
 
-type CardDef = { issue: number; title: string; kicker: string; window: [number, number] };
+type CardDef = {
+  issue: number;
+  title: string;
+  kicker: string;
+  window: [number, number];
+  /** placement override; default is the top-center slot */
+  spot?: CSSProperties;
+};
+
+/**
+ * Per-issue placement overrides. Issue 4's page prints its lead caption
+ * strip across the top for the card's whole window, and the strip GROWS on
+ * screen as the establish shot commits -- top-center lands the kicker on the
+ * strip at every t in the window (audit 2026-07-27). The origin page never
+ * reaches the left quarter of the frame in that window, so card 4 prints in
+ * the paper void beside it.
+ */
+const CARD_SPOTS: Record<number, CSSProperties> = {
+  4: { top: "50%", left: "2.5vw", transform: "translateY(-50%)" },
+};
 
 /**
  * Per-issue title-card slugs (Issues 1..11; the Cover gets none). Default is
@@ -118,7 +149,7 @@ const CARDS: CardDef[] = printEdition.sectionTitles.slice(1).map((s, idx) => {
   const issue = idx + 1;
   const start = RANGES[issue]![0];
   const win: [number, number] = issue === 2 ? [0.137, 0.15] : [start, start + 0.016];
-  return { issue, title: s.title, kicker: s.kicker, window: win };
+  return { issue, title: s.title, kicker: s.kicker, window: win, spot: CARD_SPOTS[issue] };
 });
 
 export default function Lettering() {
@@ -134,15 +165,14 @@ export default function Lettering() {
       raf = requestAnimationFrame(loop);
       const { t, reducedMotion } = useScrollStore.getState();
 
-      // cover-segment window shared by the attract prompt (bottom) and the
-      // premise chip (top) -- both fade in/out with the cover, opacity only.
-      const coverO = clamp01(1 - t / COVER_END);
-      const coverVis = coverO > 0.001 ? "visible" : "hidden";
+      // cover-segment fades, one window each (their collision partners differ)
+      const promptO = clamp01((PROMPT_END - t) / (PROMPT_END - PROMPT_HOLD));
+      const premiseO = clamp01((PREMISE_END - t) / (PREMISE_END - PREMISE_HOLD));
 
       const prompt = promptRef.current;
       if (prompt) {
-        prompt.style.opacity = coverO.toFixed(3);
-        prompt.style.visibility = coverVis;
+        prompt.style.opacity = promptO.toFixed(3);
+        prompt.style.visibility = promptO > 0.001 ? "visible" : "hidden";
         // centering + 2.4s breathe live HERE, not in a CSS class: the
         // .pj-breathe rule in globals.css never reached the element under
         // Turbopack, which left the prompt un-centered (barcode collision)
@@ -152,8 +182,8 @@ export default function Lettering() {
 
       const premise = premiseRef.current;
       if (premise) {
-        premise.style.opacity = coverO.toFixed(3);
-        premise.style.visibility = coverVis;
+        premise.style.opacity = premiseO.toFixed(3);
+        premise.style.visibility = premiseO > 0.001 ? "visible" : "hidden";
       }
 
       const card = cardRef.current;
@@ -287,6 +317,7 @@ export default function Lettering() {
             top: "6vh",
             left: "50%",
             transform: "translateX(-50%)",
+            ...card.spot,
             opacity: 0,
             visibility: "hidden",
             textAlign: "center",

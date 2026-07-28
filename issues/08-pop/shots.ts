@@ -61,7 +61,23 @@ export interface ChatData {
   accent: string;
 }
 
-export const chatPool = new PopPool<ChatData>(8, 2.6, () => ({
+/**
+ * Chat wall slots -- ONE fixed anchor per pool slot (audit 2026-07-27). The
+ * old 5-lane jitter packed up to six live balloons into a volume narrower
+ * than a single balloon, so they clipped each other's first letters. Three
+ * slots stacked 1.95 apart (one balloon + tail + rise) and staggered in depth
+ * read as one chat wall from the establish, track and orbit lenses; the
+ * round-robin spawn always recycles a slot back into its OWN anchor, so two
+ * balloons can never share a spot (Pop.tsx keeps the cadence slower than the
+ * 2.6s life x 3 slots, so a slot is free before it is reused).
+ */
+const CHAT_ANCHORS: [number, number, number][] = [
+  [6.2, 3.0, 2.4],
+  [6.7, 4.95, 0.2],
+  [6.2, 6.9, -2.0],
+];
+
+export const chatPool = new PopPool<ChatData>(CHAT_ANCHORS.length, 2.6, () => ({
   line: "",
   accent: PINK,
 }));
@@ -78,13 +94,16 @@ let chatIdx = 0;
 export function spawnChat(seed?: number): void {
   const i = chatIdx++;
   seed ??= hash(i, 12.71);
-  const lane = i % 5;
-  // wider lane spread + 3 depth rows so concurrent balloons stack instead of
-  // occluding each other's text (iteration 1, loop log in shots.md)
-  const x = 5.2 + 0.95 * lane + 0.8 * (hash(i, 3.31) - 0.5);
-  const y = 1.8 + 1.15 * ((i * 2) % 5) + 0.5 * hash(i, 7.73);
-  const z = -1.6 + 1.6 * (i % 3) + 0.8 * (hash(i, 5.17) - 0.5);
-  const slot = chatPool.spawn([x, y, z], seed);
+  const a = CHAT_ANCHORS[i % CHAT_ANCHORS.length]!;
+  // sub-slot jitter only -- never enough to close the gap to a neighbour
+  const slot = chatPool.spawn(
+    [
+      a[0] + 0.4 * (hash(i, 3.31) - 0.5),
+      a[1] + 0.3 * (hash(i, 7.73) - 0.5),
+      a[2] + 0.4 * (hash(i, 5.17) - 0.5),
+    ],
+    seed,
+  );
   slot.data.line = CHAT_LINES[i % CHAT_LINES.length]!;
   slot.data.accent = ACCENT_CYCLE[i % ACCENT_CYCLE.length]!;
   // one hook covers ambient cadence AND the orbit volley; the case gates on
@@ -168,10 +187,13 @@ registerJawDrop({
       .timeline()
       .set(ORBIT_KICK, { v: 0 })
       .to(ORBIT_KICK, { v: 1, duration: 0.12, ease: "power2.in" })
-      .to(ORBIT_KICK, { v: 0, duration: 0.5, ease: "power2.out" });
-    spawnChat(0.17);
-    spawnChat(0.53);
-    spawnChat(0.89);
+      .to(ORBIT_KICK, { v: 0, duration: 0.5, ease: "power2.out" })
+      // staggered 0.15s apart on this timeline: fired in one frame the volley
+      // recycled ALL THREE pool slots at once, hard-swapping every live
+      // balloon's glyphs mid-read (PR #55 L4)
+      .call(spawnChat, [0.17], 0)
+      .call(spawnChat, [0.53], 0.15)
+      .call(spawnChat, [0.89], 0.3);
     sayWord(lettering.onomatopoeia.whip, [CX, 9.5, 0], undefined, CYAN);
   },
 });
