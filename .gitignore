@@ -59,3 +59,7 @@ CLAUDE.local.md
 
 # generated art drops live in public/images once approved
 assets/prompts/*.png
+
+# raw ComfyUI renders and intermediate audio; only the baked, encoded output
+# in public/audio is committed (mirrors assets/prompts/*.png above)
+assets/audio-src/raw/
