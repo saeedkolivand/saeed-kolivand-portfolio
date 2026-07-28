@@ -37,7 +37,11 @@ import { Color, Uniform, type Texture } from "three";
  * outranks DEPTH, so THIS effect runs FIRST and PrintEffect prints the
  * composite afterwards. That is what makes inputBuffer pre-print -- and it
  * means the print pass would otherwise stamp the LIVE issue's ink line over
- * the outgoing snapshot. pjtCovered is the channel that stops it.
+ * the outgoing snapshot. pjtCovered is the channel that stops it -- and it
+ * covers DISPLACED live frames too (whip smear, crash punch, stamp descent):
+ * there the pixel comes from a tapped uv while the ink line would still be
+ * computed at its own uv, i.e. doubled edges (S2.16). Every writer fades
+ * with the effect that caused it, so the line always returns smoothly.
  */
 const fragment = /* glsl */ `
   uniform sampler2D uSnapshot;
@@ -146,7 +150,13 @@ const fragment = /* glsl */ `
         float s = (float(i) + j) / 7.0 - 0.5;
         acc += texture2D(inputBuffer, uv + uWhipDir * spread * s).rgb;
       }
-      col = mix(col, pjtGrade(acc * 0.125), smoothstep(0.0, 0.35, whipK));
+      float smear = smoothstep(0.0, 0.35, whipK);
+      col = mix(col, pjtGrade(acc * 0.125), smear);
+      // a smeared pixel no longer shows the geometry under it, so the print
+      // pass's ink line -- computed from the UN-displaced normal/depth
+      // buffers -- would land beside the smeared edge (doubled edges,
+      // S2.16). Rides the smear itself: the line fades back, never pops.
+      pjtCovered = max(pjtCovered, smear);
     }
 
     float velK = clamp((abs(uVelocity) - 0.35) * 1.2, 0.0, 0.6);
@@ -180,7 +190,11 @@ const fragment = /* glsl */ `
       // pjtPrint re-grades the pre-print tap so the punch frames match the
       // printed frame they settle into (PR #22 ruling 3 polish, zero RTs)
       vec3 live = pjtPrint(texture2D(inputBuffer, zuv).rgb, uv);
-      col = mix(col, live, clamp(punch * 2.5, 0.0, 1.0));
+      float punchK = clamp(punch * 2.5, 0.0, 1.0);
+      col = mix(col, live, punchK);
+      // zuv != uv: the punched frame is displaced, same doubled-edge case as
+      // the whip smear. Fades out with the punch, so the line returns smoothly
+      pjtCovered = max(pjtCovered, punchK);
 
       // polar fragment grid: each cell departs when p passes its threshold
       // (radius + hash), so the tear opens at the center and races outward
@@ -203,7 +217,9 @@ const fragment = /* glsl */ `
         snap = mix(snap, uFallback, torn * 0.9);
         float held = 1.0 - smoothstep(0.85, 1.0, f);
         col = mix(col, snap, held);
-        pjtCovered = held;
+        // max, not assign: where a fragment has mostly left (held low) the
+        // punched live frame underneath still needs its coverage
+        pjtCovered = max(pjtCovered, held);
       }
     } else if (uMode == 5.0) {
       // panel-wipe: paper gutter bars sweep in over the outgoing page,
@@ -301,8 +317,11 @@ const fragment = /* glsl */ `
       col = mix(page, mix(col, face, disp), appear);
       float hit = smoothstep(0.53, 0.57, p) * (1.0 - smoothstep(0.60, 0.70, p));
       col = mix(col, uFallback, hit * 0.55);
-      // before the stamp lands the page is snapshot; the impact pop is paper
-      pjtCovered = max(1.0 - appear, hit * 0.55);
+      // before the stamp lands the page is snapshot; the impact pop is paper;
+      // and while the face is still scaled (disp) it is a DISPLACED live
+      // frame, so the un-displaced ink line would double its edges (S2.16).
+      // All three terms fade, so the line fades back as the stamp settles.
+      pjtCovered = max(max(1.0 - appear, hit * 0.55), appear * disp);
       col = mix(col, vec3(1.0), pjtSpeedLines(uv, hit * 0.9) * 0.85);
       float ed = min(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y));
       float ring = smoothstep(0.02, 0.05, ed) - smoothstep(0.05, 0.12, ed);

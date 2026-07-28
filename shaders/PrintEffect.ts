@@ -38,7 +38,11 @@ import { Color, Matrix4, Uniform, Vector2, Vector3, type Texture } from "three";
  *    effects by attributes, CONVOLUTION before DEPTH, so the transition
  *    composites FIRST and this pass prints the result -- without the gate
  *    the incoming issue's ink line drew as a wireframe over every snapshot
- *    gutter. See shaders/TransitionEffect.ts for the shared global.
+ *    gutter, and doubled edges beside every DISPLACED frame (whip smear,
+ *    crash punch, stamp descent). See shaders/TransitionEffect.ts for the
+ *    shared global -- which only exists if both effects stay merged into
+ *    ONE EffectPass (components/PostPipeline.tsx); split, this will not
+ *    compile.
  *  - uWord*, the WORD RECT: troika SDF lettering writes neither depth nor
  *    normals, so the geometry BEHIND a word inks straight over its glyphs
  *    (S2.16: lettering is a crisp single layer, exempt from post). The
