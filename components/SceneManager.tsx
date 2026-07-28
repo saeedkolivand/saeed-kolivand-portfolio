@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { ISSUES } from "@/issues/registry";
 import { useScrollStore } from "@/lib/scrollStore";
 
@@ -54,10 +54,19 @@ export default function SceneManager() {
   );
   return (
     <>
+      {/* per-issue Suspense (fallback null): a set suspending mid-session must
+          never reach R3F's root Block (the DOM Canvas throws -> root unmounts
+          -> frame loop dies, permanent paper freeze); ONE boundary per issue
+          keeps the on-camera set visible while a neighbour loads (same local-
+          Suspense invariant as Noir.tsx / Origin.tsx). */}
       {mounted.map((i) => {
         const issue = ISSUES[i]!;
         const IssueScene = issue.component;
-        return <IssueScene key={issue.id} index={i} />;
+        return (
+          <Suspense key={issue.id} fallback={null}>
+            <IssueScene index={i} />
+          </Suspense>
+        );
       })}
     </>
   );
