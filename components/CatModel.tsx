@@ -677,19 +677,30 @@ function ToonCat({ def, p, rig }: { def: ToonPose; p: CatPalette; rig?: CatRig }
               <coneGeometry args={[0.05, 0.1, 3]} />
               <meshBasicMaterial color={p.nose ?? p.tag} />
             </mesh>
-            {/* whiskers: three thin paper strokes per side */}
+            {/* whiskers: three paper strokes per side, swept FORWARD off the
+                muzzle pad (ry ~0.05) with the fan carried in rz, not in yaw.
+                A sideways sweep runs nearly parallel to the view axis at 3/4
+                angles, so the near triplet foreshortens into dashes lying
+                flat on the cheek -- projected against the Desk shot-4 camera
+                the old builds put that tip 60-92px INSIDE the skull outline;
+                this one clears it by ~26px on both sides across the whole
+                idle head-roll sweep. Rows sit below the eye ovals (y -0.09
+                and down) so no stroke ever crosses an iris, and the back
+                halves stay buried in the skull (0.44 of 1), so each whisker
+                emerges from fur exactly like the flat build's do.
+                (Desk audit-3 fix 2026-07-27.) */}
             {(
               [
-                [0.298, -0.02, -0.181, 0.95, 0.15],
-                [0.308, -0.06, -0.181, 0.95, 0],
-                [0.298, -0.1, -0.181, 0.95, -0.15],
-                [0.298, -0.02, 0.181, -0.95, 0.15],
-                [0.308, -0.06, 0.181, -0.95, 0],
-                [0.298, -0.1, 0.181, -0.95, -0.15],
+                [0.29, -0.09, -0.1, 0.05, 0.24],
+                [0.29, -0.135, -0.1, 0.05, 0],
+                [0.29, -0.18, -0.1, 0.05, -0.24],
+                [0.29, -0.09, 0.1, -0.05, 0.24],
+                [0.29, -0.135, 0.1, -0.05, 0],
+                [0.29, -0.18, 0.1, -0.05, -0.24],
               ] as const
             ).map(([x, y, z, ry, rz], i) => (
               <mesh key={i} position={[x, y, z]} rotation={[0, ry, rz]}>
-                <boxGeometry args={[0.2, 0.012, 0.012]} />
+                <boxGeometry args={[0.66, 0.012, 0.012]} />
                 <meshBasicMaterial color={p.paper} />
               </mesh>
             ))}

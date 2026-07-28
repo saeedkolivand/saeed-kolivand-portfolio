@@ -265,6 +265,7 @@ function DeskCat({ say = false }: { say?: boolean }) {
     let flick = Math.sin(s * 2.2) * 0.35;
     let wrap = 0;
     let pawSwing = 0;
+    let pawStretch = 1;
     let arc = 0;
     // scrub-safe defaults (shot 4 overrides them; scrolling back restores).
     // Paw parks PLANTED (sock tip at y ~0, feet fix 2026-07-03): the
@@ -298,29 +299,38 @@ function DeskCat({ say = false }: { say?: boolean }) {
     } else {
       // shot 4: perched frame-right between camera and monitor (FG depth
       // plane), gazing up at the bobbing dot. Rears up (wind-up), whips the
-      // paw at p4 ~ 0.86 -- contact matches the DotBat launch -- then
+      // paw at p4 0.86 -- contact matches the DotBat launch -- then
       // settles. All envelopes pure f(p4), scrub-safe.
       const p4 = clamp01((t - MON_R[0]) / (MON_R[1] - MON_R[0]));
       const rear = easeInOut(clamp01((p4 - 0.7) / 0.15));
-      const strike = easeInOut(clamp01((p4 - 0.845) / 0.035));
-      const settle = easeInOut(clamp01((p4 - 0.93) / 0.07));
+      const strike = easeInOut(clamp01((p4 - 0.825) / 0.035)); // full at p4 0.86 = BAT_T
+      const settle = easeInOut(clamp01((p4 - 0.9) / 0.07)); // home again by p4 0.97
+      // the strike is a PULSE, not a latch: punch returns to 0 well inside the
+      // shot, so t 0.209+ and the whole dot-zoom gutter show a seated cat with
+      // the paw planted again (audit 3 fix 2026-07-27)
+      const punch = strike * (1 - settle);
       const up = rear * (1 - 0.45 * settle);
-      const pop = Math.sin(Math.PI * clamp01((p4 - 0.845) / 0.05)); // one-beat scale pop, no flash
+      const pop = Math.sin(Math.PI * clamp01((p4 - 0.835) / 0.05)); // one-beat scale pop, no flash
       g.position.set(-1.35, 0.3 * up, -0.5);
       g.rotation.set(0, -0.3, 0.3 * up);
       g.scale.setScalar(1 + 0.09 * pop);
       head.current.position.set(0.5, 0.74, 0);
       head.current.rotation.z = 0.15 * up + 0.06 * Math.sin(s * 2.4); // tracks the dot bob
-      // planted gaze stance until the strike lifts it (feet fix 2026-07-03)
-      paw.current.position.set(lerp(0.44, 0.82, strike), lerp(0.32, 0.6, strike), 0.16);
-      pawSwing = -0.7 * rear + 2.6 * strike * (1 - 0.55 * settle);
+      // planted gaze stance (feet fix 2026-07-03). The shoulder stays rooted
+      // INSIDE the chest sphere (center 0.32/0.38, r 0.26) at every p4 -- the
+      // reach to the dot is bought by stretching the limb along its own axis
+      // (comic smear), never by detaching the root and floating it up the face
+      paw.current.position.set(lerp(0.44, 0.57, punch), lerp(0.32, 0.45, punch), 0.16);
+      pawStretch = lerp(1, 1.78, punch);
+      pawSwing = -0.7 * rear + 2.26 * punch; // arc peaks below the muzzle line
       flick += 0.9 * up;
       wrap = 0.35;
-      arc = Math.sin(Math.PI * clamp01((p4 - 0.85) / 0.06));
+      arc = Math.sin(Math.PI * clamp01((p4 - 0.85) / 0.075)); // lines only around contact
     }
 
     tail.current.rotation.set(flick, wrap, 0.9);
     paw.current.rotation.set(0, 0, pawSwing);
+    paw.current.scale.set(1, pawStretch, 1); // limb axis only: thickness stays
     lines.current.scale.setScalar(Math.max(arc, 1e-4));
 
     if (say) {
@@ -341,8 +351,9 @@ function DeskCat({ say = false }: { say?: boolean }) {
           Harley default palette (golden tabby, user directive 2026-07-03);
           head/paw/tail are driven per frame through the rig refs above */}
       <CatModel mode="toon" pose="sitting" rig={{ head, paw, tail }} />
-      {/* bat motion lines: speed-line fan at the strike arc, scale = f(p4) */}
-      <group ref={lines} position={[1.32, 0.95, 0.2]} scale={0.0001}>
+      {/* bat motion lines: speed-line fan AT the sock/dot contact point
+          (measured from the strike pose, audit 3 fix 2026-07-27), scale = f(p4) */}
+      <group ref={lines} position={[1.28, 0.45, 0.2]} scale={0.0001}>
         <mesh position={[0, 0.12, 0]} rotation={[0, 0, 0.5]}>
           <boxGeometry args={[0.3, 0.028, 0.01]} />
           <meshBasicMaterial color={ORANGE} />
@@ -372,9 +383,17 @@ function DotBat() {
     const p4 = clamp01((t - MON_R[0]) / (MON_R[1] - MON_R[0]));
     const s = stepTime(clock.elapsedTime, 12);
     const v = clamp01((p4 - 0.86) / 0.13);
-    const e = 1 - (1 - v) * (1 - v);
-    const bob = 0.09 * Math.sin(s * 2.4) * (1 - v);
-    g.position.set(lerp(-0.6, 0.2, e), lerp(1.3, 1.4, e) + bob, lerp(-0.15, -1.35, e));
+    // eased BOTH ends (was ease-out): the dot hangs at the paw for the contact
+    // beat instead of leaving before the sock arrives, then settles into the
+    // dot-zoom mark. Same end mark, same v window (audit 3 2026-07-27)
+    const e = easeInOut(v);
+    // idle hover bob (stepped time, S2.8) eases out as the paw arrives, so the
+    // contact frame itself is pure f(t) and the sock always meets the same rim
+    const hover = 1 - clamp01((p4 - 0.8) / 0.06);
+    const bob = 0.09 * Math.sin(s * 2.4) * (1 - v) * hover;
+    // hover mark sits clear of the cat's muzzle in shot-4 screen space (it used
+    // to park ON the eye/nose) and inside the strike's reach (audit 3)
+    g.position.set(lerp(-0.32, 0.2, e), lerp(1.26, 1.4, e) + bob, lerp(-0.15, -1.35, e));
     g.scale.setScalar(lerp(1, 0.45, e));
   });
   return (
