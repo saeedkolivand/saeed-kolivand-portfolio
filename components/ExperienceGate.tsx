@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { links, printEdition } from "@/lib/content";
+import { readDeviceGate } from "@/lib/device";
 import { useScrollStore } from "@/lib/scrollStore";
 import { RANGES } from "@/issues/timeline";
 import AudioToggle from "./AudioToggle";
@@ -19,8 +20,13 @@ import styles from "./PrintEdition.module.css";
  * ONLY (all state defaults false) so there is no hydration mismatch and no
  * window access at render scope. A single effect decides, client-side:
  *
- *   showExperience = NOT prefers-reduced-motion AND NOT mobile/low
+ *   showExperience = NOT prefers-reduced-motion AND NOT narrow viewport
  *                    AND WebGL-available AND NOT user-forced-reader.
+ *
+ * Touch devices are NOT excluded -- the disqualifier is viewport width, not
+ * pointer type (lib/device.ts). Tablets auto-mount at the low quality tier;
+ * phones keep Print Edition but are offered the same opt-in that reduced-motion
+ * users get.
  *
  * When on, the interactive WebGL/scroll stack mounts as an overlay above the
  * print doc, which stays visually-hidden but in the a11y tree + SEO (never
@@ -105,25 +111,20 @@ export default function ExperienceGate() {
   const [showExperience, setShowExperience] = useState(false);
   const [forceReader, setForceReader] = useState(false);
   const [forceExperience, setForceExperience] = useState(false);
-  const [capable, setCapable] = useState(false);
+  const [narrow, setNarrow] = useState(false);
   const [reduced, setReduced] = useState(false);
 
   useEffect(() => {
-    const prefersReduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const coarse = matchMedia("(pointer: coarse)").matches;
-    const narrow = window.innerWidth < 820;
-    const low = new URLSearchParams(location.search).has("low");
-    const mobileLow = coarse || narrow || low;
+    const gate = readDeviceGate();
 
     const store = useScrollStore.getState();
-    store.setReducedMotion(prefersReduced);
-    if (low) store.setQuality("low");
+    store.setReducedMotion(gate.reduced);
+    if (gate.low) store.setQuality("low");
 
-    const webgl = !prefersReduced && !mobileLow ? probeWebGL() : false;
-
-    setReduced(prefersReduced);
-    setCapable(!mobileLow); // desktop-class hardware; gates the opt-in offer
-    setShowExperience(!prefersReduced && !mobileLow && webgl);
+    setReduced(gate.reduced);
+    setNarrow(gate.narrow);
+    // && short-circuits, so the print path still never creates a WebGL context.
+    setShowExperience(!gate.reduced && !gate.narrow && probeWebGL());
   }, []);
 
   // Decorative DevTools console greeting. ExperienceGate always mounts, so this
@@ -134,9 +135,11 @@ export default function ExperienceGate() {
   }, []);
 
   const effectiveShow = !forceReader && (showExperience || forceExperience);
-  // Offer "watch the animated version" only on capable hardware currently in
-  // print mode -- the reduced-motion opt-in, and the undo for a manual switch.
-  const offerExperience = capable && !effectiveShow && (reduced || forceReader);
+  // Offer "watch the animated version" to anyone in print mode who did not
+  // choose it by hardware: the reduced-motion opt-in, the narrow-viewport
+  // (phone) opt-in, and the undo for a manual switch. A wide desktop whose
+  // WebGL probe failed gets no offer -- there is nothing to opt into.
+  const offerExperience = !effectiveShow && (reduced || narrow || forceReader);
 
   // WS-E: map scroll position across the print <-> 3D toggle. Runs whenever the
   // mount decision flips. Into the experience: restore the t captured from the
@@ -193,9 +196,14 @@ export default function ExperienceGate() {
           type="button"
           className={styles.switchExperience}
           onClick={() => {
+            // First WebGL probe on this path -- the offer is shown without one so
+            // the print path stays zero-WebGL until the user actually asks.
+            if (!probeWebGL()) return;
             // print -> 3D: measure the in-view section synchronously, BEFORE the
             // state change collapses the print layout, then restore in the effect.
             pendingExperienceT.current = measurePrintT();
+            // A phone that opted in gets the same tier as a tablet.
+            if (narrow) useScrollStore.getState().setQuality("low");
             setForceReader(false);
             setForceExperience(true);
           }}

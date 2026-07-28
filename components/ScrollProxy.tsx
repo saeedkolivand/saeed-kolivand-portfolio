@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Lenis from "lenis";
+import { readDeviceGate } from "@/lib/device";
 import { useScrollStore } from "@/lib/scrollStore";
 
 /**
@@ -120,7 +121,7 @@ export default function ScrollProxy() {
     onMq();
     mq.addEventListener("change", onMq);
 
-    if (new URLSearchParams(location.search).has("low")) store.setQuality("low");
+    if (readDeviceGate().low) store.setQuality("low");
 
     return () => {
       removeEventListener("pointermove", onPointer);
