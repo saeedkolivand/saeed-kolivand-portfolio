@@ -10,7 +10,7 @@
  * this -- `next build` and CI never need ComfyUI, a GPU, or any model.
  */
 
-import { writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const HOST = process.env.COMFY_HOST || "http://127.0.0.1:8188";
@@ -62,11 +62,14 @@ export async function runPrompt(graph, { pollMs = 1000, timeoutMs = 900000 } = {
     const entry = body[id];
     if (!entry) continue;
     const st = entry.status || {};
-    if (st.status_str === "error" || st.completed === false) {
+    // ComfyUI writes a history entry while a prompt is STILL EXECUTING, with
+    // completed:false. Only status_str === "error" is terminal; treating
+    // completed:false as failure aborts healthy long renders.
+    if (st.status_str === "error") {
       const msg = JSON.stringify(st.messages || st).slice(0, 900);
       throw new Error(`prompt ${id} failed: ${msg}`);
     }
-    if (st.completed) return entry;
+    if (st.completed === true) return entry;
   }
 }
 
@@ -80,6 +83,7 @@ export function outputsOf(entry) {
 }
 
 export async function download(file, destDir, name) {
+  mkdirSync(destDir, { recursive: true });
   const q = new URLSearchParams({
     filename: file.filename,
     subfolder: file.subfolder || "",
@@ -127,12 +131,18 @@ export function stableAudioGraph({ prompt, negative = "", seconds = 20, seed, st
 }
 
 /**
- * ACE-Step 1.5 -- the musical score.
- * bpm and duration are real inputs on TextEncodeAceStepAudio1.5, which is what
- * makes every cue tempo-locked and therefore stem-splittable into layers that
- * actually line up.
+ * ACE-Step v1 3.5B -- the musical score.
+ *
+ * NOTE ON TEMPO: the v1 text encoder (TextEncodeAceStepAudio) takes only
+ * tags/lyrics -- it has no bpm input. That belongs to
+ * TextEncodeAceStepAudio1.5, which needs the 1.5 checkpoint we are not using.
+ * So tempo is requested in the TAGS string ("84 bpm") and is a strong hint,
+ * not a lock. Cues intended to layer must therefore be verified against each
+ * other after generation rather than assumed to line up -- which is exactly
+ * why the score plan generates ONE cue and splits it into stems, instead of
+ * generating several and hoping they agree.
  */
-export function aceStepGraph({ tags, lyrics = "", seconds = 90, seed, bpm = 84, steps = 50, cfg = 5 }) {
+export function aceStepGraph({ tags, lyrics = "", seconds = 90, seed, steps = 50, cfg = 5 }) {
   return {
     "1": {
       class_type: "CheckpointLoaderSimple",

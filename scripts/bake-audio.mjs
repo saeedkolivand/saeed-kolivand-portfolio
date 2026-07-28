@@ -8,6 +8,9 @@
  *   npm run bake:audio -- --check      verify disk matches the manifest
  *   npm run bake:audio -- --report     per-slot sizes and durations
  *
+ * Prerequisites: ffmpeg AND ffprobe on PATH. Neither is needed to build or run
+ * the site -- only to re-bake.
+ *
  * NOT wired into `prebuild`, unlike bake-contributions.mjs. The outputs are
  * committed artifacts: `next build` and CI must never need ffmpeg, a GPU, or
  * any model. Baking is a manual, occasional authoring step.
@@ -17,8 +20,9 @@
  * lib/audio/util.ts (no Math.random anywhere).
  */
 
-import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { rng, widen, writeWav } from "./audio/dsp.mjs";
@@ -39,12 +43,12 @@ const SR = 48000;
  * create.
  */
 const CATEGORIES = {
-  ui: { bus: "ui", ch: 1, kbps: 128, lufs: null, gain: -7 },
-  fol: { bus: "foley", ch: 1, kbps: 128, lufs: null, gain: -4 },
-  imp: { bus: "hardfx", ch: 1, kbps: 128, lufs: null, gain: 0 },
-  cin: { bus: "hardfx", ch: 1, kbps: 128, lufs: null, gain: -1 },
-  amb: { bus: "ambience", ch: 2, kbps: 192, lufs: -31, gain: 0 },
-  mus: { bus: "music", ch: 2, kbps: 192, lufs: -23, gain: 0 },
+  ui: { bus: "ui", ch: 1, kbps: 128, lufs: null, gain: -7, loop: false },
+  fol: { bus: "foley", ch: 1, kbps: 128, lufs: null, gain: -4, loop: false },
+  imp: { bus: "hardfx", ch: 1, kbps: 128, lufs: null, gain: 0, loop: false },
+  cin: { bus: "hardfx", ch: 1, kbps: 128, lufs: null, gain: -1, loop: false },
+  amb: { bus: "ambience", ch: 2, kbps: 192, lufs: -31, gain: 0, loop: true },
+  mus: { bus: "music", ch: 2, kbps: 192, lufs: -23, gain: 0, loop: true },
 };
 
 /**
@@ -102,10 +106,52 @@ const SLOTS = {
 // ------------------------------------------------------------------- helpers
 
 const args = process.argv.slice(2);
-const flag = (name) => args.find((a) => a.startsWith("--" + name));
-const only = (flag("only") || "").split("=")[1] || null;
+
+/**
+ * Accepts both `--only=x` and `--only x`, matches the flag name EXACTLY (a
+ * prefix match would let a future `--only-check` satisfy `--only`), and exits
+ * rather than falling back to null -- the previous version silently promoted
+ * `--only ui.key` into a full multi-minute bake of every slot.
+ */
+function value(name) {
+  const eq = args.find((a) => a === "--" + name || a.startsWith("--" + name + "="));
+  if (!eq) return null;
+  const v = eq.includes("=") ? eq.slice(eq.indexOf("=") + 1) : args[args.indexOf(eq) + 1];
+  if (!v || v.startsWith("--")) {
+    console.error(`[bake-audio] --${name} needs a value, e.g. --${name}=ui.key`);
+    process.exit(1);
+  }
+  return v;
+}
+
+const only = value("only");
 const isCheck = args.includes("--check");
 const isReport = args.includes("--report");
+
+/**
+ * Two-pass loudnorm. Single-pass is a DYNAMIC gated normaliser, not a static
+ * gain: on a 10-12 s looping bed it audibly pumps, and its result depends on
+ * where the measurement window lands, which also makes a re-bake
+ * non-reproducible and breaks --check. Measuring first and then applying a
+ * fixed correction gives a deterministic, static gain.
+ */
+function loudnormPass(wav, targetI) {
+  const base = `loudnorm=I=${targetI}:TP=-1.5:LRA=11`;
+  // ffmpeg prints the measurement JSON to STDERR, not stdout, and exits 0 --
+  // so this has to read stderr explicitly rather than rely on a thrown error.
+  const res = spawnSync(
+    "ffmpeg",
+    ["-v", "info", "-i", wav, "-af", `${base}:print_format=json`, "-f", "null", "-"],
+    { encoding: "utf8" },
+  );
+  const text = (res.stderr || "") + (res.stdout || "");
+  const j = text.match(/\{[\s\S]*?\}/g);
+  if (!j || !j.length) throw new Error("loudnorm measurement failed: " + text.slice(-500));
+  const m = JSON.parse(j[j.length - 1]);
+  return `${base}:measured_I=${m.input_i}:measured_TP=${m.input_tp}` +
+    `:measured_LRA=${m.input_lra}:measured_thresh=${m.input_thresh}` +
+    `:offset=${m.target_offset}:linear=true`;
+}
 
 function ffmpeg(argv) {
   try {
@@ -172,22 +218,19 @@ function bakeSlot(id, spec) {
     // Force the declared channel count: a mono category must not ship stereo.
     writeWav(wav, cat.ch === 2 && chans.length === 1 ? [chans[0], chans[0]] : chans.slice(0, cat.ch), SR);
 
-    const filters = [];
-    if (cat.lufs !== null) filters.push(`loudnorm=I=${cat.lufs}:TP=-1.5:LRA=11`);
-    ffmpeg([
-      "-i", wav,
-      ...(filters.length ? ["-af", filters.join(",")] : []),
-      "-c:a", "aac", "-b:a", `${cat.kbps}k`, "-ac", String(cat.ch), m4a,
-    ]);
+    const af = cat.lufs === null ? [] : ["-af", loudnormPass(wav, cat.lufs)];
+    ffmpeg(["-i", wav, ...af, "-c:a", "aac", "-b:a", `${cat.kbps}k`, "-ac", String(cat.ch), m4a]);
     rmSync(wav, { force: true });
 
+    const blob = readFileSync(m4a);
     variants.push({
       path: `/audio/${spec.cat}/${base}_${vv}.m4a`,
-      bytes: statSync(m4a).size,
+      bytes: blob.length,
       dur: probeDur(m4a),
+      sha: createHash("sha256").update(blob).digest("hex").slice(0, 16),
     });
   }
-  return { cat: spec.cat, bus: cat.bus, ch: cat.ch, gain: cat.gain, send: spec.send, v: variants };
+  return { cat: spec.cat, bus: cat.bus, ch: cat.ch, gain: cat.gain, send: spec.send, loop: cat.loop, v: variants };
 }
 
 function emitManifest(baked) {
@@ -204,11 +247,12 @@ function emitManifest(baked) {
   lines.push('export type AudioBus = "music" | "ambience" | "foley" | "hardfx" | "ui" | "sub";');
   lines.push("");
   lines.push("export interface AudioVariant {");
-  lines.push("  /** public path, already cache-busted by the build */");
   lines.push("  readonly path: string;");
   lines.push("  readonly bytes: number;");
   lines.push("  /** decoded duration in seconds */");
   lines.push("  readonly dur: number;");
+  lines.push("  /** first 16 hex of the encoded file's sha256; --check verifies it */");
+  lines.push("  readonly sha: string;");
   lines.push("}");
   lines.push("");
   lines.push("export interface AudioSlot {");
@@ -219,6 +263,8 @@ function emitManifest(baked) {
   lines.push("  readonly gain: number;");
   lines.push("  /** suggested room send in dB relative to gain */");
   lines.push("  readonly send: number;");
+  lines.push("  /** true for beds the runtime loops through its crossfading bed player */");
+  lines.push("  readonly loop: boolean;");
   lines.push("  readonly v: readonly AudioVariant[];");
   lines.push("}");
   lines.push("");
@@ -227,15 +273,20 @@ function emitManifest(baked) {
     const s = baked[id];
     lines.push(`  ${JSON.stringify(id)}: {`);
     lines.push(`    cat: ${JSON.stringify(s.cat)}, bus: ${JSON.stringify(s.bus)}, ch: ${s.ch},`);
-    lines.push(`    gain: ${s.gain}, send: ${s.send},`);
+    lines.push(`    gain: ${s.gain}, send: ${s.send}, loop: ${s.loop},`);
     lines.push("    v: [");
     for (const v of s.v) {
-      lines.push(`      { path: ${JSON.stringify(v.path)}, bytes: ${v.bytes}, dur: ${v.dur} },`);
+      lines.push(
+        `      { path: ${JSON.stringify(v.path)}, bytes: ${v.bytes}, ` +
+        `dur: ${v.dur}, sha: ${JSON.stringify(v.sha)} },`);
     }
     lines.push("    ],");
     lines.push("  },");
   }
-  lines.push("} as const;");
+  // `satisfies` keeps the literal key union that AudioName depends on while
+  // still checking the emitter's output against AudioSlot -- without it, a
+  // drifting emitter would produce a manifest tsc never looks at.
+  lines.push("} as const satisfies Record<string, AudioSlot>;");
   lines.push("");
   lines.push("export type AudioName = keyof typeof AUDIO;");
   lines.push("");
@@ -253,8 +304,22 @@ function emitManifest(baked) {
 function readManifestPaths() {
   if (!existsSync(MANIFEST)) return [];
   const src = readFileSync(MANIFEST, "utf8");
-  return [...src.matchAll(/path: "([^"]+)", bytes: (\d+)/g)]
-    .map((m) => ({ path: m[1], bytes: Number(m[2]) }));
+  return [...src.matchAll(/path: "([^"]+)", bytes: (\d+), dur: [\d.]+, sha: "([0-9a-f]+)"/g)]
+    .map((m) => ({ path: m[1], bytes: Number(m[2]), sha: m[3] }));
+}
+
+/** Every .m4a actually on disk under public/audio, as /audio/... paths. */
+function filesOnDisk() {
+  const found = [];
+  if (!existsSync(OUT)) return found;
+  for (const cat of readdirSync(OUT)) {
+    const dir = join(OUT, cat);
+    if (!statSync(dir).isDirectory()) continue;
+    for (const f of readdirSync(dir)) {
+      if (f.endsWith(".m4a")) found.push(`/audio/${cat}/${f}`);
+    }
+  }
+  return found;
 }
 
 // ---------------------------------------------------------------------- main
@@ -266,17 +331,34 @@ if (isCheck) {
     process.exit(1);
   }
   let bad = 0;
+  const known = new Set();
   for (const r of rows) {
+    known.add(r.path);
     const p = join(ROOT, "public", r.path.replace(/^\/audio/, "audio"));
     if (!existsSync(p)) {
       console.error(`  MISSING  ${r.path}`);
       bad++;
-    } else if (statSync(p).size !== r.bytes) {
-      console.error(`  SIZE     ${r.path} (manifest ${r.bytes}, disk ${statSync(p).size})`);
+      continue;
+    }
+    // Hash, not size. A same-length re-encode or an in-place byte substitution
+    // both pass a size check while shipping audio the manifest does not
+    // describe.
+    const blob = readFileSync(p);
+    const sha = createHash("sha256").update(blob).digest("hex").slice(0, 16);
+    if (blob.length !== r.bytes || sha !== r.sha) {
+      console.error(`  CONTENT  ${r.path} (manifest ${r.sha}/${r.bytes}, disk ${sha}/${blob.length})`);
       bad++;
     }
   }
-  console.log(bad ? `[bake-audio] ${bad}/${rows.length} FAILED` : `[bake-audio] ${rows.length} files OK`);
+  // Orphans ship too. Dropping a slot from 10 variants to 8 leaves the last two
+  // files in public/ where nothing references them and no size check sees them.
+  for (const f of filesOnDisk()) {
+    if (!known.has(f)) {
+      console.error(`  ORPHAN   ${f} (on disk, not in the manifest)`);
+      bad++;
+    }
+  }
+  console.log(bad ? `[bake-audio] ${bad} problem(s) across ${rows.length} manifest entries` : `[bake-audio] ${rows.length} files OK, no orphans`);
   process.exit(bad ? 1 : 0);
 }
 
@@ -308,9 +390,20 @@ if (only) {
       const vv = String(i).padStart(2, "0");
       const p = join(dir, `${base}_${vv}.m4a`);
       if (!existsSync(p)) continue;
-      v.push({ path: `/audio/${SLOTS[id].cat}/${base}_${vv}.m4a`, bytes: statSync(p).size, dur: probeDur(p) });
+      const blob = readFileSync(p);
+      v.push({
+        path: `/audio/${SLOTS[id].cat}/${base}_${vv}.m4a`,
+        bytes: blob.length,
+        dur: probeDur(p),
+        sha: createHash("sha256").update(blob).digest("hex").slice(0, 16),
+      });
     }
-    if (v.length) baked[id] = { cat: SLOTS[id].cat, bus: cat.bus, ch: cat.ch, gain: cat.gain, send: SLOTS[id].send, v };
+    if (v.length) {
+      baked[id] = {
+        cat: SLOTS[id].cat, bus: cat.bus, ch: cat.ch,
+        gain: cat.gain, send: SLOTS[id].send, loop: cat.loop, v,
+      };
+    }
   }
 }
 

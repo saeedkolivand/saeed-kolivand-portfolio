@@ -10,11 +10,12 @@
 export type AudioBus = "music" | "ambience" | "foley" | "hardfx" | "ui" | "sub";
 
 export interface AudioVariant {
-  /** public path, already cache-busted by the build */
   readonly path: string;
   readonly bytes: number;
   /** decoded duration in seconds */
   readonly dur: number;
+  /** first 16 hex of the encoded file's sha256; --check verifies it */
+  readonly sha: string;
 }
 
 export interface AudioSlot {
@@ -25,106 +26,108 @@ export interface AudioSlot {
   readonly gain: number;
   /** suggested room send in dB relative to gain */
   readonly send: number;
+  /** true for beds the runtime loops through its crossfading bed player */
+  readonly loop: boolean;
   readonly v: readonly AudioVariant[];
 }
 
 export const AUDIO = {
   "amb.rain": {
     cat: "amb", bus: "ambience", ch: 2,
-    gain: 0, send: -14,
+    gain: 0, send: -14, loop: true,
     v: [
-      { path: "/audio/amb/rain_00.m4a", bytes: 260943, dur: 10 },
+      { path: "/audio/amb/rain_00.m4a", bytes: 261860, dur: 10, sha: "1e9888cd3aa68f5d" },
     ],
   },
   "amb.room-crt": {
     cat: "amb", bus: "ambience", ch: 2,
-    gain: 0, send: -16,
+    gain: 0, send: -16, loop: true,
     v: [
-      { path: "/audio/amb/room-crt_00.m4a", bytes: 293548, dur: 12 },
+      { path: "/audio/amb/room-crt_00.m4a", bytes: 292052, dur: 12, sha: "f6934b6d96e02976" },
     ],
   },
   "amb.room-desk": {
     cat: "amb", bus: "ambience", ch: 2,
-    gain: 0, send: -15,
+    gain: 0, send: -15, loop: true,
     v: [
-      { path: "/audio/amb/room-desk_00.m4a", bytes: 294040, dur: 12 },
+      { path: "/audio/amb/room-desk_00.m4a", bytes: 292646, dur: 12, sha: "a77b0e471ffc15d9" },
     ],
   },
   "cin.paper-tear": {
     cat: "cin", bus: "hardfx", ch: 1,
-    gain: -1, send: -6,
+    gain: -1, send: -6, loop: false,
     v: [
-      { path: "/audio/cin/paper-tear_00.m4a", bytes: 14823, dur: 0.8 },
-      { path: "/audio/cin/paper-tear_01.m4a", bytes: 14974, dur: 0.8 },
-      { path: "/audio/cin/paper-tear_02.m4a", bytes: 14940, dur: 0.8 },
-      { path: "/audio/cin/paper-tear_03.m4a", bytes: 15041, dur: 0.8 },
+      { path: "/audio/cin/paper-tear_00.m4a", bytes: 15262, dur: 0.8, sha: "3a9e1a65041f7806" },
+      { path: "/audio/cin/paper-tear_01.m4a", bytes: 14982, dur: 0.8, sha: "8e2ec7c61ac4f057" },
+      { path: "/audio/cin/paper-tear_02.m4a", bytes: 15084, dur: 0.8, sha: "a60665ea32c356b9" },
+      { path: "/audio/cin/paper-tear_03.m4a", bytes: 14945, dur: 0.8, sha: "5641733bc1498c39" },
     ],
   },
   "fol.paper-flip": {
     cat: "fol", bus: "foley", ch: 1,
-    gain: -4, send: -8,
+    gain: -4, send: -8, loop: false,
     v: [
-      { path: "/audio/fol/paper-flip_00.m4a", bytes: 6618, dur: 0.45 },
-      { path: "/audio/fol/paper-flip_01.m4a", bytes: 6434, dur: 0.45 },
-      { path: "/audio/fol/paper-flip_02.m4a", bytes: 6098, dur: 0.45 },
-      { path: "/audio/fol/paper-flip_03.m4a", bytes: 6145, dur: 0.45 },
-      { path: "/audio/fol/paper-flip_04.m4a", bytes: 6087, dur: 0.45 },
+      { path: "/audio/fol/paper-flip_00.m4a", bytes: 6618, dur: 0.45, sha: "d3402db6d6c03c2b" },
+      { path: "/audio/fol/paper-flip_01.m4a", bytes: 6397, dur: 0.45, sha: "6b73c4103e6bad27" },
+      { path: "/audio/fol/paper-flip_02.m4a", bytes: 6050, dur: 0.45, sha: "b4e87355d4d0be7f" },
+      { path: "/audio/fol/paper-flip_03.m4a", bytes: 6140, dur: 0.45, sha: "2246e0791cde778f" },
+      { path: "/audio/fol/paper-flip_04.m4a", bytes: 6071, dur: 0.45, sha: "8ced01e23bcb58e8" },
     ],
   },
   "imp.press-clank": {
     cat: "imp", bus: "hardfx", ch: 1,
-    gain: 0, send: -7,
+    gain: 0, send: -7, loop: false,
     v: [
-      { path: "/audio/imp/press-clank_00.m4a", bytes: 14520, dur: 0.9 },
-      { path: "/audio/imp/press-clank_01.m4a", bytes: 13640, dur: 0.9 },
-      { path: "/audio/imp/press-clank_02.m4a", bytes: 13812, dur: 0.9 },
-      { path: "/audio/imp/press-clank_03.m4a", bytes: 13443, dur: 0.9 },
+      { path: "/audio/imp/press-clank_00.m4a", bytes: 14279, dur: 0.9, sha: "35898b317ed622c9" },
+      { path: "/audio/imp/press-clank_01.m4a", bytes: 13410, dur: 0.9, sha: "a4b1a7778e016a90" },
+      { path: "/audio/imp/press-clank_02.m4a", bytes: 13782, dur: 0.9, sha: "d270902935959185" },
+      { path: "/audio/imp/press-clank_03.m4a", bytes: 13485, dur: 0.9, sha: "d46891d99809e451" },
     ],
   },
   "imp.press-slam": {
     cat: "imp", bus: "hardfx", ch: 1,
-    gain: 0, send: -5,
+    gain: 0, send: -5, loop: false,
     v: [
-      { path: "/audio/imp/press-slam_00.m4a", bytes: 23417, dur: 2.6 },
-      { path: "/audio/imp/press-slam_01.m4a", bytes: 25196, dur: 2.6 },
+      { path: "/audio/imp/press-slam_00.m4a", bytes: 23132, dur: 2.6, sha: "91694905330e9bd8" },
+      { path: "/audio/imp/press-slam_01.m4a", bytes: 25324, dur: 2.6, sha: "c22fa3f945506c20" },
     ],
   },
   "imp.title-drop": {
     cat: "imp", bus: "hardfx", ch: 1,
-    gain: 0, send: -6,
+    gain: 0, send: -6, loop: false,
     v: [
-      { path: "/audio/imp/title-drop_00.m4a", bytes: 20434, dur: 1.8 },
-      { path: "/audio/imp/title-drop_01.m4a", bytes: 20431, dur: 1.8 },
+      { path: "/audio/imp/title-drop_00.m4a", bytes: 20243, dur: 1.8, sha: "e4d7b32927be3136" },
+      { path: "/audio/imp/title-drop_01.m4a", bytes: 20433, dur: 1.8, sha: "35e95e934ef74382" },
     ],
   },
   "ui.key": {
     cat: "ui", bus: "ui", ch: 1,
-    gain: -7, send: -12,
+    gain: -7, send: -12, loop: false,
     v: [
-      { path: "/audio/ui/key_00.m4a", bytes: 2664, dur: 0.18 },
-      { path: "/audio/ui/key_01.m4a", bytes: 2923, dur: 0.18 },
-      { path: "/audio/ui/key_02.m4a", bytes: 2785, dur: 0.18 },
-      { path: "/audio/ui/key_03.m4a", bytes: 2751, dur: 0.18 },
-      { path: "/audio/ui/key_04.m4a", bytes: 2851, dur: 0.18 },
-      { path: "/audio/ui/key_05.m4a", bytes: 2563, dur: 0.18 },
-      { path: "/audio/ui/key_06.m4a", bytes: 2775, dur: 0.18 },
-      { path: "/audio/ui/key_07.m4a", bytes: 2578, dur: 0.18 },
-      { path: "/audio/ui/key_08.m4a", bytes: 2775, dur: 0.18 },
-      { path: "/audio/ui/key_09.m4a", bytes: 2856, dur: 0.18 },
+      { path: "/audio/ui/key_00.m4a", bytes: 2590, dur: 0.18, sha: "e390c658e5b81a9f" },
+      { path: "/audio/ui/key_01.m4a", bytes: 2887, dur: 0.18, sha: "e25c04bcc54417e3" },
+      { path: "/audio/ui/key_02.m4a", bytes: 2699, dur: 0.18, sha: "c0122351ad0d9164" },
+      { path: "/audio/ui/key_03.m4a", bytes: 2751, dur: 0.18, sha: "7f11507faf7227bd" },
+      { path: "/audio/ui/key_04.m4a", bytes: 2810, dur: 0.18, sha: "a258ad34f072be3e" },
+      { path: "/audio/ui/key_05.m4a", bytes: 2528, dur: 0.18, sha: "bc44ac921819179c" },
+      { path: "/audio/ui/key_06.m4a", bytes: 2534, dur: 0.18, sha: "ae297a167dae493e" },
+      { path: "/audio/ui/key_07.m4a", bytes: 2497, dur: 0.18, sha: "583f1891fcc72d89" },
+      { path: "/audio/ui/key_08.m4a", bytes: 2614, dur: 0.18, sha: "202fcb655f9f8417" },
+      { path: "/audio/ui/key_09.m4a", bytes: 2751, dur: 0.18, sha: "e3aca09eb51dee0f" },
     ],
   },
   "ui.key-space": {
     cat: "ui", bus: "ui", ch: 1,
-    gain: -7, send: -12,
+    gain: -7, send: -12, loop: false,
     v: [
-      { path: "/audio/ui/key-space_00.m4a", bytes: 2390, dur: 0.2 },
-      { path: "/audio/ui/key-space_01.m4a", bytes: 2487, dur: 0.2 },
-      { path: "/audio/ui/key-space_02.m4a", bytes: 2481, dur: 0.2 },
+      { path: "/audio/ui/key-space_00.m4a", bytes: 2339, dur: 0.2, sha: "f14a0e9f8991d695" },
+      { path: "/audio/ui/key-space_01.m4a", bytes: 2483, dur: 0.2, sha: "ba7ace48af81068c" },
+      { path: "/audio/ui/key-space_02.m4a", bytes: 2499, dur: 0.2, sha: "80352a9081c8307c" },
     ],
   },
-} as const;
+} as const satisfies Record<string, AudioSlot>;
 
 export type AudioName = keyof typeof AUDIO;
 
-/** 33 files, 1119463 bytes total on disk */
-export const AUDIO_BYTES = 1119463;
+/** 33 files, 1116177 bytes total on disk */
+export const AUDIO_BYTES = 1116177;

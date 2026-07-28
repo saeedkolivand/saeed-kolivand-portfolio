@@ -90,9 +90,6 @@ export function dcRemove(b) {
 
 // ------------------------------------------------------------------ envelopes
 
-/** exp decay to -60dB over t60 seconds, evaluated at sample i */
-export const decayAt = (i, sr, t60) => Math.exp((-6.907755 * i) / (t60 * sr));
-
 /** Apply a short raised-cosine fade in/out, in place. Kills onset/offset clicks. */
 export function fade(b, sr, inSec = 0.002, outSec = 0.01) {
   const ni = Math.min(secs(inSec, sr), b.length);
@@ -265,18 +262,36 @@ export function modesFor(material, f0, count = 0, gain = 1) {
  * `rateAt(u)` returns events per second at normalized position u in [0,1);
  * `emit(r, u)` returns a Float32Array for one event.
  */
-export function scatter(n, sr, rateAt, emit, r) {
+const SCATTER_MAX_EVENTS = 2_000_000;
+
+export function scatter(n, sr, rateAt, emit, r, { wrap = false } = {}) {
   const out = buf(n);
   let t = 0;
   let guard = 0;
-  while (t < n && guard++ < 2_000_000) {
-    const u = t / n;
-    const rate = Math.max(0.01, rateAt(u));
+  while (t < n) {
+    // Loud failure, not a quiet one. Silently stopping mid-buffer shows up as
+    // "the tail went quiet", which is far harder to diagnose than an exception
+    // naming the recipe that asked for too many events.
+    if (++guard > SCATTER_MAX_EVENTS) {
+      throw new Error(`scatter exceeded ${SCATTER_MAX_EVENTS} events -- rate too high`);
+    }
+    const rate = Math.max(0.01, rateAt(t / n));
     // Poisson process: exponentially distributed gaps. A fixed grid would
     // buzz at the grid frequency, which is the classic granular giveaway.
     t += Math.max(1, Math.round((-Math.log(1 - r.f()) / rate) * sr));
     if (t >= n) break;
-    mixInto(out, emit(r, u), t, 1);
+    // emit() gets the position the event actually lands at, not the previous
+    // one. A recipe whose grain character tracks a speed curve would otherwise
+    // be consistently one event behind.
+    const g = emit(r, t / n);
+    mixInto(out, g, t, 1);
+    // For a looping bed, a grain landing near the end must continue into the
+    // head of the buffer rather than being truncated mid-ring -- otherwise
+    // every loop point carries a chopped grain.
+    if (wrap && t + g.length > n) {
+      const over = t + g.length - n;
+      mixInto(out, g.subarray(g.length - over), 0, 1);
+    }
   }
   return out;
 }
@@ -287,10 +302,18 @@ export function scatter(n, sr, rateAt, emit, r) {
  * 32-bit float WAV. Float because every consumer here is ffmpeg, and staying
  * in float to the last step means no intermediate quantization and no chance
  * of a clip before `loudnorm` has had its say.
+ *
+ * Writes the 16-byte PCM-style `fmt ` chunk rather than the 18-byte one with
+ * `cbSize` plus a `fact` chunk that WAVE_FORMAT_IEEE_FLOAT strictly wants.
+ * ffmpeg accepts it and ffmpeg is the ONLY consumer -- if that ever stops being
+ * true, this needs the full extensible header.
  */
 export function writeWav(path, channels, sr) {
   const ch = channels.length;
   const n = channels[0].length;
+  for (const c of channels) {
+    if (c.length !== n) throw new Error(`writeWav: channel length mismatch (${c.length} vs ${n})`);
+  }
   const dataBytes = n * ch * 4;
   const b = Buffer.alloc(44 + dataBytes);
   b.write("RIFF", 0);
@@ -317,12 +340,6 @@ export function writeWav(path, channels, sr) {
   return path;
 }
 
-/**
- * Decorrelate a mono buffer into a stereo pair by running each side through a
- * different sparse early-reflection pattern. Real stereo width comes from the
- * two ears hearing different reflections, NOT from panning one source, which
- * is why the current runtime beds sound like they are inside your head.
- */
 export function selfCheck() {
   const ok = (name, cond) => {
     if (!cond) throw new Error("dsp selfCheck FAILED: " + name);
@@ -393,6 +410,12 @@ export function selfCheck() {
   console.log("dsp selfCheck passed");
 }
 
+/**
+ * Decorrelate a mono buffer into a stereo pair by running each side through a
+ * different sparse early-reflection pattern. Real stereo width comes from the
+ * two ears hearing different reflections, NOT from panning one source, which
+ * is why the current runtime beds sound like they are inside your head.
+ */
 export function widen(mono, sr, r, spreadMs = 22, taps = 7) {
   const L = Float32Array.from(mono);
   const R = Float32Array.from(mono);

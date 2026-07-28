@@ -7,12 +7,44 @@
  * the body tells you what it is made of and how big it is, the tail tells you
  * what room you are standing in. The current runtime synthesis has only ever
  * had the transient, which is exactly why it reads as cheap.
+ *
+ * LOOP POLICY for the `amb` beds: the file boundary is NEVER heard. The runtime
+ * plays every bed through two overlapping sources with an equal-power crossfade
+ * (see the bed player in the engine plan), which is wanted anyway so a short
+ * loop does not let the ear lock onto its period. That decision settles three
+ * things at once: the tonal layers' phase alignment is a nicety rather than a
+ * requirement, the noise layers' arbitrary splice value at the boundary is
+ * inaudible, and AAC encoder priming/padding -- which has no portable gapless
+ * story across browsers -- stops mattering. Grains still wrap, because a
+ * truncated ring would land inside the crossfade window where it IS heard.
  */
 
 import {
-  applyBiquad, biquad, brown, buf, fade, mixInto, modal, modesFor,
-  normalize, pink, rng, scatter, secs, white,
+  applyBiquad, biquad, brown, buf, dcRemove, fade, mixInto, modal, modesFor,
+  pink, rng, scatter, secs, white,
 } from "./dsp.mjs";
+
+/**
+ * LEVEL POLICY: recipes return NATURAL absolute levels and never normalise
+ * themselves. `bakeSlot` is the only gain stage, and it normalises each slot's
+ * round robins as a group.
+ *
+ * This matters more than it looks. If every variant peak-normalises itself,
+ * they all land on the same peak, the group scan finds one value, and the
+ * group gain becomes a single uniform constant -- level variation between
+ * round robins is then exactly zero by construction, which is the flattening
+ * the group pass exists to prevent.
+ *
+ * Percussive one-shots also carry an explicit per-variant velocity scalar, so
+ * a repeated sound differs in weight and not only in timbre.
+ */
+const velocity = (r, lo = 0.62) => r.range(lo, 1);
+
+/** Scale a buffer in place. */
+function gain(b, g) {
+  for (let i = 0; i < b.length; i++) b[i] *= g;
+  return b;
+}
 
 // ---------------------------------------------------------------- keystroke
 
@@ -75,8 +107,7 @@ export function keyThock(sr, seed) {
   // on every character typed, so any harshness here compounds fast.
   applyBiquad(out, biquad("lowpass", 14000, 0.7, sr));
   fade(out, sr, 0.0002, 0.02);
-  normalize(out, 0.95);
-  return out;
+  return gain(out, velocity(r));
 }
 
 /** Spacebar: bigger cap, stabiliser rattle, lower. */
@@ -108,8 +139,7 @@ export function keySpace(sr, seed) {
   }
 
   fade(out, sr, 0.0002, 0.02);
-  normalize(out, 0.95);
-  return out;
+  return gain(out, velocity(r, 0.7));
 }
 
 // --------------------------------------------------------------------- paper
@@ -190,8 +220,7 @@ export function paperTear(sr, seed, dur = 0.7) {
   applyBiquad(out, biquad("lowpass", 10500, 0.7, sr));
   applyBiquad(out, biquad("lowpass", 10500, 0.7, sr));
   fade(out, sr, 0.005, 0.06);
-  normalize(out, 0.95);
-  return out;
+  return gain(out, velocity(r, 0.78));
 }
 
 /** Page flip: grip, then flutter (rate rises as the sheet stiffens), then landing. */
@@ -231,8 +260,7 @@ export function pageFlip(sr, seed) {
   mixInto(out, slap, secs(r.range(0.24, 0.3), sr), 0.35);
 
   fade(out, sr, 0.003, 0.04);
-  normalize(out, 0.95);
-  return out;
+  return gain(out, velocity(r, 0.7));
 }
 
 // ------------------------------------------------------------------- impacts
@@ -312,8 +340,7 @@ export function impact(sr, seed, opts = {}) {
   applyBiquad(out, biquad("lowpass", 15000, 0.7, sr));
 
   fade(out, sr, 0.0002, 0.12);
-  normalize(out, 0.97);
-  return out;
+  return gain(out, velocity(r, 0.8));
 }
 
 // ----------------------------------------------------------------------- rain
@@ -350,9 +377,11 @@ export function rain(sr, seed, dur = 8, density = 2600) {
     return g;
   };
 
-  // two independent droplet fields = genuine stereo, not a panned mono source
-  const L = scatter(n, sr, () => density, drops, r);
-  const R = scatter(n, sr, () => density, drops, rng(seed ^ 0x5bf03635));
+  // Two independent droplet fields = genuine stereo, not a panned mono source.
+  // wrap: this is a looping bed, so a droplet landing in the last 20 ms has to
+  // continue into the head of the buffer instead of being cut off mid-ring.
+  const L = scatter(n, sr, () => density, drops, r, { wrap: true });
+  const R = scatter(n, sr, () => density, drops, rng(seed ^ 0x5bf03635), { wrap: true });
 
   // distant wash: the far field, where individual drops are no longer resolvable
   for (const side of [L, R]) {
@@ -361,8 +390,11 @@ export function rain(sr, seed, dur = 8, density = 2600) {
     mixInto(side, wash, 0, 0.35);
   }
 
-  normalize(L, 0.9);
-  normalize(R, 0.9);
+  // No per-channel normalise: scaling L and R independently moves the stereo
+  // image by however much the two droplet fields' peaks happen to differ.
+  // bakeSlot scans every channel of every variant and applies ONE gain.
+  dcRemove(L);
+  dcRemove(R);
   return [L, R];
 }
 
@@ -430,6 +462,8 @@ export function roomTone(sr, seed, dur = 12, opts = {}) {
   const hiss = pink(n, r);
   mixInto(out, hiss, 0, floorGain * 1.4);
 
-  normalize(out, 0.7);
-  return out;
+  // brown() is a leaky random walk, so the bed accumulates DC that would
+  // otherwise eat headroom off every other layer in the mix.
+  dcRemove(out);
+  return gain(out, 0.7);
 }
