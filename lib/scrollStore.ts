@@ -9,7 +9,9 @@ export type Quality = "high" | "low";
  *
  *   2  full   two convolvers crossfading, the room morphs across each gutter
  *   1  A1     one convolver, hard swap at the gutter midpoint
- *   0  A2     no convolution at all, one shared algorithmic reverb
+ *   0  A2     no convolution at all -- Freeverb (comb + allpass). NOT
+ *              Tone.Reverb, which is itself convolution and would cost more
+ *              than A1 in the seven rooms shorter than its fixed 2.2 s.
  */
 export type AudioTier = 0 | 1 | 2;
 

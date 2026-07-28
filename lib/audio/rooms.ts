@@ -1,4 +1,4 @@
-import type { Convolver, Gain, Reverb } from "tone";
+import type { Convolver, Freeverb, Gain, Reverb } from "tone";
 import { RANGES } from "@/issues/timeline";
 import { useScrollStore } from "@/lib/scrollStore";
 import { clamp01 } from "@/lib/shots";
@@ -78,7 +78,11 @@ const ROOMS: readonly RoomSpec[] = [
            [0.02, 0.24, 0.4], [0.027, 0.18, -0.15]] },
 ];
 
-/** Longest tail we will render. Convolver cost scales with IR length. */
+/**
+ * Longest tail we will render; convolver cost scales with IR length. Equal to
+ * the longest room in the table, so the clamp is a guard rail against a future
+ * edit rather than something that currently bites.
+ */
 const MAX_DECAY = 3.2;
 /** Crossfade ramp for a room slot's gain. */
 const FADE_S = 0.12;
@@ -115,6 +119,9 @@ let slots: [Slot, Slot] | null = null;
 let cache: Map<number, AudioBuffer> | null = null;
 let pending: Set<number> | null = null;
 let fallback: Reverb | null = null;
+let algo: Freeverb | null = null;
+let algoGain: Gain | null = null;
+const algoState = { v: 0 };
 let B: Buses | null = null;
 let disabled = false;
 
@@ -151,8 +158,9 @@ export function buildRooms(buses: Buses): void {
   }
 
   const mk = (): Slot => {
-    // normalize FALSE: RoomSpec controls level via the fixed-RMS normalise in
-    // ir.ts, so changing a room's decay never changes how loud the scene is.
+    // normalize FALSE: level is controlled by the fixed-L2 normalise in ir.ts,
+    // which is the one that actually holds the wet level constant as decay
+    // changes. (Fixed RMS does not -- output power goes as sum(h^2) = n*rms^2.)
     const conv = new T.Convolver({ normalize: false });
     const gain = new T.Gain(0).connect(buses.out);
     conv.connect(gain);
@@ -184,6 +192,26 @@ function silenceSlots(): void {
       // best effort; this runs on an already-failing path
     }
   }
+}
+
+/**
+ * Rung A2's reverb. Freeverb is comb + allpass -- genuinely algorithmic, with
+ * NO ConvolverNode.
+ *
+ * Tone.Reverb would be the wrong node here: it generates a decaying-noise IR
+ * with Tone.Offline and feeds a ConvolverNode, so it IS convolution. Since
+ * convolver cost scales with IR length and Reverb is fixed at 2.2 s, routing
+ * A2 through it would cost MORE than A1 in the seven rooms whose decay is
+ * under 2.2 s -- a ladder rung that increases cost on most of the timeline,
+ * which is the one shape a degradation ladder must not have.
+ */
+function buildAlgorithmic(): void {
+  if (!B || algo) return;
+  const T = B.T;
+  algo = new T.Freeverb({ roomSize: 0.7, dampening: 3000 });
+  algoGain = new T.Gain(0).connect(B.out);
+  B.roomIn.connect(algo);
+  algo.connect(algoGain);
 }
 
 function useFallback(): void {
@@ -241,16 +269,19 @@ export function updateRooms(t: number, now: number): void {
   // double, and a gutter is the one place a hard room change is masked anyway.
   const tier = useScrollStore.getState().audioTier;
 
-  // Rung A2: no convolution at all. Detach both slots and hand over to the
-  // shared algorithmic reverb, which is exactly the shipped pre-refactor
-  // behaviour. Latching keeps it off for the session, matching how the
-  // render-failure path degrades.
+  // Rung A2: no convolution at all. Detach both slots and hand over to Freeverb.
+  //
+  // REVERSIBLE, unlike the render-failure path: tier is re-read every frame, so
+  // a perf probe that drops to A2 and recovers gets its rooms back. That is why
+  // this does NOT set `disabled`, which means "IR rendering is broken" and is
+  // permanent by design.
   if (tier <= 0) {
+    if (!algo) buildAlgorithmic();
+    if (algoGain) moveTo(algoGain.gain, algoState, 0.18, 0.3, 0.01);
     silenceSlots();
-    disabled = true;
-    useFallback();
     return;
   }
+  if (algoGain && algoState.v !== 0) moveTo(algoGain.gain, algoState, 0, 0.3, 0.01);
 
   const x = tier >= 2 ? blend.x : blend.x < 0.5 ? 0 : 1;
 
@@ -272,8 +303,20 @@ export function updateRooms(t: number, now: number): void {
   for (let s = 0; s < 2; s++) {
     const slot = slots[s]!;
     // parity: even issues live in slot 0, odd in slot 1
-    const want = from % 2 === s ? from : to % 2 === s ? to : -1;
+    let want = from % 2 === s ? from : to % 2 === s ? to : -1;
     const target = want === -1 ? 0 : want === from ? gFrom : gTo;
+
+    // PRELOAD. While settled inside a scene the opposite-parity slot is idle,
+    // and the next room has exactly that parity -- so its buffer can be loaded
+    // during a settled frame instead of on the gutter's first frame. Prefetching
+    // the RENDER alone was not enough: the swap itself rebuilds the FFT
+    // partition table synchronously, which is the expensive half, and the
+    // fresh-Convolver requirement made it slightly more expensive still.
+    // Silent target, so this never affects what is audible at any t.
+    if (want === -1 && to === from) {
+      const next = from + 1;
+      if (next < ROOMS.length && next % 2 === s) want = next;
+    }
 
     // Silent means the TARGET has been zero long enough for the ramp to have
     // finished, not merely that the target is zero this frame.
@@ -296,6 +339,12 @@ export function updateRooms(t: number, now: number): void {
           // has no buffer yet, and that first assignment does not trigger the
           // replace. Without this, every room after the first is equal-power
           // normalised, undoing the fixed-L2 level control in ir.ts.
+          // DO NOT merge these two statements into
+          // `new T.Convolver({ buffer, normalize: false })`. Whether that still
+          // honours normalize depends on whether Tone's constructor applies it
+          // before or after its own `if (this._buffer.loaded) this.buffer = ...`
+          // branch. Keeping them separate makes the virgin-node requirement
+          // explicit and independent of that ordering.
           const fresh = new T.Convolver({ normalize: false });
           fresh.buffer = new T.ToneAudioBuffer(buf);
           if (slot.connected) {
@@ -316,6 +365,8 @@ export function updateRooms(t: number, now: number): void {
     }
 
     const ready = slot.issue === want && want !== -1;
+    // `target` is already 0 for a preload (want !== from and !== to), so a
+    // preloaded slot loads its buffer and stays silent.
     const g = ready ? target : 0;
     moveTo(slot.gain.gain, slot.moveState, g, FADE_S, 0.01);
     slot.committed = g;
@@ -354,6 +405,9 @@ export function disposeRooms(): void {
   cache = null;
   pending = null;
   fallback = null;
+  algo = null;
+  algoGain = null;
+  algoState.v = 0;
   B = null;
   disabled = false;
 }

@@ -62,16 +62,23 @@ export async function renderIR(spec: RoomSpec, sampleRate: number): Promise<Audi
   const noise = ctx.createBuffer(2, len, sampleRate);
   const shared = mix32(spec.seed * 2);
   const indep = mix32(spec.seed * 2 + 1);
+  // EQUAL-POWER blend, not linear. `a` and `b` are independent unit-variance
+  // streams, so a linear crossfade gives var(right) = (1-w)^2 + w^2, which is
+  // below 1 everywhere strictly between 0 and 1 -- up to -3 dB at w = 0.5. That
+  // pulls the reverb image left, and because width differs per room the image
+  // would WALK across every gutter. Linear crossfades only preserve level for
+  // correlated sources; cos/sin is the same law the gutter crossfade in
+  // rooms.ts already uses. L/R correlation still falls as cos(w * pi/2): 1 at
+  // width 0, 0 at width 1.
+  const cw = Math.cos((spec.width * Math.PI) / 2);
+  const sw = Math.sin((spec.width * Math.PI) / 2);
   const left = noise.getChannelData(0);
   const right = noise.getChannelData(1);
   for (let i = 0; i < len; i++) {
     const a = noise01(shared + i) * 2 - 1;
     const b = noise01(indep + i) * 2 - 1;
     left[i] = a;
-    // width interpolates between the two streams rather than merely offsetting
-    // one, so it is the continuous 0..1 knob the table treats it as: 0 is a
-    // mono point source, 1 is fully decorrelated.
-    right[i] = a * (1 - spec.width) + b * spec.width;
+    right[i] = a * cw + b * sw;
   }
 
   const src = ctx.createBufferSource();
@@ -160,6 +167,10 @@ export async function renderIR(spec: RoomSpec, sampleRate: number): Promise<Audi
     }
   }
   if (energy > 1e-12) {
+    // 18 is calibrated near the `cover` room, whose L2 under the old fixed-RMS
+    // 0.06 was about that. Relative to the shipped level that is roughly
+    // +4 dB on the sketchbook and -5 dB on the cosmos -- i.e. the ~10 dB of
+    // decay-dependent drift this normalise exists to remove.
     const g = 18 / Math.sqrt(energy);
     for (let c = 0; c < rendered.numberOfChannels; c++) {
       const d = rendered.getChannelData(c);
