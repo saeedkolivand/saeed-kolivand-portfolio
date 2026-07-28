@@ -32,6 +32,7 @@ import {
   PRESS_BELT_TOP,
   PRESS_CTA_IN,
   PRESS_ENERGY_RANGE,
+  PRESS_LIFT_W,
   PRESS_PART_T,
   PRESS_PULSE_RANGE,
   PRESS_SPARK,
@@ -290,8 +291,9 @@ function ReactRig({ mat }: { mat: ShaderMaterial }) {
       <mesh position={[bx + 1.9, 1.8, POST_Z]} material={mat}>
         <boxGeometry args={[1.2, 3.6, 1.6]} />
       </mesh>
-      <mesh position={[bx, 3.9, 0]} material={mat}>
-        <boxGeometry args={[5.0, 1.2, 1.8]} />
+      {/* beam bridges from the legs' back face out over the belt (z -2.9..0.9) */}
+      <mesh position={[bx, 3.9, -1.0]} material={mat}>
+        <boxGeometry args={[5.0, 1.2, 3.8]} />
       </mesh>
       <instancedMesh
         ref={inst}
@@ -316,8 +318,9 @@ function TsRig({ mat }: { mat: ShaderMaterial }) {
       <mesh position={[bx + 3, 2.1, POST_Z]} material={mat}>
         <boxGeometry args={[1.0, 4.2, 1.0]} />
       </mesh>
-      <mesh position={[bx, 3.6, 0]} material={mat}>
-        <boxGeometry args={[7.4, 0.55, 0.55]} />
+      {/* beam bridges from the pylons' back face out over the belt (z -2.6..0.3) */}
+      <mesh position={[bx, 3.6, -1.15]} material={mat}>
+        <boxGeometry args={[7.4, 0.55, 2.9]} />
       </mesh>
     </group>
   );
@@ -334,22 +337,26 @@ function RustRig({ mat }: { mat: ShaderMaterial }) {
     const { quality, reducedMotion } = useScrollStore.getState();
     const fps = quality === "low" ? 8 : 12;
     const st = reducedMotion ? 0 : stepTime(clock.elapsedTime, fps);
-    g.position.y = 3.5 - 1.5 * Math.abs(Math.sin(st * 1.5 + 1));
+    // raised travel: piston bottom (g.y - 0.8) bottoms out at 1.7, clearing
+    // the slab top (1.63) as it passes underneath
+    g.position.y = 4.0 - 1.5 * Math.abs(Math.sin(st * 1.5 + 1));
   });
 
   return (
-    // the press blocks are 3.2 deep: the WHOLE rig sits back off the belt line
-    // (piston + beam + accents keep their relative placement) so the slab can
-    // run under it instead of through it (audit 2026-07-27)
-    <group position={[0, 0, -3.2]}>
-      <mesh position={[bx - 2.4, 1.9, 0]} material={mat}>
+    // the press acts ON the belt line (S5b.5 through-line): the 3.2-deep
+    // flanking blocks stand back at z -3.2, the top beam is deepened to bridge
+    // from their front faces (-1.6) out over the belt, and the piston pounds at
+    // z 0 with a raised travel so it clears the passing slab instead of either
+    // spearing it or thumping 0.6wu of daylight behind it (audit 2026-07-27)
+    <group>
+      <mesh position={[bx - 2.4, 1.9, -3.2]} material={mat}>
         <boxGeometry args={[1.4, 3.8, 3.2]} />
       </mesh>
-      <mesh position={[bx + 2.4, 1.9, 0]} material={mat}>
+      <mesh position={[bx + 2.4, 1.9, -3.2]} material={mat}>
         <boxGeometry args={[1.4, 3.8, 3.2]} />
       </mesh>
-      <mesh position={[bx, 4.2, 0]} material={mat}>
-        <boxGeometry args={[6.2, 1.4, 2.8]} />
+      <mesh position={[bx, 4.2, -1.1]} material={mat}>
+        <boxGeometry args={[6.2, 1.4, 3.8]} />
       </mesh>
       <group ref={piston}>
         <mesh position={[bx, 0.9, 0]} material={mat}>
@@ -360,17 +367,18 @@ function RustRig({ mat }: { mat: ShaderMaterial }) {
         </mesh>
       </group>
       {/* dept identity accents (basic color, S0.4 rust): furnace glow plate
-          behind the piston + hazard strips on the flanks -- the heavy-ink
-          material stays untouched, orange carries the department read */}
-      <mesh position={[bx, 1.9, -1.9]}>
+          as the backdrop BEHIND the blocks (z -5.1) + hazard strips sitting on
+          the blocks' front faces (z -1.58) -- the heavy-ink material stays
+          untouched, orange carries the department read */}
+      <mesh position={[bx, 1.9, -5.1]}>
         <boxGeometry args={[4.2, 2.4, 0.25]} />
         <meshBasicMaterial color={ACCENT[2]} />
       </mesh>
-      <mesh position={[bx - 2.4, 1.0, 1.62]}>
+      <mesh position={[bx - 2.4, 1.0, -1.58]}>
         <boxGeometry args={[1.0, 0.22, 0.05]} />
         <meshBasicMaterial color={ACCENT[2]} />
       </mesh>
-      <mesh position={[bx + 2.4, 1.0, 1.62]}>
+      <mesh position={[bx + 2.4, 1.0, -1.58]}>
         <boxGeometry args={[1.0, 0.22, 0.05]} />
         <meshBasicMaterial color={ACCENT[2]} />
       </mesh>
@@ -443,9 +451,12 @@ function StampStation() {
         clamp01((t - (PRESS_STAMP_T - 0.0025)) / 0.0025) -
         clamp01((t - PRESS_CTA_IN[0] - 0.001) / 0.003);
       const v = PRESS_STAMP_POP.v;
-      // 2.24 lands the ink face bottom (head y - 0.70) on the button cap top
-      // (y 1.5) with a hair of clearance -- 1.78 buried it 0.42 into the slab
-      g.position.y = lerp(4.6, 2.24, down);
+      // 2.34 rests the ink face bottom (head y - 0.70 = 1.64) just over the
+      // TALLEST attached part at slam time -- the part-4 AI core light, world
+      // top 1.63 (group y 1.18 + local 0.38 + 0.07). The old 2.24 was derived
+      // from the bare cap (1.5): it cut 0.09 through the core light and sat
+      // exactly coplanar with the RUST border tops (z-fight).
+      g.position.y = lerp(4.6, 2.34, down);
       g.scale.set(1 + 0.18 * v, 1 - 0.3 * v, 1 + 0.18 * v);
     }
     const b = burst.current;
@@ -477,8 +488,9 @@ function StampStation() {
         <boxGeometry args={[1.0, 5.2, 1.2]} />
         <meshToonMaterial color={STEEL} gradientMap={grad} />
       </mesh>
-      <mesh position={[sx, 5.4, 0]}>
-        <boxGeometry args={[5.2, 1.4, 1.6]} />
+      {/* crown bridges from the legs' back face out past the head shaft (z -2.65..0.85) */}
+      <mesh position={[sx, 5.4, -0.9]}>
+        <boxGeometry args={[5.2, 1.4, 3.5]} />
         <meshToonMaterial color={DARK} gradientMap={grad} />
       </mesh>
       {/* the stamp head: shaft + block + ink face plate */}
@@ -521,8 +533,9 @@ function PressButton() {
     if (!g) return;
     const { t } = useScrollStore.getState();
     // bare slab rides ON the belt (1.085); it lifts to ride-height once the
-    // REACT under-glow attaches and fills the gap -- pure f(t)
-    const y = lerp(1.085, PRESS_BELT_TOP + 0.28, clamp01((t - PRESS_PART_T[0]!) / 0.003));
+    // REACT under-glow attaches and fills the gap -- pure f(t), across the
+    // shot-1 -> shot-2 gutter (PRESS_LIFT_W, derived in ./shots.ts)
+    const y = lerp(1.085, PRESS_BELT_TOP + 0.28, clamp01((t - PRESS_PART_T[0]!) / PRESS_LIFT_W));
     g.position.set(pressButtonX(t), y, 0);
     // once stamped, the button POPS away as the DOM CTA drops in (PressCta.tsx)
     const s = easeInOut(

@@ -44,6 +44,14 @@ const F: [number, number][] = [
 ];
 
 /**
+ * Width of the shot-1 -> shot-2 gutter: the slab's lift window. The REACT
+ * under-glow attaches at PRESS_PART_T[0] (= the shot-1 tail) and the slab has
+ * exactly this gutter to rise to ride-height before shot 2 opens. Derived, not
+ * hardcoded -- Press.tsx used a literal 0.003 that only matched by coincidence.
+ */
+export const PRESS_LIFT_W = at(F[1]![0]) - at(F[0]![1]);
+
+/**
  * The through-line button's belt position, pure f(t) (scrub-safe): tracks
  * bay i across shot i, GLIDES across each gutter into the next shot's start
  * pose (the spans are not contiguous -- clamping there teleported the slab
@@ -134,9 +142,11 @@ export const PRESS_CTA_OUT: [number, number] = [0.479, 0.487];
  * CTA scroll target: Issue 6 newsprint front-page story (S0.3 range
  * [0.488, 0.566]). Must land INSIDE a shot -- 0.51 sat in Newsprint's
  * shot-1/2 whip gutter, so visitors parked on a permanently smeared frame
- * (audit 2026-07-27). 0.514 is early shot-2 interior (settled).
+ * (audit 2026-07-27). 0.514 cleared that gutter by only 0.0022 (half a wheel
+ * notch at ~0.0043 t/notch): 0.52 is shot-2 interior at p ~ 0.34, more than a
+ * notch clear in both directions.
  */
-export const PRESS_PROJECTS_T = 0.514;
+export const PRESS_PROJECTS_T = 0.52;
 
 // Keep this issue's own snapshot fresh in every shot tail (PostPipeline
 // captures retained issues): the intra-issue PANEL-WIPES between departments
