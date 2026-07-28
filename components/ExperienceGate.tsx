@@ -187,6 +187,16 @@ export default function ExperienceGate() {
         </button>
       ) : null}
 
+      {/*
+       * AudioToggle sits BEFORE the print doc in DOM order, and must stay there.
+       * It is position:fixed, so this costs nothing visually, but tab order
+       * follows the DOM: anything after the print doc is unreachable by
+       * keyboard, because focusing a print link bubbles focusin to
+       * revealReader below, which tears this whole stack down. Placed after,
+       * the sound control could never be reached without a mouse.
+       */}
+      {effectiveShow ? <AudioToggle /> : null}
+
       <div ref={printRef} className={effectiveShow ? styles.behind : undefined} onFocus={revealReader}>
         <PrintEdition />
       </div>
@@ -217,7 +227,6 @@ export default function ExperienceGate() {
           <Experience />
           <Lettering />
           <PressCta />
-          <AudioToggle />
           <JumpCover />
           <ScrollProxy />
         </>
