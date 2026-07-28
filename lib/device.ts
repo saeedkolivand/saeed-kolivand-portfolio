@@ -40,9 +40,5 @@ export function readDeviceGate(): DeviceGate {
   // the low tier it names.
   const forced = new URLSearchParams(location.search).has("low");
   const tablet = coarse && !narrow;
-  // `narrow` is included because the only way a narrow viewport ever runs 3D
-  // is the explicit opt-in, and when it does it wants exactly the tablet tier.
-  // Folding it in here keeps the tier decision in one expression instead of an
-  // ad-hoc branch in the opt-in click handler that disagreed with this module.
-  return { reduced, narrow, tablet, low: tablet || narrow || forced };
+  return { reduced, narrow, tablet, low: tablet || forced };
 }

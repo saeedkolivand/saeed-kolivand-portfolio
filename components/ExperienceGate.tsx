@@ -24,9 +24,9 @@ import styles from "./PrintEdition.module.css";
  *                    AND WebGL-available AND NOT user-forced-reader.
  *
  * Touch devices are NOT excluded -- the disqualifier is viewport width, not
- * pointer type (lib/device.ts). Tablets auto-mount at the low quality tier;
- * phones keep Print Edition but are offered the same opt-in that reduced-motion
- * users get.
+ * pointer type (lib/device.ts). Tablets auto-mount at the low quality tier.
+ * Phones keep the Print Edition: a 390px audit found the authored compositions
+ * crop badly there, and the print doc is the better narrow experience.
  *
  * When on, the interactive WebGL/scroll stack mounts as an overlay above the
  * print doc, which stays visually-hidden but in the a11y tree + SEO (never
@@ -116,7 +116,6 @@ export default function ExperienceGate() {
   const [showExperience, setShowExperience] = useState(false);
   const [forceReader, setForceReader] = useState(false);
   const [forceExperience, setForceExperience] = useState(false);
-  const [narrow, setNarrow] = useState(false);
   const [reduced, setReduced] = useState(false);
   const [noWebGL, setNoWebGL] = useState(false);
 
@@ -131,7 +130,6 @@ export default function ExperienceGate() {
       store.setReducedMotion(gate.reduced);
       if (gate.low) store.setQuality("low");
       setReduced(gate.reduced);
-      setNarrow(gate.narrow);
       // && short-circuits, so the print path still never creates a WebGL context.
       if (!granted && !gate.reduced && !gate.narrow && probeWebGL()) {
         granted = true;
@@ -168,11 +166,17 @@ export default function ExperienceGate() {
   }, []);
 
   const effectiveShow = !forceReader && (showExperience || forceExperience);
-  // Offer "watch the animated version" to anyone in print mode who did not
-  // choose it by hardware: the reduced-motion opt-in, the narrow-viewport
-  // (phone) opt-in, and the undo for a manual switch. Withdrawn once a probe
-  // has actually failed, so the button is never a dead control.
-  const offerExperience = !effectiveShow && !noWebGL && (reduced || narrow || forceReader);
+  // Offer "watch the animated version" to the reduced-motion opt-in and as the
+  // undo for a manual switch. Withdrawn once a probe has actually failed, so
+  // the button is never a dead control.
+  //
+  // Deliberately NOT offered on narrow viewports. A 390px audit found copy
+  // cropped on both sides in 8 of the 12 scenes and no subject framed at all in
+  // the desk issue -- the compositions are authored wide and a phone cannot hold
+  // them. The Print Edition is the better phone experience until the scenes
+  // carry narrow-safe framing (the frame-guard pattern in Pop.tsx:742 and
+  // Sketchbook.tsx:340 is the model for that).
+  const offerExperience = !effectiveShow && !noWebGL && (reduced || forceReader);
 
   // WS-E: map scroll position across the print <-> 3D toggle. Runs whenever the
   // mount decision flips. Into the experience: restore the t captured from the
