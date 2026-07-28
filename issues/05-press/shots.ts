@@ -44,9 +44,18 @@ const F: [number, number][] = [
 ];
 
 /**
+ * Width of the shot-1 -> shot-2 gutter: the slab's lift window. The REACT
+ * under-glow attaches at PRESS_PART_T[0] (= the shot-1 tail) and the slab has
+ * exactly this gutter to rise to ride-height before shot 2 opens. Derived, not
+ * hardcoded -- Press.tsx used a literal 0.003 that only matched by coincidence.
+ */
+export const PRESS_LIFT_W = at(F[1]![0]) - at(F[0]![1]);
+
+/**
  * The through-line button's belt position, pure f(t) (scrub-safe): tracks
- * bay i across shot i, sits at the next shot's start during gutters (their
- * panel-wipes film the incoming shot from p=0), parks under the stamp.
+ * bay i across shot i, GLIDES across each gutter into the next shot's start
+ * pose (the spans are not contiguous -- clamping there teleported the slab
+ * ~5wu at every shot start, audit 2026-07-27), parks under the stamp.
  */
 const BUTTON_SPANS: [number, number][] = [
   [PRESS_BAY_X[0] - 4, PRESS_BAY_X[0] + 4],
@@ -61,6 +70,12 @@ export function pressButtonX(t: number): number {
     const [fs, fe] = F[i]!;
     if (t < at(fs)) continue;
     const span = BUTTON_SPANS[i]!;
+    const next = F[i + 1];
+    if (next && t > at(fe)) {
+      // gutter: keep travelling into the next span's start (monotonic, no jump)
+      const g = clamp01((t - at(fe)) / (at(next[0]) - at(fe)));
+      return lerp(span[1], BUTTON_SPANS[i + 1]![0], easeInOut(g));
+    }
     // finale: arrive under the stamp by p=0.45, then hold for the slam
     const pEnd = i === F.length - 1 ? 0.45 : 1;
     const p = clamp01((t - at(fs)) / (at(fe) - at(fs)) / pEnd);
@@ -123,8 +138,15 @@ export const PRESS_CTA_DROP = { v: 0 };
 /** DOM CTA presence, pure f(t): in just after the stamp, out across the exit gutter. */
 export const PRESS_CTA_IN: [number, number] = [PRESS_STAMP_T + 0.0006, PRESS_STAMP_T + 0.004];
 export const PRESS_CTA_OUT: [number, number] = [0.479, 0.487];
-/** CTA scroll target: Issue 6 newsprint front-page story (S0.3 range [0.488, 0.566]). */
-export const PRESS_PROJECTS_T = 0.51;
+/**
+ * CTA scroll target: Issue 6 newsprint front-page story (S0.3 range
+ * [0.488, 0.566]). Must land INSIDE a shot -- 0.51 sat in Newsprint's
+ * shot-1/2 whip gutter, so visitors parked on a permanently smeared frame
+ * (audit 2026-07-27). 0.514 cleared that gutter by only 0.0022 (half a wheel
+ * notch at ~0.0043 t/notch): 0.52 is shot-2 interior at p ~ 0.34, more than a
+ * notch clear in both directions.
+ */
+export const PRESS_PROJECTS_T = 0.52;
 
 // Keep this issue's own snapshot fresh in every shot tail (PostPipeline
 // captures retained issues): the intra-issue PANEL-WIPES between departments

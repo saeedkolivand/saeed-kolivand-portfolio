@@ -17,7 +17,7 @@ import CatModel, { HARLEY, type CatPalette } from "@/components/CatModel";
 import { toonRamp } from "@/lib/toon";
 import { stepTime } from "@/lib/steppedClock";
 import { useScrollStore } from "@/lib/scrollStore";
-import { clamp01, lerp } from "@/lib/shots";
+import { clamp01, easeInOut, lerp } from "@/lib/shots";
 import { issueCopy, lettering } from "@/lib/content";
 import {
   PRESS_PALETTE,
@@ -32,6 +32,7 @@ import {
   PRESS_BELT_TOP,
   PRESS_CTA_IN,
   PRESS_ENERGY_RANGE,
+  PRESS_LIFT_W,
   PRESS_PART_T,
   PRESS_PULSE_RANGE,
   PRESS_SPARK,
@@ -96,6 +97,13 @@ const hash = (i: number, n: number) => {
 
 const ramp01 = (t: number, r: [number, number]) => clamp01((t - r[0]) / (r[1] - r[0]));
 
+/**
+ * Machine uprights stand BEHIND the belt line (audit 2026-07-27: at z 0 the
+ * through-line slab drove straight through every leg/pylon). Overhead beams
+ * keep z 0 so the rigs still straddle and frame the belt.
+ */
+const POST_Z = -2.05;
+
 interface DeptMats {
   react: ShaderMaterial;
   ts: ShaderMaterial;
@@ -132,8 +140,11 @@ function Plaque({ x, y, z, text }: { x: number; y: number; z: number; text: stri
   );
 }
 
-// ---- static instanced set dressing: FG hooks + BG pipes + wall trims --------
-// hooks hang at bay BOUNDARIES so they never cross a dept label (S5b.4)
+// ---- static instanced set dressing: hooks + BG pipes + wall trims -----------
+// hooks hang at bay BOUNDARIES so they never cross a dept label (S5b.4), and
+// BEHIND the belt (z -4.5, in front of the dept walls): at z 4.8 they hung
+// between camera and belt and visually landed on the slab (audit 2026-07-27)
+const HOOK_Z = -4.5;
 const HOOKS = [-26, -13, 0, 13, 26, 31.5].map((x, i) => ({
   x,
   y: 5.0 + hash(i, 5.77) * 1.4,
@@ -148,7 +159,7 @@ function Dressing() {
     const h = hooks.current;
     if (h) {
       HOOKS.forEach((k, i) => {
-        tmpO.position.set(k.x, k.y, 4.8);
+        tmpO.position.set(k.x, k.y, HOOK_Z);
         tmpO.rotation.set(0, 0, 0);
         tmpO.scale.set(1, 1, 1);
         tmpO.updateMatrix();
@@ -209,7 +220,9 @@ function Conveyor() {
     const st = reducedMotion ? 0 : stepTime(clock.elapsedTime, fps);
     for (let i = 0; i < ROLLERS.length; i++) {
       tmpO.position.set(ROLLERS[i]!, 0.34, 0);
-      tmpO.rotation.set(st * 2.4 + i * 0.7, 0, 0);
+      // spin about the roller's LONG axis (z): the old x-axis spin swung the
+      // 3.4-long bar propeller-style up through the belt and the slab
+      tmpO.rotation.set(0, 0, st * 2.4 + i * 0.7);
       tmpO.scale.set(1, 1, 1);
       tmpO.updateMatrix();
       m.setMatrixAt(i, tmpO.matrix);
@@ -271,15 +284,16 @@ function ReactRig({ mat }: { mat: ShaderMaterial }) {
 
   return (
     <group>
-      {/* arch straddling the belt */}
-      <mesh position={[bx - 1.9, 1.8, 0]} material={mat}>
+      {/* arch straddling the belt -- legs set back, beam overhead */}
+      <mesh position={[bx - 1.9, 1.8, POST_Z]} material={mat}>
         <boxGeometry args={[1.2, 3.6, 1.6]} />
       </mesh>
-      <mesh position={[bx + 1.9, 1.8, 0]} material={mat}>
+      <mesh position={[bx + 1.9, 1.8, POST_Z]} material={mat}>
         <boxGeometry args={[1.2, 3.6, 1.6]} />
       </mesh>
-      <mesh position={[bx, 3.9, 0]} material={mat}>
-        <boxGeometry args={[5.0, 1.2, 1.8]} />
+      {/* beam bridges from the legs' back face out over the belt (z -2.9..0.9) */}
+      <mesh position={[bx, 3.9, -1.0]} material={mat}>
+        <boxGeometry args={[5.0, 1.2, 3.8]} />
       </mesh>
       <instancedMesh
         ref={inst}
@@ -298,14 +312,15 @@ function TsRig({ mat }: { mat: ShaderMaterial }) {
   const bx = PRESS_BAY_X[1];
   return (
     <group>
-      <mesh position={[bx - 3, 2.1, 0]} material={mat}>
+      <mesh position={[bx - 3, 2.1, POST_Z]} material={mat}>
         <boxGeometry args={[1.0, 4.2, 1.0]} />
       </mesh>
-      <mesh position={[bx + 3, 2.1, 0]} material={mat}>
+      <mesh position={[bx + 3, 2.1, POST_Z]} material={mat}>
         <boxGeometry args={[1.0, 4.2, 1.0]} />
       </mesh>
-      <mesh position={[bx, 3.6, 0]} material={mat}>
-        <boxGeometry args={[7.4, 0.55, 0.55]} />
+      {/* beam bridges from the pylons' back face out over the belt (z -2.6..0.3) */}
+      <mesh position={[bx, 3.6, -1.15]} material={mat}>
+        <boxGeometry args={[7.4, 0.55, 2.9]} />
       </mesh>
     </group>
   );
@@ -322,19 +337,26 @@ function RustRig({ mat }: { mat: ShaderMaterial }) {
     const { quality, reducedMotion } = useScrollStore.getState();
     const fps = quality === "low" ? 8 : 12;
     const st = reducedMotion ? 0 : stepTime(clock.elapsedTime, fps);
-    g.position.y = 3.5 - 1.5 * Math.abs(Math.sin(st * 1.5 + 1));
+    // raised travel: piston bottom (g.y - 0.8) bottoms out at 1.7, clearing
+    // the slab top (1.63) as it passes underneath
+    g.position.y = 4.0 - 1.5 * Math.abs(Math.sin(st * 1.5 + 1));
   });
 
   return (
+    // the press acts ON the belt line (S5b.5 through-line): the 3.2-deep
+    // flanking blocks stand back at z -3.2, the top beam is deepened to bridge
+    // from their front faces (-1.6) out over the belt, and the piston pounds at
+    // z 0 with a raised travel so it clears the passing slab instead of either
+    // spearing it or thumping 0.6wu of daylight behind it (audit 2026-07-27)
     <group>
-      <mesh position={[bx - 2.4, 1.9, 0]} material={mat}>
+      <mesh position={[bx - 2.4, 1.9, -3.2]} material={mat}>
         <boxGeometry args={[1.4, 3.8, 3.2]} />
       </mesh>
-      <mesh position={[bx + 2.4, 1.9, 0]} material={mat}>
+      <mesh position={[bx + 2.4, 1.9, -3.2]} material={mat}>
         <boxGeometry args={[1.4, 3.8, 3.2]} />
       </mesh>
-      <mesh position={[bx, 4.2, 0]} material={mat}>
-        <boxGeometry args={[6.2, 1.4, 2.8]} />
+      <mesh position={[bx, 4.2, -1.1]} material={mat}>
+        <boxGeometry args={[6.2, 1.4, 3.8]} />
       </mesh>
       <group ref={piston}>
         <mesh position={[bx, 0.9, 0]} material={mat}>
@@ -345,17 +367,18 @@ function RustRig({ mat }: { mat: ShaderMaterial }) {
         </mesh>
       </group>
       {/* dept identity accents (basic color, S0.4 rust): furnace glow plate
-          behind the piston + hazard strips on the flanks -- the heavy-ink
-          material stays untouched, orange carries the department read */}
-      <mesh position={[bx, 1.9, -1.9]}>
+          as the backdrop BEHIND the blocks (z -5.1) + hazard strips sitting on
+          the blocks' front faces (z -1.58) -- the heavy-ink material stays
+          untouched, orange carries the department read */}
+      <mesh position={[bx, 1.9, -5.1]}>
         <boxGeometry args={[4.2, 2.4, 0.25]} />
         <meshBasicMaterial color={ACCENT[2]} />
       </mesh>
-      <mesh position={[bx - 2.4, 1.0, 1.62]}>
+      <mesh position={[bx - 2.4, 1.0, -1.58]}>
         <boxGeometry args={[1.0, 0.22, 0.05]} />
         <meshBasicMaterial color={ACCENT[2]} />
       </mesh>
-      <mesh position={[bx + 2.4, 1.0, 1.62]}>
+      <mesh position={[bx + 2.4, 1.0, -1.58]}>
         <boxGeometry args={[1.0, 0.22, 0.05]} />
         <meshBasicMaterial color={ACCENT[2]} />
       </mesh>
@@ -428,7 +451,12 @@ function StampStation() {
         clamp01((t - (PRESS_STAMP_T - 0.0025)) / 0.0025) -
         clamp01((t - PRESS_CTA_IN[0] - 0.001) / 0.003);
       const v = PRESS_STAMP_POP.v;
-      g.position.y = lerp(4.6, 1.78, down);
+      // 2.34 rests the ink face bottom (head y - 0.70 = 1.64) just over the
+      // TALLEST attached part at slam time -- the part-4 AI core light, world
+      // top 1.63 (group y 1.18 + local 0.38 + 0.07). The old 2.24 was derived
+      // from the bare cap (1.5): it cut 0.09 through the core light and sat
+      // exactly coplanar with the RUST border tops (z-fight).
+      g.position.y = lerp(4.6, 2.34, down);
       g.scale.set(1 + 0.18 * v, 1 - 0.3 * v, 1 + 0.18 * v);
     }
     const b = burst.current;
@@ -452,16 +480,17 @@ function StampStation() {
 
   return (
     <group>
-      <mesh position={[sx - 2.1, 2.6, 0]}>
+      <mesh position={[sx - 2.1, 2.6, POST_Z]}>
         <boxGeometry args={[1.0, 5.2, 1.2]} />
         <meshToonMaterial color={STEEL} gradientMap={grad} />
       </mesh>
-      <mesh position={[sx + 2.1, 2.6, 0]}>
+      <mesh position={[sx + 2.1, 2.6, POST_Z]}>
         <boxGeometry args={[1.0, 5.2, 1.2]} />
         <meshToonMaterial color={STEEL} gradientMap={grad} />
       </mesh>
-      <mesh position={[sx, 5.4, 0]}>
-        <boxGeometry args={[5.2, 1.4, 1.6]} />
+      {/* crown bridges from the legs' back face out past the head shaft (z -2.65..0.85) */}
+      <mesh position={[sx, 5.4, -0.9]}>
+        <boxGeometry args={[5.2, 1.4, 3.5]} />
         <meshToonMaterial color={DARK} gradientMap={grad} />
       </mesh>
       {/* the stamp head: shaft + block + ink face plate */}
@@ -503,9 +532,17 @@ function PressButton() {
     const g = grp.current;
     if (!g) return;
     const { t } = useScrollStore.getState();
-    g.position.set(pressButtonX(t), PRESS_BELT_TOP + 0.28, 0);
-    // once stamped + dropped, the DOM CTA takes over (PressCta.tsx)
-    g.visible = t < PRESS_CTA_IN[0];
+    // bare slab rides ON the belt (1.085); it lifts to ride-height once the
+    // REACT under-glow attaches and fills the gap -- pure f(t), across the
+    // shot-1 -> shot-2 gutter (PRESS_LIFT_W, derived in ./shots.ts)
+    const y = lerp(1.085, PRESS_BELT_TOP + 0.28, clamp01((t - PRESS_PART_T[0]!) / PRESS_LIFT_W));
+    g.position.set(pressButtonX(t), y, 0);
+    // once stamped, the button POPS away as the DOM CTA drops in (PressCta.tsx)
+    const s = easeInOut(
+      1 - clamp01((t - PRESS_CTA_IN[0]) / (PRESS_CTA_IN[1] - PRESS_CTA_IN[0])),
+    );
+    g.scale.setScalar(s);
+    g.visible = s > 0.002;
     for (let i = 0; i < PRESS_PART_T.length; i++) {
       const p = parts.current[i];
       if (p) p.visible = t >= PRESS_PART_T[i]!;
@@ -826,9 +863,11 @@ export default function Press({ index }: { index: number }) {
             >
               {DEPTS[i]!.label}
             </Text>
-            {/* AI's plaque sits frame-LEFT of its bay so it never drifts,
-                clipped, into the stamp-finale frame (S5b.4 focal check) */}
-            <Plaque x={bx + (i === 3 ? -1.7 : 1.7)} y={2.7} z={1.7} text={DEPTS[i]!.caption} />
+            {/* only the REACT establish is wide enough to carry its plaque
+                frame-RIGHT; the tracking bays put theirs frame-LEFT of the
+                bay or the right viewport edge clips them mid-word at their
+                settled start poses (S5b.4 focal check, audit 2026-07-27) */}
+            <Plaque x={bx + (i === 0 ? 1.7 : -1.7)} y={2.7} z={1.7} text={DEPTS[i]!.caption} />
           </group>
         ))}
         <PressCat />
