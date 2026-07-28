@@ -1,4 +1,4 @@
-import { noise01 } from "./util";
+import { mix32, noise01 } from "./util";
 
 /**
  * Impulse response generation. Zero bytes ship: every room is rendered in an
@@ -10,7 +10,10 @@ import { noise01 } from "./util";
  * of every single sound convolved with it.
  *
  * Determinism: the noise is drawn from a seeded avalanche mixer, so a room is
- * byte-identical across sessions and machines. No Math.random (engine law).
+ * identical across sessions ON A GIVEN MACHINE. Not byte-identical ACROSS
+ * machines -- BiquadFilterNode and setValueCurveAtTime are implementation-
+ * defined, and sampleRate is 44.1k or 48k by device. Do not hash this output
+ * in a gate. No Math.random either way (engine law).
  */
 
 export interface RoomSpec {
@@ -41,20 +44,34 @@ const HIGH_HZ = 4000;
  */
 export async function renderIR(spec: RoomSpec, sampleRate: number): Promise<AudioBuffer> {
   const len = Math.max(1, Math.ceil((spec.preDelay + spec.decay) * sampleRate));
-  const ctx = new OfflineAudioContext(2, len, sampleRate);
+  const Ctor =
+    typeof OfflineAudioContext !== "undefined"
+      ? OfflineAudioContext
+      : (globalThis as unknown as { webkitOfflineAudioContext: typeof OfflineAudioContext })
+          .webkitOfflineAudioContext;
+  const ctx = new Ctor(2, len, sampleRate);
 
-  // Deterministic stereo noise. Left and right draw from disjoint streams so
-  // width is a tunable rather than an accident -- and at width 0 they collapse
-  // to the same signal, which is correct for a narrow space like a tunnel.
+  // Deterministic stereo noise.
+  //
+  // Stream starts are SCATTERED through the 2^32 space rather than spaced by
+  // the seed value. Seeds ~100 apart against IRs of 17k-157k samples would make
+  // every room a window onto the same sequence at a ~100-sample lag -- and
+  // since both convolvers share roomIn, a gutter crossfade would then sum two
+  // near-identical noise realisations ~2 ms apart and comb-filter, at exactly
+  // the moment the crossfade exists to serve.
   const noise = ctx.createBuffer(2, len, sampleRate);
-  const rShift = Math.round(spec.width * 1e6);
-  for (let c = 0; c < 2; c++) {
-    const data = noise.getChannelData(c);
-    const base = spec.seed + (c === 1 ? rShift : 0);
-    // noise01, NOT h01: h01 is linear in its argument, so over consecutive
-    // sample indices it degenerates into a sawtooth near 0.38 * rate -- a
-    // whistle rather than a tail. See the note in util.ts.
-    for (let i = 0; i < len; i++) data[i] = noise01(base + i) * 2 - 1;
+  const shared = mix32(spec.seed * 2);
+  const indep = mix32(spec.seed * 2 + 1);
+  const left = noise.getChannelData(0);
+  const right = noise.getChannelData(1);
+  for (let i = 0; i < len; i++) {
+    const a = noise01(shared + i) * 2 - 1;
+    const b = noise01(indep + i) * 2 - 1;
+    left[i] = a;
+    // width interpolates between the two streams rather than merely offsetting
+    // one, so it is the continuous 0..1 knob the table treats it as: 0 is a
+    // mono point source, 1 is fully decorrelated.
+    right[i] = a * (1 - spec.width) + b * spec.width;
   }
 
   const src = ctx.createBufferSource();
@@ -94,7 +111,10 @@ export async function renderIR(spec: RoomSpec, sampleRate: number): Promise<Audi
     for (let i = 0; i < steps; i++) {
       curve[i] = Math.exp((-6.907755 * (i / (steps - 1)) * spec.decay) / t60);
     }
-    g.gain.setValueCurveAtTime(curve, 0, spec.decay);
+    // Starts at preDelay, not 0: the signal does not arrive until then, and
+    // running the envelope on the wall clock would shorten the effective tail
+    // to decay - preDelay and leave a step where the buffer ends.
+    g.gain.setValueCurveAtTime(curve, spec.preDelay, spec.decay);
     preDelayNode.connect(f);
     f.connect(g);
     g.connect(ctx.destination);
@@ -123,22 +143,24 @@ export async function renderIR(spec: RoomSpec, sampleRate: number): Promise<Audi
   src.start(0);
   const rendered = await ctx.startRendering();
 
-  // Fixed-RMS normalise. Convolvers run with normalize = false so RoomSpec
-  // controls level explicitly; without this, changing a room's decay would
-  // also change how loud the whole scene is.
-  let sum = 0;
-  let n = 0;
+  // Normalise to a fixed L2 NORM, not a fixed RMS.
+  //
+  // For a stationary input, convolution output power is proportional to
+  // sum(h[i]^2), and sum(h^2) = n * rms^2 -- so pinning RMS leaves the wet
+  // level scaling with sqrt(IR length). Across this table that is sqrt(3.27 /
+  // 0.354) = 3.04, nearly +10 dB more wet on the cosmos room than on the
+  // sketchbook, purely from the decay difference. Pinning sum(h^2) instead is
+  // what actually holds the send level constant as decay changes.
+  let energy = 0;
   for (let c = 0; c < rendered.numberOfChannels; c++) {
     const d = rendered.getChannelData(c);
     for (let i = 0; i < d.length; i++) {
       const v = d[i]!;
-      sum += v * v;
-      n++;
+      energy += v * v;
     }
   }
-  const rms = Math.sqrt(sum / Math.max(1, n));
-  if (rms > 1e-9) {
-    const g = 0.06 / rms;
+  if (energy > 1e-12) {
+    const g = 18 / Math.sqrt(energy);
     for (let c = 0; c < rendered.numberOfChannels; c++) {
       const d = rendered.getChannelData(c);
       for (let i = 0; i < d.length; i++) d[i] = d[i]! * g;
@@ -147,7 +169,11 @@ export async function renderIR(spec: RoomSpec, sampleRate: number): Promise<Audi
   return rendered;
 }
 
-/** Feature check -- Safari private modes and old engines have surprised us before. */
+/** Feature check. Safari shipped this prefixed for years, hence the fallback. */
 export function canRenderIR(): boolean {
-  return typeof OfflineAudioContext !== "undefined";
+  return (
+    typeof OfflineAudioContext !== "undefined" ||
+    typeof (globalThis as { webkitOfflineAudioContext?: unknown }).webkitOfflineAudioContext !==
+      "undefined"
+  );
 }

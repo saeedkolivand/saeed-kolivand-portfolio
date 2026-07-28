@@ -59,6 +59,7 @@ export const useScrollStore = create<ScrollState>()((set) => ({
   setPointer: (pointerX, pointerY) => set({ pointerX, pointerY }),
   setQuality: (quality) =>
     set((s) => ({ quality, audioTier: quality === "low" ? 1 : s.audioTier })),
+  // No call sites yet -- perf-profiler owns the S0.6 ladder and drives this.
   setAudioTier: (audioTier) => set({ audioTier }),
   setReducedMotion: (reducedMotion) => set({ reducedMotion }),
   setAudioOn: (audioOn) => set({ audioOn }),

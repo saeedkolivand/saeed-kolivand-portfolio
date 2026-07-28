@@ -16,7 +16,8 @@ import type { ToneModule } from "./types";
  *   ui     ------------------ uiOut ---------+
  *   sub    --> subLp(120) --> subComp -> ... +
  *
- *   sends: duckGain, foleyOut, hardOut --> roomIn   (ui and sub never)
+ *   sends: duckGain (BOTH beds), foleyOut, hardOut --> roomIn
+ *          ui and sub never reach the room at all
  *
  * WHY pulseBus EXISTS -- do not "simplify" it away. director.ts writes
  * fx.audioPulse from this meter, and PostPipeline reads it into uAudioPulse to
@@ -53,15 +54,18 @@ export interface Buses {
   roomIn: Gain;
 }
 
-/** Room send per bus, as a linear gain. */
-const SEND: Record<BusName, number> = {
-  music: 0.1,
-  ambience: 0.16,
-  foley: 0.22,
-  hardfx: 0.28,
-  ui: 0,
-  sub: 0,
-};
+/**
+ * Room send per bus, as a linear gain.
+ *
+ * There is deliberately NO `ambience` entry. music and ambience merge into
+ * duckGain before the send is tapped, so a separate ambience value would be
+ * dead weight -- ambience already reaches the room through the bed send. Giving
+ * it its own send while keeping that send POST-duck (so the room tail ducks
+ * with the bed, behaviour worth preserving) would need a second duck node
+ * automated in lockstep, which is not worth building while the ambience bus
+ * still has zero sources. Revisit when Phase 4 re-homes room tones onto it.
+ */
+const SEND = { bed: 0.1, foley: 0.22, hardfx: 0.28 } as const;
 
 export function buildBuses(T: ToneModule): Buses {
   // Master chain, unchanged from the shipped one: same EQ3, same compressor,
@@ -109,7 +113,7 @@ export function buildBuses(T: ToneModule): Buses {
   // Sends. Music feeds the room POST-duck so the tail ducks with the bed,
   // which is the behaviour the shipped graph had and is worth keeping.
   const roomIn = new T.Gain(1);
-  duckGain.connect(new T.Gain(SEND.music).connect(roomIn));
+  duckGain.connect(new T.Gain(SEND.bed).connect(roomIn));
   foleyOut.connect(new T.Gain(SEND.foley).connect(roomIn));
   hardOut.connect(new T.Gain(SEND.hardfx).connect(roomIn));
 

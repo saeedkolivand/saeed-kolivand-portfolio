@@ -19,9 +19,10 @@ import { moveTo } from "./util";
  * gutter joins consecutive issues, which always differ in parity, so the two
  * rooms are guaranteed to land in different slots and no gutter ever needs a
  * mid-crossfade reassignment. That holds in both scroll directions, which is
- * what makes the whole thing scrub-safe: the gains are a pure function of t
- * with no latches, and which buffer lives in which slot is a pure function of
- * the issue index.
+ * what makes the whole thing scrub-safe: the gain TARGETS are a pure function
+ * of t with no latches, and which buffer lives in which slot is a pure
+ * function of the issue index. The AUDIBLE gain lags its target by the ramp,
+ * so it is not itself f(t) -- fine here, because no visual reads it.
  */
 
 const ROOMS: readonly RoomSpec[] = [
@@ -92,6 +93,7 @@ const SILENT_MS = 220;
 const QUIET_STOP_MS = 300;
 
 interface Slot {
+  /** replaced wholesale on every swap; see the normalize note in updateRooms */
   conv: Convolver;
   gain: Gain;
   /** issue whose IR is currently loaded, -1 when empty */
@@ -156,7 +158,9 @@ export function buildRooms(buses: Buses): void {
     conv.connect(gain);
     return {
       conv, gain, issue: -1, committed: 0,
-      zeroSince: 0, moveState: { v: 0 }, connected: false,
+      // Stamped at build rather than left 0: on frame 1 there is no ramp to
+      // wait out, and a 0 here makes the FIRST room stall SILENT_MS for nothing.
+      zeroSince: 1, moveState: { v: 0 }, connected: false,
     };
   };
   slots = [mk(), mk()];
@@ -236,11 +240,31 @@ export function updateRooms(t: number, now: number): void {
   // halves the convolution cost at exactly the moment it would otherwise
   // double, and a gutter is the one place a hard room change is masked anyway.
   const tier = useScrollStore.getState().audioTier;
+
+  // Rung A2: no convolution at all. Detach both slots and hand over to the
+  // shared algorithmic reverb, which is exactly the shipped pre-refactor
+  // behaviour. Latching keeps it off for the session, matching how the
+  // render-failure path degrades.
+  if (tier <= 0) {
+    silenceSlots();
+    disabled = true;
+    useFallback();
+    return;
+  }
+
   const x = tier >= 2 ? blend.x : blend.x < 0.5 ? 0 : 1;
 
   const sr = T.getContext().sampleRate;
   ensureIR(from, sr);
   if (to !== from) ensureIR(to, sr);
+  // Prefetch neighbours while settled INSIDE a scene. renderIR is async, but its
+  // noise fill and normalise passes run on the main thread, and firing them on
+  // the first frame of a gutter puts a few hundred thousand ops exactly where
+  // the frame budget is tightest and a dropped frame is most visible.
+  if (to === from) {
+    if (from + 1 < ROOMS.length) ensureIR(from + 1, sr);
+    if (from - 1 >= 0) ensureIR(from - 1, sr);
+  }
 
   const gFrom = Math.cos((x * Math.PI) / 2);
   const gTo = Math.sin((x * Math.PI) / 2);
@@ -259,19 +283,33 @@ export function updateRooms(t: number, now: number): void {
       const buf = cache?.get(want);
       if (buf) {
         try {
-          slot.conv.buffer = new T.ToneAudioBuffer(buf);
-          // Tone's `set buffer` CREATES A NEW ConvolverNode whenever the old one
-          // already had a buffer, and a fresh ConvolverNode defaults
-          // normalize = true. So the constructor's normalize:false only ever
-          // held for the first assignment; every swap after that silently
-          // re-enabled equal-power normalisation and undid the fixed-RMS level
-          // control in ir.ts. Re-assert it after every set.
-          slot.conv.normalize = false;
+          // A FRESH Convolver per swap, deliberately. Reassigning .buffer on an
+          // existing one CANNOT work.
+          //
+          // Tone's `set buffer` REPLACES its internal ConvolverNode whenever the
+          // old one already had a buffer, and a fresh ConvolverNode defaults
+          // normalize = true. Per the Web Audio spec, normalize is only read
+          // WHEN the buffer is assigned -- so setting it afterwards is a no-op
+          // until the next swap, and setting it beforehand is discarded along
+          // with the node Tone throws away. The one reachable ordering is a
+          // virgin Convolver: its constructor applies normalize to a node that
+          // has no buffer yet, and that first assignment does not trigger the
+          // replace. Without this, every room after the first is equal-power
+          // normalised, undoing the fixed-L2 level control in ir.ts.
+          const fresh = new T.Convolver({ normalize: false });
+          fresh.buffer = new T.ToneAudioBuffer(buf);
+          if (slot.connected) {
+            B.roomIn.disconnect(slot.conv);
+            slot.connected = false;
+          }
+          slot.conv.dispose();
+          slot.conv = fresh;
+          fresh.connect(slot.gain);
           slot.issue = want;
         } catch {
           // A rejected buffer must not reach the director's rAF catch, which
-          // would disable all audio site-wide. Leave the slot silent instead;
-          // the next frame retries.
+          // would disable all audio site-wide. Leave the slot silent; the next
+          // frame retries.
           slot.issue = -1;
         }
       }
@@ -299,6 +337,7 @@ export function updateRooms(t: number, now: number): void {
   }
 }
 
+/** No call sites yet: nothing tears the audio engine down mid-session. */
 export function disposeRooms(): void {
   if (slots) {
     for (const s of slots) {
