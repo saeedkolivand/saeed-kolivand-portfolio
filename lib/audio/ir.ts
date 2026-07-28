@@ -1,4 +1,4 @@
-import { h01 } from "./util";
+import { noise01 } from "./util";
 
 /**
  * Impulse response generation. Zero bytes ship: every room is rendered in an
@@ -9,9 +9,8 @@ import { h01 } from "./util";
  * introduce pre-echo, and pre-echo INSIDE an impulse response smears the attack
  * of every single sound convolved with it.
  *
- * Determinism: the noise is drawn from h01, the same hash the runtime uses
- * everywhere else, so a room is byte-identical across sessions and machines.
- * No Math.random (engine law).
+ * Determinism: the noise is drawn from a seeded avalanche mixer, so a room is
+ * byte-identical across sessions and machines. No Math.random (engine law).
  */
 
 export interface RoomSpec {
@@ -52,7 +51,10 @@ export async function renderIR(spec: RoomSpec, sampleRate: number): Promise<Audi
   for (let c = 0; c < 2; c++) {
     const data = noise.getChannelData(c);
     const base = spec.seed + (c === 1 ? rShift : 0);
-    for (let i = 0; i < len; i++) data[i] = h01(base + i) * 2 - 1;
+    // noise01, NOT h01: h01 is linear in its argument, so over consecutive
+    // sample indices it degenerates into a sawtooth near 0.38 * rate -- a
+    // whistle rather than a tail. See the note in util.ts.
+    for (let i = 0; i < len; i++) data[i] = noise01(base + i) * 2 - 1;
   }
 
   const src = ctx.createBufferSource();

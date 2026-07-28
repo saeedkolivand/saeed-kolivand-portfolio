@@ -162,6 +162,26 @@ export function buildRooms(buses: Buses): void {
   slots = [mk(), mk()];
 }
 
+/** Zero and detach both slots. Safe to call twice; never throws. */
+function silenceSlots(): void {
+  if (!slots || !B) return;
+  for (const slot of slots) {
+    try {
+      slot.gain.gain.rampTo(0, FADE_S);
+      slot.moveState.v = 0;
+      slot.committed = 0;
+      slot.zeroSince = 0;
+      slot.issue = -1;
+      if (slot.connected) {
+        B.roomIn.disconnect(slot.conv);
+        slot.connected = false;
+      }
+    } catch {
+      // best effort; this runs on an already-failing path
+    }
+  }
+}
+
 function useFallback(): void {
   if (!B || fallback) return;
   // Exactly the shipped behaviour: one shared algorithmic reverb. The worst
@@ -190,6 +210,12 @@ function ensureIR(issue: number, sampleRate: number): void {
     })
     .catch(() => {
       pending?.delete(issue);
+      // Tear the rooms DOWN before latching, or `disabled` short-circuits
+      // updateRooms on every later frame and leaves whatever was audible on
+      // this frame convolving forever -- welding one scene's room onto every
+      // scene that follows, with the fallback reverb layered on top. Failures
+      // have to degrade to the fallback, not to a frozen wrong room.
+      silenceSlots();
       disabled = true;
       useFallback();
     });
@@ -234,6 +260,13 @@ export function updateRooms(t: number, now: number): void {
       if (buf) {
         try {
           slot.conv.buffer = new T.ToneAudioBuffer(buf);
+          // Tone's `set buffer` CREATES A NEW ConvolverNode whenever the old one
+          // already had a buffer, and a fresh ConvolverNode defaults
+          // normalize = true. So the constructor's normalize:false only ever
+          // held for the first assignment; every swap after that silently
+          // re-enabled equal-power normalisation and undid the fixed-RMS level
+          // control in ir.ts. Re-assert it after every set.
+          slot.conv.normalize = false;
           slot.issue = want;
         } catch {
           // A rejected buffer must not reach the director's rAF catch, which
