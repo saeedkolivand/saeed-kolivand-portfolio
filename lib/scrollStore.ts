@@ -2,6 +2,17 @@ import { create } from "zustand";
 
 export type Quality = "high" | "low";
 
+/**
+ * Audio detail tier, the S0.6 ladder's audio rungs. Separate from `quality`
+ * because shedding audio is cheap and inaudible while shedding render targets
+ * is visible, so the two want independent control.
+ *
+ *   2  full   two convolvers crossfading, the room morphs across each gutter
+ *   1  A1     one convolver, hard swap at the gutter midpoint
+ *   0  A2     no convolution at all, one shared algorithmic reverb
+ */
+export type AudioTier = 0 | 1 | 2;
+
 interface ScrollState {
   /** Normalized global scroll progress, the single timeline driver. */
   t: number;
@@ -13,6 +24,7 @@ interface ScrollState {
   pointerX: number;
   pointerY: number;
   quality: Quality;
+  audioTier: AudioTier;
   reducedMotion: boolean;
   audioOn: boolean;
   meowCount: number;
@@ -23,6 +35,7 @@ interface ScrollState {
   setJumpCover: (i: number | null) => void;
   setPointer: (x: number, y: number) => void;
   setQuality: (q: Quality) => void;
+  setAudioTier: (v: AudioTier) => void;
   setReducedMotion: (v: boolean) => void;
   setAudioOn: (v: boolean) => void;
   meow: () => void;
@@ -35,6 +48,7 @@ export const useScrollStore = create<ScrollState>()((set) => ({
   pointerX: 0,
   pointerY: 0,
   quality: "high",
+  audioTier: 2,
   reducedMotion: false,
   audioOn: false,
   meowCount: 0,
@@ -43,7 +57,9 @@ export const useScrollStore = create<ScrollState>()((set) => ({
   setActiveIssue: (activeIssue) => set({ activeIssue }),
   setJumpCover: (jumpCover) => set({ jumpCover }),
   setPointer: (pointerX, pointerY) => set({ pointerX, pointerY }),
-  setQuality: (quality) => set({ quality }),
+  setQuality: (quality) =>
+    set((s) => ({ quality, audioTier: quality === "low" ? 1 : s.audioTier })),
+  setAudioTier: (audioTier) => set({ audioTier }),
   setReducedMotion: (reducedMotion) => set({ reducedMotion }),
   setAudioOn: (audioOn) => set({ audioOn }),
   meow: () => set((s) => ({ meowCount: s.meowCount + 1 })),
