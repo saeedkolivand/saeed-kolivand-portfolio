@@ -16,7 +16,7 @@ import type { ToneModule } from "./types";
  *   ui     ------------------ uiOut ---------+
  *   sub    --> subLp(120) --> subComp -> ... +
  *
- *   sends: duckGain (BOTH beds), foleyOut, hardOut --> roomIn
+ *   sends: duckGain (BOTH beds), foleyOut, hardOut --> roomIn --> HP 250
  *          ui and sub never reach the room at all
  *
  * WHY pulseBus EXISTS -- do not "simplify" it away. director.ts writes
@@ -50,8 +50,10 @@ export interface Buses {
   duckGain: Gain;
   /** metering tap -- summed pre-duck, connected to nothing downstream */
   meter: Meter;
-  /** convolution room input; rooms.ts owns everything past it */
+  /** convolution room send input */
   roomIn: Gain;
+  /** post-highpass node the room actually taps; rooms.ts owns everything past it */
+  roomOut: ToneAudioNode;
 }
 
 /**
@@ -112,7 +114,13 @@ export function buildBuses(T: ToneModule): Buses {
 
   // Sends. Music feeds the room POST-duck so the tail ducks with the bed,
   // which is the behaviour the shipped graph had and is worth keeping.
-  const roomIn = new T.Gain(1);
+  // 250 Hz highpass in front of the room, as main had. LF buildup in a reverb
+  // send is the classic mud mechanism, and it compounds here: bandDecay[0] runs
+  // to 1.5 on spread and 1.4 on origin, so the longest rooms hold low-frequency
+  // energy for four to five seconds. The lowpass band inside ir.ts is a band OF
+  // the IR -- it keeps lows in the tail, it does not keep them out of the send.
+  const roomHp = new T.Filter(250, "highpass");
+  const roomIn = new T.Gain(1).connect(roomHp);
   duckGain.connect(new T.Gain(SEND.bed).connect(roomIn));
   foleyOut.connect(new T.Gain(SEND.foley).connect(roomIn));
   hardOut.connect(new T.Gain(SEND.hardfx).connect(roomIn));
@@ -120,6 +128,7 @@ export function buildBuses(T: ToneModule): Buses {
   return {
     T,
     out,
+    roomOut: roomHp,
     in: { music, ambience, foley: foleyIn, hardfx: hardIn, ui: uiOut, sub: subIn },
     duckGain,
     meter,

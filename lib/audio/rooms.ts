@@ -178,6 +178,12 @@ export function buildRooms(buses: Buses): void {
 function silenceSlots(): void {
   if (!slots || !B) return;
   for (const slot of slots) {
+    // Idempotent. Rung A2 is reversible, so this runs EVERY frame while the
+    // tier stays at 0 -- and rung A2 is the rung the ladder drops to because
+    // the device cannot keep up. Without this early-out it would issue two raw
+    // AudioParam ramps per frame forever, which is the per-frame automation
+    // write banned in util.ts, on the one rung that can least afford it.
+    if (slot.issue === -1 && slot.committed === 0 && !slot.connected) continue;
     try {
       slot.gain.gain.rampTo(0, FADE_S);
       slot.moveState.v = 0;
@@ -185,7 +191,7 @@ function silenceSlots(): void {
       slot.zeroSince = 0;
       slot.issue = -1;
       if (slot.connected) {
-        B.roomIn.disconnect(slot.conv);
+        B.roomOut.disconnect(slot.conv);
         slot.connected = false;
       }
     } catch {
@@ -210,20 +216,24 @@ function buildAlgorithmic(): void {
   const T = B.T;
   algo = new T.Freeverb({ roomSize: 0.7, dampening: 3000 });
   algoGain = new T.Gain(0).connect(B.out);
-  B.roomIn.connect(algo);
+  B.roomOut.connect(algo);
   algo.connect(algoGain);
 }
 
 function useFallback(): void {
   if (!B || fallback) return;
-  // Exactly the shipped behaviour: one shared algorithmic reverb. The worst
-  // case for the whole room system is "we are back where we started".
+  // The shipped node, level-matched into the new send structure. Not bit-exact
+  // with main -- that had its own send topology -- but the same reverb at the
+  // same wet level, so the worst case stays close to where we started.
   const T = B.T;
   fallback = new T.Reverb({ decay: 2.2, preDelay: 0.02, wet: 1 });
   const ret = new T.Gain(0).connect(B.out);
-  B.roomIn.connect(fallback);
+  B.roomOut.connect(fallback);
   fallback.connect(ret);
-  void fallback.ready.then(() => ret.gain.rampTo(0.18, 0.5)).catch(() => {});
+  // Level-matched to the convolution path: L2_TARGET is what a normalised
+  // convolver gives, and Tone.Reverb IS a normalised convolver, so unity here
+  // puts the fallback within a dB of the rooms instead of 45 dB below them.
+  void fallback.ready.then(() => ret.gain.rampTo(1, 0.5)).catch(() => {});
 }
 
 function ensureIR(issue: number, sampleRate: number): void {
@@ -267,7 +277,7 @@ export function updateRooms(t: number, now: number): void {
   // swaps at the gutter midpoint, so only ONE convolver is ever audible. That
   // halves the convolution cost at exactly the moment it would otherwise
   // double, and a gutter is the one place a hard room change is masked anyway.
-  const tier = useScrollStore.getState().audioTier;
+  const { audioTier: tier, velocity } = useScrollStore.getState();
 
   // Rung A2: no convolution at all. Detach both slots and hand over to Freeverb.
   //
@@ -277,7 +287,9 @@ export function updateRooms(t: number, now: number): void {
   // permanent by design.
   if (tier <= 0) {
     if (!algo) buildAlgorithmic();
-    if (algoGain) moveTo(algoGain.gain, algoState, 0.18, 0.3, 0.01);
+    // 0.53 matches L2_TARGET, so dropping to this rung changes the room, not
+    // the amount of room.
+    if (algoGain) moveTo(algoGain.gain, algoState, 0.53, 0.3, 0.01);
     silenceSlots();
     return;
   }
@@ -314,8 +326,12 @@ export function updateRooms(t: number, now: number): void {
     // fresh-Convolver requirement made it slightly more expensive still.
     // Silent target, so this never affects what is audible at any t.
     if (want === -1 && to === from) {
-      const next = from + 1;
-      if (next < ROOMS.length && next % 2 === s) want = next;
+      // Direction-aware: preloading only forward would make every BACKWARD
+      // gutter strictly more expensive than before this optimisation, since
+      // the slot would then be holding the wrong neighbour. Velocity is
+      // already read above for the tier.
+      const next = velocity < 0 ? from - 1 : from + 1;
+      if (next >= 0 && next < ROOMS.length && ((next % 2) + 2) % 2 === s) want = next;
     }
 
     // Silent means the TARGET has been zero long enough for the ramp to have
@@ -348,7 +364,7 @@ export function updateRooms(t: number, now: number): void {
           const fresh = new T.Convolver({ normalize: false });
           fresh.buffer = new T.ToneAudioBuffer(buf);
           if (slot.connected) {
-            B.roomIn.disconnect(slot.conv);
+            B.roomOut.disconnect(slot.conv);
             slot.connected = false;
           }
           slot.conv.dispose();
@@ -378,11 +394,11 @@ export function updateRooms(t: number, now: number): void {
     // turned down. Steady state is one convolver running; only gutters pay two.
     if (g > 0) {
       if (!slot.connected) {
-        B.roomIn.connect(slot.conv);
+        B.roomOut.connect(slot.conv);
         slot.connected = true;
       }
     } else if (slot.connected && slot.zeroSince !== 0 && now - slot.zeroSince > QUIET_STOP_MS) {
-      B.roomIn.disconnect(slot.conv);
+      B.roomOut.disconnect(slot.conv);
       slot.connected = false;
     }
   }

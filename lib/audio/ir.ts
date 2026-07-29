@@ -31,6 +31,20 @@ export interface RoomSpec {
   seed: number;
 }
 
+/**
+ * Wet level for every room, as an L2 norm.
+ *
+ * 0.53 is the post-normalize L2 a ConvolverNode produces for a ~2.2 s stereo IR
+ * at 48k under the Web Audio normalization algorithm, i.e. what the shipped
+ * Tone.Reverb was actually running at. Matching it keeps the SEND values in
+ * buses.ts reading as ordinary send amounts against a normalised reverb, and
+ * keeps the fallback and Freeverb paths comparable rather than 40 dB apart.
+ *
+ * Net against the shipped mix this is a few dB drier on the beds. Deliberate
+ * starting point, and the first thing to move once these rooms get an ear.
+ */
+const L2_TARGET = 0.53;
+
 /** Crossover points for the three decay bands. */
 const LOW_HZ = 300;
 const MID_HZ = 1600;
@@ -154,10 +168,20 @@ export async function renderIR(spec: RoomSpec, sampleRate: number): Promise<Audi
   //
   // For a stationary input, convolution output power is proportional to
   // sum(h[i]^2), and sum(h^2) = n * rms^2 -- so pinning RMS leaves the wet
-  // level scaling with sqrt(IR length). Across this table that is sqrt(3.27 /
-  // 0.354) = 3.04, nearly +10 dB more wet on the cosmos room than on the
-  // sketchbook, purely from the decay difference. Pinning sum(h^2) instead is
-  // what actually holds the send level constant as decay changes.
+  // level scaling with sqrt(IR length), nearly +10 dB more wet on the 3.27 s
+  // cosmos than the 0.354 s sketchbook. Pinning sum(h^2) is what actually
+  // holds the send level constant as decay changes.
+  //
+  // THE TARGET IS DERIVED, not chosen. For white input the convolution output
+  // RMS gain is exactly ||h||_2, so the target sets the wet level outright.
+  // L2_TARGET is what a ConvolverNode with normalize = true produces for a
+  // mid-length IR, which makes this path directly comparable to any normalised
+  // convolver -- including the Tone.Reverb fallback hanging off the same send.
+  // An earlier value of 18 was calibrated against the old fixed-RMS 0.06 path,
+  // which was never audible: main shipped Tone.Reverb with normalize at its
+  // default of TRUE. That put the wet return at 1.8x the dry bed RMS, roughly
+  // +25 dB hotter than shipped, and left the three reverb paths on this send
+  // 40-45 dB apart.
   let energy = 0;
   for (let c = 0; c < rendered.numberOfChannels; c++) {
     const d = rendered.getChannelData(c);
@@ -167,11 +191,7 @@ export async function renderIR(spec: RoomSpec, sampleRate: number): Promise<Audi
     }
   }
   if (energy > 1e-12) {
-    // 18 is calibrated near the `cover` room, whose L2 under the old fixed-RMS
-    // 0.06 was about that. Relative to the shipped level that is roughly
-    // +4 dB on the sketchbook and -5 dB on the cosmos -- i.e. the ~10 dB of
-    // decay-dependent drift this normalise exists to remove.
-    const g = 18 / Math.sqrt(energy);
+    const g = L2_TARGET / Math.sqrt(energy);
     for (let c = 0; c < rendered.numberOfChannels; c++) {
       const d = rendered.getChannelData(c);
       for (let i = 0; i < d.length; i++) d[i] = d[i]! * g;
