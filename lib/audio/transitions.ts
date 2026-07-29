@@ -3,6 +3,7 @@ import { clamp01 } from "@/lib/shots";
 import { RANGES } from "@/issues/timeline";
 import type { ToneAudioNode } from "tone";
 import type { ToneModule } from "./types";
+import { hit } from "./oneshot";
 import { moveTo } from "./util";
 
 /**
@@ -15,6 +16,13 @@ import { moveTo } from "./util";
  * - riser: Desk -> Neon dot-zoom gutter (pitch + cutoff climb with progress)
  * - whoosh: Noir -> Desk title whip and Pop -> Sketchbook whip; gain =
  *   gutter-progress bell x |velocity|, so a parked scrub stays silent
+ *
+ * SAMPLE LAYER: the two paper gutters take their discrete accent from the
+ * baked bank, with the synth voice kept as the fallback for before the buffer
+ * lands. Only the ACCENT is sampled -- the sustained texture of a gutter is
+ * f(t) and has to stretch with the scroll, which a fixed-length buffer cannot
+ * do. The accent is already a fixed-duration one-shot on a hysteresis-armed
+ * forward crossing, so it is the one part of a gutter voice a sample fits.
  *
  * Phase 4 enrichment: 8 more gutter voices + 1 global page-riffle complete
  * all 11 gutters. Each new voice is a pooled Noise/Osc/Filter/Gain built once,
@@ -366,8 +374,21 @@ function buildTear(T: ToneModule, sfx: ToneAudioNode): Voice {
       moveTo(bp.frequency, fC, 1200 + 2300 * p, 0.05, 25);
       moveTo(bp.Q, fQ, 1 + 2 * p, 0.08, 0.05);
       moveTo(gain.gain, gC, target, 0.04, 0.008);
-      if (crossFwd(cx, p, 0.85, 0.08) && av > 0.05)
-        flap.triggerAttackRelease(0.14, flapGate.at(T.now(), 0.15), 0.4 * av);
+      if (crossFwd(cx, p, 0.85, 0.08) && av > 0.05) {
+        const now = T.now();
+        // Seed is a pure function of t, not the clock: scrubbing back across
+        // this gutter picks the same round robin it picked last time. It still
+        // varies between visits, because where the crossing actually lands
+        // inside the frame moves with scroll speed.
+        const sampled = hit("cin.paper-tear", {
+          seed: Math.round(t * 1e5), at: now, gain: 0.55 * av,
+        });
+        // The synth flap stays underneath at reduced level rather than being
+        // replaced: the baked tear carries the fibre detail, the brown-noise
+        // flap carries the low sheet movement the sample is band-limited above.
+        flap.triggerAttackRelease(
+          0.14, flapGate.at(now, 0.15), (sampled ? 0.18 : 0.4) * av);
+      }
     },
     stop() {
       gC.v = 0;
@@ -395,6 +416,7 @@ function buildFlip(T: ToneModule, sfx: ToneAudioNode): Voice {
   whGain.connect(sfx);
   const g: Gate = { on: false, quiet: 0 };
   const srcs: Src[] = [noise];
+  const cx: Cross = { init: false, armed: true, last: 0 };
   const gF = { v: 0 };
   const gW = { v: 0 };
   const fW = { v: 400 };
@@ -409,6 +431,14 @@ function buildFlip(T: ToneModule, sfx: ToneAudioNode): Voice {
       moveTo(whBp.frequency, fW, 400 + 2000 * p, 0.05, 25);
       moveTo(flapGain.gain, gF, flapT, 0.04, 0.008);
       moveTo(whGain.gain, gW, whT, 0.04, 0.008);
+      // The one gutter with no discrete accent: the whole voice was two
+      // continuous bands, so the sheet never actually CAUGHT anything. The
+      // baked flip has the grip, the flutter and the landing slap in it, and
+      // it fires at the flutter peak (tri's centre, 0.28). No synth fallback
+      // here -- there was no accent before, so silence until the buffer lands
+      // is exactly the shipped behaviour.
+      if (crossFwd(cx, p, 0.28, 0.08) && av > 0.05)
+        hit("fol.paper-flip", { seed: Math.round(t * 1e5), at: T.now(), gain: 0.7 * av });
     },
     stop() {
       gF.v = 0;
