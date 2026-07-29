@@ -101,6 +101,8 @@ let warned = false;
 // free to schedule. A deep jump can resolve two beat crossings in one frame, so
 // two hits arrive at the same `now` -- Tone throws if starts invert on a synth.
 let beatFree = 0;
+/** The 48 kHz context, kept so a failed enable cannot build a second one. */
+let pinnedCtx: AudioContext | null = null;
 /**
  * Next Tone time a hit-stop may be scheduled -- the runtime budget.
  *
@@ -154,17 +156,35 @@ export function enableAudio(): void {
     // output to the device in its own stage, which is cheap and outside our
     // graph. If a browser refuses the rate we fall back to its default rather
     // than losing audio entirely.
-    if (!master) {
+    if (!master && !pinnedCtx) {
       try {
         // A NATIVE context, wrapped. Tone's own ContextOptions has no
         // sampleRate field -- the rate can only be requested of the real
-        // AudioContext constructor.
-        T.setContext(new T.Context(new AudioContext({ sampleRate: 48000, latencyHint: "interactive" })));
+        // AudioContext constructor. Prefixed fallback for the same reason
+        // ir.ts carries one.
+        const Ctor: typeof AudioContext =
+          typeof AudioContext !== "undefined"
+            ? AudioContext
+            : (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        // CACHED. setContext does not dispose the old context, and `master` is
+        // not assigned until the end of this block -- so without this a failed
+        // enable would build a new AudioContext on every retry until the
+        // browser refuses to make more.
+        pinnedCtx = new Ctor({ sampleRate: 48000, latencyHint: "interactive" });
+        T.setContext(new T.Context(pinnedCtx));
       } catch {
-        // Older Safari rejects an explicit sampleRate. Device rate it is.
+        // A browser may reject an explicit rate, or expose neither constructor.
+        // Device rate it is; everything still works, just more expensively.
+        pinnedCtx = null;
       }
     }
     await T.start(); // unlock -- initiated from the gesture's task
+    // Say whether the pin actually took. Not every browser THROWS on an
+    // unsupported rate -- some quietly hand back a different one, and then
+    // every figure in the comment above silently stops being true. This is the
+    // only signal a reporter on another browser can read back to us.
+    const got = T.getContext().sampleRate;
+    if (got !== 48000) console.warn(`[audio] context at ${got} Hz, wanted 48000`);
     if (session !== mySession) return; // disabled mid-flight
     // Tone's DEFAULT lookAhead, restored -- but NOT as the fix for the
     // cross-browser distortion, because it is not the cause of it.
@@ -180,9 +200,11 @@ export function enableAudio(): void {
     // scheduling number cannot make the render thread miss its deadline. That
     // is DSP cost, which the 48 kHz pin above is the actual fix for.
     //
-    // The beat hook takes immediate() so restoring the headroom costs no visual
-    // sync: a hit lands at the next render quantum instead of a lookahead
-    // later, and a fire-and-forget buffer has nothing to schedule ahead of it.
+    // This does widen the gap between a beat's visual flash and its sound, from
+    // 20 ms to 100 ms, and that is a real cost being accepted rather than
+    // solved. The fix is to defer the FLASH by lookAhead in the beat runner --
+    // moving the visual, which has no deadline, rather than the audio, which
+    // does. Doing it the other way round is what produced the finding above.
     T.getContext().lookAhead = 0.1;
     if (!master) master = buildMaster(T);
     wire();
@@ -283,9 +305,15 @@ function wire(): void {
     const m = master;
     if (!enabled || !m) return;
     try {
-      // immediate(), not now(): a beat has to land ON its visual flash, and a
-      // one-shot needs no scheduling headroom to do it.
-      const now = m.T.immediate();
+      // T.now(), NOT immediate(). beatMoment resolves its own times through
+      // T.now() (moments.ts), so an immediate() here puts the two halves of a
+      // single beat a full lookAhead apart -- and that inverts the hit-stop.
+      // STOP_LEAD exists to drop the bed 70 ms AFTER the transient; with the
+      // hook on immediate() and the cue on now(), the drop landed 30 ms BEFORE
+      // it and the bed was 86% collapsed by the time the hit arrived. You would
+      // hear the world vanish and then the impact fall into the hole instead of
+      // punching it.
+      const now = m.T.now();
       const stop = HITSTOP[id];
       // beatMoment FIRST, then the stop, then its early return: the moment is
       // what knows whether the authored cue actually played, and the stop's

@@ -12,9 +12,12 @@ import { mix32, noise01 } from "./util";
  * Determinism: the noise is drawn from a seeded avalanche mixer, so a room is
  * identical across sessions ON A GIVEN MACHINE. Not byte-identical ACROSS
  * machines -- BiquadFilterNode and setValueCurveAtTime are implementation-
- * defined, and the context is pinned to 48k in director.ts. It used to be
- * whatever the device ran at, and a 96 kHz interface doubled every IR. Do
- * not hash this output
+ * defined, and the context is pinned to 48 kHz in director.ts -- it used to be
+ * whatever the device ran at, and a 96 kHz interface doubled every IR.
+ *
+ * With the rate pinned, these buffers ARE stable across machines. The one
+ * remaining source of cross-machine drift is that BiquadFilterNode and
+ * setValueCurveAtTime are implementation-defined, so do not hash this output
  * in a gate. No Math.random either way (engine law).
  */
 
