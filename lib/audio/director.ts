@@ -73,6 +73,16 @@ const STOP_LEAD = 0.07;
 const STOP_FALL = 0.035;
 const STOP_HOLD = 0.3;
 const STOP_SWELL = 0.75;
+/** One complete gesture, and therefore the minimum spacing between two. */
+const STOP_TOTAL = STOP_LEAD + STOP_FALL + STOP_HOLD + STOP_SWELL;
+
+/**
+ * Depth when the authored cue did NOT play -- cold bank, MIN_GAP dedupe, or a
+ * failed voice claim. The whole justification for the hit-stop is that the hit
+ * and its room tail ring on into the hole; with only the synth fallback in
+ * there, taking 96% of the mix out buys silence rather than exposure.
+ */
+const STOP_SYNTH_SCALE = 0.45;
 
 const CROSSFADE_S = 0.15;
 /** t distance past an issue's range over which its bed fades to silence */
@@ -91,6 +101,23 @@ let warned = false;
 // free to schedule. A deep jump can resolve two beat crossings in one frame, so
 // two hits arrive at the same `now` -- Tone throws if starts invert on a synth.
 let beatFree = 0;
+/**
+ * Next Tone time a hit-stop may be scheduled -- the runtime budget.
+ *
+ * "Exactly three beats" is an AUTHORING limit and does not bound how often one
+ * of the three fires. BeatRunner re-arms as soon as t retreats one hysteresis
+ * below the trigger (~145 px at the base spacer), and each hitStop() cancels
+ * and re-schedules from scratch, so a trackpad wiggle across the stamp faster
+ * than one envelope would pin the beds and the score at 4% indefinitely --
+ * silently, because hit() self-limits through MIN_GAP_S while the duck does
+ * not. Every other authored impact here is budgeted (requestFlash, beatFree,
+ * VoiceGate, MIN_GAP_S); this is the deepest of them and had nothing.
+ *
+ * It also bounds the sidechain: an unscored beat landing mid-swell would
+ * otherwise cancel it and ramp the bed UP to 0.55, which is the authored
+ * gesture in reverse.
+ */
+let stopFree = 0;
 
 function warn(e: unknown): void {
   if (warned) return;
@@ -119,6 +146,7 @@ export function enableAudio(): void {
     pending = false;
     lastNow = performance.now();
     beatFree = 0; // reset the one-shot gate on every (re-)enable
+    stopFree = 0;
     cancelAnimationFrame(raf);
     raf = requestAnimationFrame(loop);
   })().catch((e) => {
@@ -210,11 +238,17 @@ function wire(): void {
     if (!enabled || !m) return;
     try {
       const now = m.T.now();
-      // ABOVE the beatMoment return: all three hit-stop beats are moment-owned,
-      // so a stop scheduled after it would never run.
       const stop = HITSTOP[id];
-      if (stop !== undefined) hitStop(m, now, stop);
-      if (beatMoment(id, flash)) return; // moment owns the hit (sound or silence)
+      // beatMoment FIRST, then the stop, then its early return: the moment is
+      // what knows whether the authored cue actually played, and the stop's
+      // depth depends on that. Scheduling the stop above the call would have to
+      // guess.
+      const played = beatMoment(id, flash);
+      if (stop !== undefined && now >= stopFree) {
+        stopFree = now + STOP_TOTAL;
+        hitStop(m, now, played === "sample" ? stop : stop * STOP_SYNTH_SCALE);
+      }
+      if (played) return; // moment owns the hit (sound or silence)
       // monotonic gate: two beats can resolve in one frame on a deep jump, so
       // stagger the second start past the first. Consumed only for default hits
       // (below the beatMoment return, so moment-owned beats never advance it).
@@ -229,7 +263,7 @@ function wire(): void {
       // and cancel-from-now + setValueAtTime(g.value, now) is click-free. Only the
       // thump/chime SYNTH triggers below take `a` (starts must be strictly
       // increasing). Rebasing the ramps onto `a` popped when a is bumped ahead.
-      if (stop === undefined && flash > 0.25) {
+      if (stop === undefined && now >= stopFree && flash > 0.25) {
         const g = m.duckGain.gain;
         g.cancelScheduledValues(now);
         g.setValueAtTime(g.value, now);

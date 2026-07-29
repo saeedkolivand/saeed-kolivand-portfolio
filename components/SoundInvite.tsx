@@ -25,8 +25,11 @@ import { RANGES } from "@/issues/timeline";
  * Audio cannot be resumed without a gesture anyway, so a returning visitor who
  * said yes gets no card and the toggle they already know about.
  *
- * Presence is pure f(t) over the cover segment, like PressCta -- so scrubbing
- * back to the cover brings it back, and no timer owns anything.
+ * OPACITY is pure f(t) over the cover segment, like PressCta, so scrubbing
+ * back to the cover brings the card back and no timer owns anything. PRESENCE
+ * is not: answering unmounts it for good and the stored flag suppresses it
+ * next visit. That one-way latch is deliberate -- but 'pure f(t)' is contract
+ * language in this repo and this component does not make that guarantee.
  */
 
 const KEY = "sk.sound-invite";
@@ -113,7 +116,12 @@ export default function SoundInvite() {
       ref={box}
       // dvh, not vh: vh is the LARGE viewport on iOS, so a vh offset is
       // measured against a box 168 px taller than what is on screen.
+      // Deliberately the same z-30 as AudioToggle and later in DOM order, so on
+      // a narrow viewport the card covers the corner chip rather than fighting
+      // it. Both offer the same choice; the card is the one being asked.
       className="fixed left-1/2 z-30"
+      role="group"
+      aria-label="Turn sound on for this comic"
       style={{
         // Sits in the ink-void band at the very bottom, OVER the attract
         // prompt. At any offset high enough to clear the prompt the card lands

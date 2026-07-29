@@ -768,7 +768,7 @@ const flutterGate = new VoiceGate(); // terminal resume flutter
 const ringGate = new VoiceGate(); // neon ringSyn (fireRing primary voice)
 const washGate = new VoiceGate(); // sketch washNoise + washSine flood
 const edgeGate = new VoiceGate(); // edgeWhoosh shared: leap + edge-run + orbit-360
-const stampGate = new VoiceGate(); // stampMembrane shared: press-stamp + terminal-back-cover
+const stampGate = new VoiceGate(); // stampMembrane shared: press-stamp + spread-unfold + terminal-back-cover
 const ringSnapGate = new VoiceGate(); // ringSnap shared: fireRing + fireSignBuzz (same cascade frame)
 const gates: VoiceGate[] = [
   clackGate, partGate, hornGate, inkGate, starGate, brakeGate, chimeGate,
@@ -1207,7 +1207,18 @@ export function scoreMoments(
  * default thump/chime. Silent until scoreMoments has built the kit under an
  * enabled director -- the gesture gate is inherited.
  */
-export function beatMoment(id: string, flash: number): boolean {
+/**
+ * What a beat actually produced.
+ *
+ * `false` means the beat is not scored here and the director's default hit
+ * applies. The two truthy values distinguish the AUTHORED CUE from the synth
+ * fallback, because the hit-stop's depth depends on there being something worth
+ * exposing: dropping the whole mix by 96% to reveal a membrane thump is not the
+ * gesture, it is just silence.
+ */
+export type BeatPlayed = false | "synth" | "sample";
+
+export function beatMoment(id: string, flash: number): BeatPlayed {
   const T = TM;
   const k = kit;
   if (!T || !k) return false;
@@ -1227,7 +1238,7 @@ export function beatMoment(id: string, flash: number): boolean {
       k.coin.triggerAttackRelease("B6", 0.05, now + 0.12, 0.4);
       k.coin.triggerAttackRelease("D7", 0.05, now + 0.18, 0.4);
       k.coin.triggerAttackRelease("G7", 0.05, now + 0.24, 0.4);
-      return true;
+      return "synth";
     }
     case "press-stamp": {
       // The money moment. Layered sample plus the synth sub underneath it: the
@@ -1242,13 +1253,13 @@ export function beatMoment(id: string, flash: number): boolean {
         k.stampPaper.triggerAttackRelease(0.12, now, 0.6);
         k.stampMetal.triggerAttackRelease(0.1, now + 0.07, 0.4); // rebound tick
       }
-      return true;
+      return sampled ? "sample" : "synth";
     }
     case "press-clank": {
-      if (hit("imp.press-clank", { seed: Math.round(now * 97), at: now })) return true;
+      if (hit("imp.press-clank", { seed: Math.round(now * 97), at: now })) return "synth";
       k.clankNoise.triggerAttackRelease(0.12, now, 0.7);
       k.clankThock.triggerAttackRelease(90, 0.15, now, 0.7);
-      return true;
+      return "synth";
     }
     case "newsprint-flood": {
       k.newsMembrane.triggerAttackRelease("E1", 0.6, now, 0.6);
@@ -1262,7 +1273,7 @@ export function beatMoment(id: string, flash: number): boolean {
         gap = gap * 0.82 + 0.003 * h01(seed * 7 + i); // accelerating + jitter
         ti += Math.max(gap, 0.012);
       }
-      return true;
+      return "synth";
     }
     case "title-drop": {
       // imp.title-drop has been in the manifest, and shipped, since the bake
@@ -1276,7 +1287,7 @@ export function beatMoment(id: string, flash: number): boolean {
         k.titleClang.triggerAttackRelease(660, 0.12, now, 0.5 * v);
         k.titleCrack.triggerAttackRelease(0.03, now, 0.5 * v);
       }
-      return true;
+      return sampled ? "sample" : "synth";
     }
     case "spread-unfold": {
       // THE jaw-drop of the whole site, and until now the only registered beat
@@ -1288,7 +1299,7 @@ export function beatMoment(id: string, flash: number): boolean {
       const sampled = hit("cin.spread-unfold", { seed: 9, at: now, gain: v });
       k.stampMembrane.triggerAttackRelease(
         "D1", 0.7, stampGate.at(now, 0.8), sampled ? 0.4 * v : 0.75 * v);
-      return true;
+      return sampled ? "sample" : "synth";
     }
     case "screentone-edge-run": {
       // edgeWhoosh is shared with leap + orbit-360; gate the whole sequence on
@@ -1308,18 +1319,18 @@ export function beatMoment(id: string, flash: number): boolean {
       k.edgeWhooshBp.frequency.linearRampToValueAtTime(3000, base + 0.3);
       k.edgeWhoosh.triggerAttackRelease(0.35, base, 0.6 * v);
       k.edgeHorn.triggerAttackRelease(110, 0.3, base, 0.5 * v); // low horn
-      return true;
+      return "synth";
     }
     case "origin-portal": {
       // starBell is shared with fireStar (issue 10) -> gate the start
       k.starBell.triggerAttackRelease(440, 0.9, starGate.at(now, 0.9), 0.35); // airy pad into the tail
-      return true;
+      return "synth";
     }
     case "sketch-print-run": {
       const kp = kachGate.at(now, 0.3); // kachPop shared across cases + helpers
       k.kachPopLp.frequency.rampTo(500, 0.02, kp);
       k.kachPop.triggerAttackRelease(0.4, kp, 0.35); // near-silent roller finish
-      return true;
+      return "synth";
     }
     case "terminal-back-cover": {
       // stampMembrane + kachPop both shared -> gate each in its own family
@@ -1327,7 +1338,7 @@ export function beatMoment(id: string, flash: number): boolean {
       const kp = kachGate.at(now, 0.3);
       k.kachPopLp.frequency.rampTo(300, 0.02, kp);
       k.kachPop.triggerAttackRelease(0.3, kp, 0.4); // "fwump"
-      return true;
+      return "synth";
     }
     case "pop-orbit-360": {
       const base = edgeGate.at(now, 0.6); // shares edgeWhoosh w/ edge-run + leap
@@ -1336,10 +1347,10 @@ export function beatMoment(id: string, flash: number): boolean {
       k.edgeWhooshBp.frequency.linearRampToValueAtTime(2500, base + 0.25);
       k.edgeWhooshBp.frequency.linearRampToValueAtTime(500, base + 0.5);
       k.edgeWhoosh.triggerAttackRelease(0.5, base, 0.6);
-      return true;
+      return "synth";
     }
     case "neon-cascade":
-      return true; // rings own the audio -- deliberate silence (visual flash stays)
+      return "synth"; // rings own the audio -- deliberate silence (visual flash stays)
     default:
       return false; // unrouted: caller plays its default thump/chime
   }

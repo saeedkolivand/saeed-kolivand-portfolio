@@ -64,10 +64,11 @@ const SLOTS = {
     cat: "ui", n: 10, seed: 1000, send: -12,
     make: (s) => R.keyThock(SR, s),
   },
-  "ui.key-space": {
-    cat: "ui", n: 3, seed: 2000, send: -12,
-    make: (s) => R.keySpace(SR, s),
-  },
+  // NO ui.key-space. The terminal accepts /[a-z0-9-]/ only, so a space is never
+  // typed and the slot was shipping three variants nothing could ever reach.
+  // Commands are single words; adding the space to the filter would put one in
+  // the buffer and stop every command matching. The recipe stays in
+  // recipes.mjs for whenever something does need a spacebar.
   "fol.paper-flip": {
     cat: "fol", n: 5, seed: 3000, send: -8,
     make: (s) => R.pageFlip(SR, s),
@@ -88,7 +89,7 @@ const SLOTS = {
     cat: "imp", n: 4, seed: 7000, send: -7,
     make: (s) => R.impact(SR, s, { material: "steel", f0: 210, subF: 70, dur: 0.9, debris: 0.2 }),
   },
-  // The site biggest jaw-drop. cin, not imp: this is a 2.6 s authored cue with
+  // The site biggest jaw-drop. cin, not imp: this is a 2.4 s authored cue with
   // its own fan and tail, not a hit, and it wants the cinematic bus level.
   "cin.spread-unfold": {
     cat: "cin", n: 1, seed: 12000, send: -5,
