@@ -1,6 +1,7 @@
 import type { Filter, Gain, Noise, Oscillator } from "tone";
 import { clamp01 } from "@/lib/shots";
 import { RANGES } from "@/issues/timeline";
+import type { ToneAudioNode } from "tone";
 import type { ToneModule } from "./types";
 import { moveTo } from "./util";
 
@@ -132,7 +133,7 @@ const DOTM = win(10, 11); // 10->11 dot-match twinkle-zip
 // ---- new gutter voices ---------------------------------------------------
 
 /** 0->1 crash-through-cover: paper burst + punch body + membrane/chirp hit. */
-function buildCrash(T: ToneModule, sfx: Gain): Voice {
+function buildCrash(T: ToneModule, sfx: ToneAudioNode): Voice {
   const w = CRASH;
   const burst = new T.Noise("white");
   const burstBp = new T.Filter(900, "bandpass");
@@ -199,7 +200,7 @@ function buildCrash(T: ToneModule, sfx: Gain): Voice {
 }
 
 /** 3->4 panel-wipe: crisp high bandpass swipe, bell x |velocity|. */
-function buildPanelWipe(T: ToneModule, sfx: Gain): Voice {
+function buildPanelWipe(T: ToneModule, sfx: ToneAudioNode): Voice {
   const w = PWIPE;
   const noise = new T.Noise("white");
   const bp = new T.Filter(1500, "bandpass");
@@ -232,7 +233,7 @@ function buildPanelWipe(T: ToneModule, sfx: Gain): Voice {
 }
 
 /** 4->5 panel-portal: ethereal glide tone + air through a delay tail (no vel gate). */
-function buildPortal(T: ToneModule, sfx: Gain): Voice {
+function buildPortal(T: ToneModule, sfx: ToneAudioNode): Voice {
   const w = PORTAL;
   const delay = new T.FeedbackDelay(0.2, 0.25);
   delay.wet.value = 0.25;
@@ -278,7 +279,7 @@ function buildPortal(T: ToneModule, sfx: Gain): Voice {
 }
 
 /** 5->6 stamp cut: ka-chunk body + metal-contact transient + pneumatic hiss. */
-function buildStamp(T: ToneModule, sfx: Gain): Voice {
+function buildStamp(T: ToneModule, sfx: ToneAudioNode): Voice {
   const w = STAMP;
   const chunk = new T.Oscillator({ frequency: 220, type: "square", volume: -8 });
   const chunkBp = new T.Filter(800, "bandpass");
@@ -332,7 +333,7 @@ function buildStamp(T: ToneModule, sfx: Gain): Voice {
 }
 
 /** 6->7 paper-tear: rising bandpass tear line (ripple texture) + late flap. */
-function buildTear(T: ToneModule, sfx: Gain): Voice {
+function buildTear(T: ToneModule, sfx: ToneAudioNode): Voice {
   const w = TEAR;
   const noise = new T.Noise("pink");
   const bp = new T.Filter(1200, "bandpass");
@@ -381,7 +382,7 @@ function buildTear(T: ToneModule, sfx: Gain): Voice {
 }
 
 /** 7->8 page-flip: early flutter flap (page catching air) + late whoosh tail. */
-function buildFlip(T: ToneModule, sfx: Gain): Voice {
+function buildFlip(T: ToneModule, sfx: ToneAudioNode): Voice {
   const w = FLIP;
   const noise = new T.Noise("pink");
   const flapBp = new T.Filter(700, "bandpass");
@@ -423,7 +424,7 @@ function buildFlip(T: ToneModule, sfx: Gain): Voice {
 }
 
 /** 9->10 ink-flood: sub swell + dark liquid gulp, resolves to true silence (no vel gate). */
-function buildInk(T: ToneModule, sfx: Gain): Voice {
+function buildInk(T: ToneModule, sfx: ToneAudioNode): Voice {
   const w = INK;
   const sub = new T.Oscillator({ frequency: 50, type: "sine", volume: -6 });
   const subLp = new T.Filter(400, "lowpass");
@@ -464,7 +465,7 @@ function buildInk(T: ToneModule, sfx: Gain): Voice {
 }
 
 /** 10->11 dot-match: twinkle partials (9Hz shimmer) + zip, resolving to a cursor sine. */
-function buildDotMatch(T: ToneModule, sfx: Gain): Voice {
+function buildDotMatch(T: ToneModule, sfx: ToneAudioNode): Voice {
   const w = DOTM;
   const pa = new T.Oscillator({ frequency: 400, type: "sine", volume: -12 });
   const pb = new T.Oscillator({ frequency: 600, type: "sine", volume: -12 });
@@ -535,7 +536,7 @@ function buildDotMatch(T: ToneModule, sfx: Gain): Voice {
  * under every per-issue bed; symmetric on back-scrub. Tremolo = one pooled LFO
  * on a gain (depth 0.5 -- a page-fan flutter, never a strobe).
  */
-function buildRiffle(T: ToneModule, sfx: Gain): Voice {
+function buildRiffle(T: ToneModule, sfx: ToneAudioNode): Voice {
   const noise = new T.Noise("pink");
   const bp = new T.Filter(1600, "bandpass");
   const trem = new T.Gain(0); // LFO-driven flutter (base 0 + LFO = [0.5, 1])
@@ -594,7 +595,7 @@ const fFreq = { v: 70 };
 const fLp = { v: 320 };
 const fBp = { v: 380 };
 
-function build(T: ToneModule, sfx: Gain): Rig {
+function build(T: ToneModule, sfx: ToneAudioNode): Rig {
   const riser = new T.Oscillator({ frequency: 70, type: "sawtooth", volume: -10 });
   const riserLp = new T.Filter(320, "lowpass");
   const riserGain = new T.Gain(0);
@@ -620,7 +621,7 @@ function build(T: ToneModule, sfx: Gain): Rig {
 /** Called once per director rAF tick while audio is enabled. */
 export function scoreTransitions(
   T: ToneModule,
-  sfx: Gain,
+  sfx: ToneAudioNode,
   t: number,
   dtSec: number,
   velocity: number,

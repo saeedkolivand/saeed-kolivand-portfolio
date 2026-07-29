@@ -1,6 +1,7 @@
 import type { Filter, FMSynth, Gain, MembraneSynth, Noise, NoiseSynth, Synth } from "tone";
 import { useScrollStore } from "@/lib/scrollStore";
 import { logFire } from "./debug";
+import type { ToneAudioNode } from "tone";
 import type { ToneModule } from "./types";
 import { hash } from "./util";
 
@@ -36,7 +37,7 @@ export type UiKind =
 
 interface Mod {
   T: ToneModule;
-  sfx: Gain;
+  sfx: ToneAudioNode;
 }
 
 interface Pool {
@@ -359,7 +360,7 @@ export function catPurr(): void {
  * gate because meow / uiSound / swish all early-return while `mod` is null,
  * and are silent post-disable via the director's out-gain ramp.
  */
-export function wireUi(T: ToneModule, sfx: Gain): void {
+export function wireUi(T: ToneModule, sfx: ToneAudioNode): void {
   mod = { T, sfx };
   if (subscribed) return;
   subscribed = true;

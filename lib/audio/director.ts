@@ -1,10 +1,12 @@
-import type { EQ3, Filter, Gain, MembraneSynth, Meter, Reverb, Synth } from "tone";
+import type { Gain, MembraneSynth, Meter, Synth } from "tone";
 import { useScrollStore } from "@/lib/scrollStore";
 import { fx } from "@/lib/fx";
 import { setBeatSound } from "@/lib/beats";
 import { clamp01 } from "@/lib/shots";
 import { RANGES } from "@/issues/timeline";
 import { audioRecipes, type AudioRecipe, type ToneModule } from "./types";
+import { buildBuses, type Buses } from "./buses";
+import { buildRooms, updateRooms } from "./rooms";
 import { scoreTransitions, stopTransitions } from "./transitions";
 import { scoreMoments, beatMoment, stopMoments } from "./moments";
 import { wireUi, uiSound } from "./ui";
@@ -17,11 +19,9 @@ import "./recipes"; // Wave B: fills the audioRecipes slots (side effect)
  * first enable so it never rides the server/initial bundle. Every Tone call
  * is wrapped: failure degrades to silence with a single console.warn.
  *
- * Chain: per-issue crossfade gains -> music bus \
- *                                                out gain -> EQ3(high -3) ->
- *        one-shots (thump/chime/meow) -> sfx bus /  Compressor -> Limiter(-1)
- *        -> destination (ceiling -9 dB). Both buses also SEND to a shared
- *        highpass -> Reverb whose return sums back into out (dry paths intact).
+ * The mix graph lives in buses.ts (six named buses -> one master chain) and
+ * the per-scene convolution rooms in rooms.ts. This file owns lifecycle and
+ * the frame loop only.
  *
  * Beat sounds ride lib/beats.ts setBeatSound, which only fires from
  * BeatRunner crossings -- reduced motion already suppresses those, so the
@@ -30,14 +30,10 @@ import "./recipes"; // Wave B: fills the audioRecipes slots (side effect)
 
 interface Master {
   T: ToneModule;
+  B: Buses;
+  /** the single fade node; enable ramps it to 1, disable to 0 */
   out: Gain;
-  eq: EQ3;
-  verbSend: Gain;
-  verbHp: Filter;
-  verb: Reverb;
-  music: Gain;
   duckGain: Gain;
-  sfx: Gain;
   meter: Meter;
   thump: MembraneSynth;
   chime: Synth;
@@ -143,49 +139,23 @@ export function disableAudio(): void {
 }
 
 function buildMaster(T: ToneModule): Master {
-  const eq = new T.EQ3({ low: 0, mid: 0, high: -3 }); // head: tame brittle square highs
-  const comp = new T.Compressor({ threshold: -18, ratio: 3 });
-  const limiter = new T.Limiter(-1);
-  const out = new T.Gain(0);
-  out.chain(eq, comp, limiter, T.getDestination());
-  T.getDestination().volume.value = -9; // master ceiling
-
-  // duckGain sits between music and out so the sidechain duck rides HERE, not
-  // on music.gain: the meter taps music PRE-duck, so ducking never pumps
-  // fx.audioPulse (the halftone-breathe shader) -- a duck must not move a visual.
-  const duckGain = new T.Gain(1).connect(out);
-  const music = new T.Gain(1).connect(duckGain);
-  const sfx = new T.Gain(1).connect(out);
-  const meter = new T.Meter({ smoothing: 0.9, normalRange: true });
-  music.connect(meter); // pre-duck tap: visual meter stays clean
-
-  // Shared reverb SEND (not insert): both buses also feed a common send whose
-  // return sums back into `out`; the dry music/sfx -> out paths are untouched.
-  // Music feeds the send POST-duck (from duckGain) so the reverb tail ducks
-  // with the bed; sfx feeds it dry. Send gain rides at 0 until the async IR
-  // generates, then eases to 0.18; if generation fails we warn and stay fully
-  // dry (mix unaffected either way).
-  const verbSend = new T.Gain(0);
-  duckGain.connect(verbSend);
-  sfx.connect(verbSend);
-  const verbHp = new T.Filter(250, "highpass");
-  const verb = new T.Reverb({ decay: 2.2, preDelay: 0.02, wet: 1 });
-  verbSend.chain(verbHp, verb, out);
-  void verb.ready.then(() => verbSend.gain.rampTo(0.18, 0.5)).catch(warn);
+  const B = buildBuses(T);
+  buildRooms(B);
 
   const thump = new T.MembraneSynth({
     pitchDecay: 0.08,
     octaves: 5,
     envelope: { attack: 0.002, decay: 0.4, sustain: 0, release: 0.1 },
     volume: -6,
-  }).connect(sfx);
+  }).connect(B.in.hardfx);
   const chime = new T.Synth({
     oscillator: { type: "fattriangle", count: 3, spread: 14 },
     envelope: { attack: 0.02, decay: 0.25, sustain: 0, release: 0.3 },
     volume: -18,
-  }).connect(sfx);
+  }).connect(B.in.ui);
+
   channels = audioRecipes.map(() => null);
-  return { T, out, eq, verbSend, verbHp, verb, music, duckGain, sfx, meter, thump, chime };
+  return { T, B, out: B.out, duckGain: B.duckGain, meter: B.meter, thump, chime };
 }
 
 /** One-time subscriptions (survive disable; guarded by `enabled`). */
@@ -232,7 +202,7 @@ function wire(): void {
   });
   // package C (ui) installs the meow-variety + jump-land subscriptions on the
   // sfx bus; both inherit the gesture gate (mod set here, post-enable).
-  wireUi(m0.T, m0.sfx);
+  wireUi(m0.T, m0.B.in.ui);
 }
 
 /** 1 inside the issue's range, linear falloff to 0 across FALLOFF outside. */
@@ -267,7 +237,7 @@ function loop(now: number): void {
       if (Math.abs(i - activeIssue) <= 1) {
         if (!ch) {
           // lazy build on first entry into the active window
-          const gain = new m.T.Gain(0).connect(m.music);
+          const gain = new m.T.Gain(0).connect(m.B.in.music);
           recipe.build(m.T).connect(gain);
           ch = { recipe, gain, started: false, lastG: 0 };
           channels[i] = ch;
@@ -287,9 +257,11 @@ function loop(now: number): void {
       }
     }
     // scored transitions: pure f(t, velocity) on the sfx bus (single call site)
-    scoreTransitions(m.T, m.sfx, t, dt, velocity);
+    scoreTransitions(m.T, m.B.in.hardfx, t, dt, velocity);
     // scene reactions (package B): diegetic moments, single call site
-    scoreMoments(m.T, m.sfx, t, dt, velocity);
+    scoreMoments(m.T, m.B.in.foley, t, dt, velocity);
+    // per-scene room morph: pure f(t), crossfaded across each gutter
+    updateRooms(t, now);
     // music-bus envelope for the halftone breathe (consumers scale it down)
     const v = m.meter.getValue();
     fx.audioPulse = Math.min(1, Math.max(0, typeof v === "number" ? v : (v[0] ?? 0)));

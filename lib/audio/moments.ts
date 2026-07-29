@@ -14,6 +14,7 @@ import type {
 import { clamp01 } from "@/lib/shots";
 import { useScrollStore } from "@/lib/scrollStore";
 import { RANGES } from "@/issues/timeline";
+import type { ToneAudioNode } from "tone";
 import type { ToneModule } from "./types";
 import { h01, hash, moveTo } from "./util";
 import { fireMeowVoice } from "./ui";
@@ -261,7 +262,7 @@ interface Kit {
   boopSyn: Synth;
 }
 
-function buildKit(T: ToneModule, sfx: Gain): Kit {
+function buildKit(T: ToneModule, sfx: ToneAudioNode): Kit {
   // -- desk keycap clacks
   const clackNoise = new T.NoiseSynth({
     noise: { type: "white" },
@@ -1004,7 +1005,7 @@ function fireBoop(k: Kit, now: number): void {
 /** Called once per director rAF tick while audio is enabled. */
 export function scoreMoments(
   T: ToneModule,
-  sfx: Gain,
+  sfx: ToneAudioNode,
   t: number,
   dtSec: number,
   velocity: number,
