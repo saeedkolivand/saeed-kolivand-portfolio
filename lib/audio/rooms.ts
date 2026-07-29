@@ -92,6 +92,14 @@ const FADE_S = 0.12;
  * table synchronously, so doing it while the gain is still ramping down is
  * audible as a click.
  */
+/**
+ * Minimum |velocity| that re-aims the preload. Below this the last decisive
+ * direction is kept, so a scroll settling to rest cannot thrash the swap.
+ */
+const PRELOAD_EPS = 0.05;
+/** Floor between two PRELOAD swaps. Gutter swaps are never rate-limited. */
+const PRELOAD_COOLDOWN_MS = 400;
+
 const SILENT_MS = 220;
 /** Further wait before the convolver input is disconnected entirely. */
 const QUIET_STOP_MS = 300;
@@ -123,6 +131,10 @@ let algo: Freeverb | null = null;
 let algoGain: Gain | null = null;
 const algoState = { v: 0 };
 let B: Buses | null = null;
+/** Latched preload direction, +1 forward. See PRELOAD_EPS. */
+let preloadDir = 1;
+/** performance.now() of the last preload swap, for the cooldown. */
+let lastPreload = -1e9;
 let disabled = false;
 
 /**
@@ -309,6 +321,17 @@ export function updateRooms(t: number, now: number): void {
     if (from - 1 >= 0) ensureIR(from - 1, sr);
   }
 
+  // Re-aim the preload only on a DECISIVE move. Velocity dithers through zero
+  // at rest and at the tail of every eased Lenis scroll, and a bare sign test
+  // therefore flips the preload target on each crossing -- and each flip is a
+  // full swap, because the idle slot is permanently `silent` (its committed
+  // gain never leaves 0, so zeroSince is stamped once and never cleared).
+  // A swap builds a fresh ConvolverNode and assigns its buffer, which
+  // synchronously constructs the FFT partition table for an impulse response
+  // up to 3.27 s long, then disposes the old node. On the main thread, on an
+  // unbounded number of frames, for a slot that is silent and disconnected.
+  if (Math.abs(velocity) > PRELOAD_EPS) preloadDir = velocity < 0 ? -1 : 1;
+
   const gFrom = Math.cos((x * Math.PI) / 2);
   const gTo = Math.sin((x * Math.PI) / 2);
 
@@ -317,6 +340,7 @@ export function updateRooms(t: number, now: number): void {
     // parity: even issues live in slot 0, odd in slot 1
     let want = from % 2 === s ? from : to % 2 === s ? to : -1;
     const target = want === -1 ? 0 : want === from ? gFrom : gTo;
+    let preload = false;
 
     // PRELOAD. While settled inside a scene the opposite-parity slot is idle,
     // and the next room has exactly that parity -- so its buffer can be loaded
@@ -325,20 +349,32 @@ export function updateRooms(t: number, now: number): void {
     // partition table synchronously, which is the expensive half, and the
     // fresh-Convolver requirement made it slightly more expensive still.
     // Silent target, so this never affects what is audible at any t.
-    if (want === -1 && to === from) {
-      // Direction-aware: preloading only forward would make every BACKWARD
-      // gutter strictly more expensive than before this optimisation, since
-      // the slot would then be holding the wrong neighbour. Velocity is
-      // already read above for the tier.
-      const next = velocity < 0 ? from - 1 : from + 1;
+    if (want === -1 && to === from && Math.abs(velocity) < PRELOAD_EPS) {
+      // SETTLED ONLY, and LATCHED. Two guards, because the failure was two
+      // things at once. from-1 and from+1 both have this idle slot's parity, so
+      // the parity test accepts either and the sign of velocity was the only
+      // thing choosing between them -- while `settled` was never checked at all,
+      // despite the comment above saying that is the case this exists for.
+      //
+      // Preloading is an optimisation for a frame with budget to spare, so it
+      // now runs only when the scroll is actually at rest, and aims at the
+      // direction of the last DECISIVE move rather than at whatever sign the
+      // velocity happens to be dithering on this frame.
+      const next = from + preloadDir;
       if (next >= 0 && next < ROOMS.length && ((next % 2) + 2) % 2 === s) want = next;
+      preload = true;
     }
 
     // Silent means the TARGET has been zero long enough for the ramp to have
     // finished, not merely that the target is zero this frame.
     const silent = slot.committed === 0 && slot.zeroSince !== 0 && now - slot.zeroSince > SILENT_MS;
 
-    if (want !== -1 && slot.issue !== want && silent) {
+    // A preload swap is an OPTIMISATION and may be skipped; a gutter swap is
+    // correctness and may not. Only the former is rate-limited.
+    const maySwap = !preload || now - lastPreload > PRELOAD_COOLDOWN_MS;
+
+    if (want !== -1 && slot.issue !== want && silent && maySwap) {
+      if (preload) lastPreload = now;
       const buf = cache?.get(want);
       if (buf) {
         try {
@@ -409,7 +445,10 @@ export function disposeRooms(): void {
   if (slots) {
     for (const s of slots) {
       try {
-        if (s.connected) B?.roomIn.disconnect(s.conv);
+        // roomOut, not roomIn: every connect goes through the post-highpass
+        // node, so disconnecting from roomIn silently does nothing and leaves
+        // a disposed convolver wired into the live graph.
+        if (s.connected) B?.roomOut.disconnect(s.conv);
         s.conv.dispose();
         s.gain.dispose();
       } catch {

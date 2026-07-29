@@ -136,8 +136,21 @@ export function enableAudio(): void {
     const T = master ? master.T : await import("tone");
     await T.start(); // unlock -- initiated from the gesture's task
     if (session !== mySession) return; // disabled mid-flight
-    // default lookAhead (100ms) makes beat hits lag their visual flash
-    T.getContext().lookAhead = 0.02;
+    // Tone's DEFAULT lookAhead, deliberately restored.
+    //
+    // This was 0.02, cut from the default 0.1 so beat hits would not lag their
+    // visual flash. That is a 5x cut in the scheduling headroom every automation
+    // and every source start in this engine is resolved against -- and Tone's
+    // setter also halves updateInterval as a side effect, so the scheduling loop
+    // runs twice as often with a fifth of the margin. Any main-thread stall
+    // longer than 20 ms then lands events late, which is heard as continuous
+    // distortion rather than an occasional click. It survived only on whichever
+    // browser had the least main-thread jitter.
+    //
+    // The flash/hit offset is real but it is the SMALLER problem, and shrinking
+    // the audio budget is the wrong side to fix it on: the correct fix is to
+    // delay the visual by the lookahead, not to starve the scheduler.
+    T.getContext().lookAhead = 0.1;
     if (!master) master = buildMaster(T);
     wire();
     master.out.gain.rampTo(1, 0.1);
