@@ -4,14 +4,21 @@ import type { ToneModule } from "./types";
 /**
  * Sample bank: fetch, decode, keep.
  *
- * Deliberately loads the WHOLE manifest on first enable rather than windowing
- * per scene. The engine plan called for a lazy `activeIssue +/- 1` window with
- * eviction, and that is the right shape once the beds land -- twelve stereo
- * ambience loops is where decoded memory starts to matter. Today the entire
- * manifest is ~1.1 MB encoded, so windowing would be scheduling machinery, a
- * cache-miss path and an eviction policy in service of a problem that does not
- * exist. The decoded-byte accounting below is here so the moment it does start
- * to matter is measurable rather than guessed at.
+ * Loads the whole manifest on first enable rather than windowing per scene --
+ * with ONE exception, the score.
+ *
+ * The encoded payload is small (~9.9 MB), but the number that bites is DECODED:
+ * 4 bytes * channels * length, held for the session. The three 120 s mono score
+ * stems alone are ~69 MB of Float32 PCM at a 48 kHz context, which dwarfs
+ * everything else in the manifest put together. So the score is skipped
+ * entirely on the low tier, where a tablet is already carrying the WebGL scene
+ * and mobile Safari will evict the tab rather than negotiate.
+ *
+ * Everything else stays eager: the whole non-music manifest is ~1.3 MB encoded
+ * and a few MB decoded, so windowing it would be scheduling machinery, a
+ * cache-miss path and an eviction policy for a problem that does not exist.
+ * bankBytes() reports the real decoded figure so that judgement stays
+ * measurable rather than assumed.
  *
  * Nothing here blocks: a hit whose buffer has not arrived returns false and the
  * caller falls through to its synth path, so the site is audible from the first
@@ -58,11 +65,14 @@ function loadOrder(): { name: string; variant: number; path: string }[] {
 }
 
 /** Idempotent; safe to call on every enable. */
-export function loadBank(T: ToneModule): void {
+export function loadBank(T: ToneModule, skipScore = false): void {
   if (started) return;
   started = true;
 
-  const queue = loadOrder();
+  // The SCORE slots specifically, not the whole `mus` category: a future
+  // music slot should not silently vanish on the low tier because it shares
+  // a prefix with the one thing that was measured and deliberately dropped.
+  const queue = loadOrder().filter((q) => !(skipScore && q.name.startsWith("mus.score-")));
   let next = 0;
 
   const worker = async (): Promise<void> => {

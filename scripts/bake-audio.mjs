@@ -48,7 +48,10 @@ const CATEGORIES = {
   imp: { bus: "hardfx", ch: 1, kbps: 128, lufs: null, gain: 0, loop: false },
   cin: { bus: "hardfx", ch: 1, kbps: 128, lufs: null, gain: -1, loop: false },
   amb: { bus: "ambience", ch: 2, kbps: 192, lufs: -31, gain: 0, loop: true },
-  mus: { bus: "music", ch: 2, kbps: 192, lufs: -23, gain: 0, loop: true },
+  // MONO. Three 120 s stereo stems decode to ~138 MB of Float32 PCM and are
+  // held for the session; mono halves that. Vertical layers rarely need
+  // per-stem width anyway -- the room send supplies it.
+  mus: { bus: "music", ch: 1, kbps: 160, lufs: -23, gain: 0, loop: true },
 };
 
 /**
@@ -84,6 +87,28 @@ const SLOTS = {
   "imp.press-clank": {
     cat: "imp", n: 4, seed: 7000, send: -7,
     make: (s) => R.impact(SR, s, { material: "steel", f0: 210, subF: 70, dur: 0.9, debris: 0.2 }),
+  },
+  // The score. One ACE-Step cue split by Demucs, so the three layers share key,
+  // tempo and phase by construction. vocals is dropped: the cue is instrumental
+  // and that stem came out at -42 dBFS.
+  //
+  // `send` is inert for these three: score.ts connects them to the music bus
+  // and they reach the rooms through the bed send, as a bed should. The values
+  // are kept only so every slot in the manifest has the same shape.
+  "mus.score-bass": {
+    group: "score",
+    cat: "mus", n: 1, seed: 20000, send: -18,
+    file: "assets/audio-src/raw/score-bass.wav",
+  },
+  "mus.score-drums": {
+    group: "score",
+    cat: "mus", n: 1, seed: 20100, send: -16,
+    file: "assets/audio-src/raw/score-drums.wav",
+  },
+  "mus.score-other": {
+    group: "score",
+    cat: "mus", n: 1, seed: 20200, send: -13,
+    file: "assets/audio-src/raw/score-other.wav",
   },
   "amb.rain": {
     cat: "amb", n: 1, seed: 8000, send: -14,
@@ -135,7 +160,7 @@ const isReport = args.includes("--report");
  * non-reproducible and breaks --check. Measuring first and then applying a
  * fixed correction gives a deterministic, static gain.
  */
-function loudnormPass(wav, targetI) {
+function measureLoudness(wav, targetI) {
   const base = `loudnorm=I=${targetI}:TP=-1.5:LRA=11`;
   // ffmpeg prints the measurement JSON to STDERR, not stdout, and exits 0 --
   // so this has to read stderr explicitly rather than rely on a thrown error.
@@ -147,10 +172,37 @@ function loudnormPass(wav, targetI) {
   const text = (res.stderr || "") + (res.stdout || "");
   const j = text.match(/\{[\s\S]*?\}/g);
   if (!j || !j.length) throw new Error("loudnorm measurement failed: " + text.slice(-500));
-  const m = JSON.parse(j[j.length - 1]);
+  return { base, m: JSON.parse(j[j.length - 1]) };
+}
+
+function loudnormPass(wav, targetI) {
+  const { base, m } = measureLoudness(wav, targetI);
   return `${base}:measured_I=${m.input_i}:measured_TP=${m.input_tp}` +
     `:measured_LRA=${m.input_lra}:measured_thresh=${m.input_thresh}` +
     `:offset=${m.target_offset}:linear=true`;
+}
+
+/**
+ * Decode any file ffmpeg can read into planar Float32 channels. This is the
+ * bridge for the GENERATED half of the pipeline -- ComfyUI renders and Demucs
+ * stems come in as files, code recipes come in as arrays, and bakeSlot treats
+ * them identically from here on.
+ */
+function readAudio(path, ch) {
+  const raw = execFileSync(
+    "ffmpeg",
+    ["-v", "error", "-i", path, "-f", "f32le", "-ar", String(SR), "-ac", String(ch), "-"],
+    { encoding: "buffer", maxBuffer: 1 << 30 },
+  );
+  // Copy when the Buffer is not 4-aligned: the Float32Array view requires it,
+  // and Node only happens to hand back offset-0 buffers at these sizes.
+  const aligned = raw.byteOffset % 4 === 0 ? raw : Buffer.from(raw);
+  const inter = new Float32Array(
+    aligned.buffer, aligned.byteOffset, Math.floor(aligned.length / 4));
+  const n = Math.floor(inter.length / ch);
+  const out = Array.from({ length: ch }, () => new Float32Array(n));
+  for (let i = 0; i < n; i++) for (let c = 0; c < ch; c++) out[c][i] = inter[i * ch + c];
+  return out;
 }
 
 function ffmpeg(argv) {
@@ -181,6 +233,65 @@ const ascii = (s) => {
 
 // ---------------------------------------------------------------------- bake
 
+/**
+ * Shared gain for a stem group, measured on the SUM of its members.
+ *
+ * The three score stems come from ONE cue, so their sum IS that cue. Baking
+ * them as independent slots would peak-normalise and loudnorm each one against
+ * itself -- and a sparse, transient-heavy drums stem measures far quieter than
+ * a pad-heavy one, so that lifts drums by many dB relative to where the model
+ * put it. Splitting one cue buys shared key, tempo, phase AND BALANCE; per-stem
+ * normalisation keeps the first three and throws the fourth away, so the
+ * arrangement's all-1.0 peak would no longer reconstruct the original mix.
+ */
+const groupGains = new Map();
+
+function groupGain(group, members, cat) {
+  const cached = groupGains.get(group);
+  if (cached !== undefined) return cached;
+
+  // Read every member first so the sum can be sized to the LONGEST of them.
+  // Sizing it from member 0 would silently measure a truncated sum, and
+  // mis-gain the whole group, the moment a group holds unequal lengths.
+  const all = members.map((spec) => readAudio(spec.file, cat.ch));
+  const n = Math.max(0, ...all.map((chans) => chans[0].length));
+  const sum = Array.from({ length: cat.ch }, () => new Float32Array(n));
+  for (const chans of all) {
+    for (let c = 0; c < cat.ch; c++) {
+      const src = chans[c] || chans[0];
+      const dst = sum[c];
+      for (let i = 0; i < src.length; i++) dst[i] += src[i];
+    }
+  }
+
+  let peak = 0;
+  for (const c of sum) for (let i = 0; i < n; i++) peak = Math.max(peak, Math.abs(c[i]));
+  const ceiling = peak > 0 ? 0.97 / peak : 1;
+
+  // LOUDNESS ANCHOR. Skipping per-file loudnorm was right -- it is exactly the
+  // rebalancing this group exists to prevent -- but peak-only normalisation
+  // leaves the score's absolute level set by the cue's crest factor, so a
+  // re-rolled seed would land at a different perceived level against the -31
+  // LUFS beds with nothing to notice it. Measuring ONCE on the sum and applying
+  // that single linear correction to every member keeps the balance intact and
+  // the category's declared target live: a linear gain moves integrated
+  // loudness by exactly its own dB, so the sum lands on target by construction.
+  let g = ceiling;
+  if (cat.lufs !== null) {
+    mkdirSync(TMP, { recursive: true });
+    const wav = join(TMP, `group-${group}.wav`);
+    writeWav(wav, sum, SR);
+    const { m } = measureLoudness(wav, cat.lufs);
+    rmSync(wav, { force: true });
+    // Peak still wins if the anchor would clip -- a limiter here would undo
+    // the balance the group was built to protect.
+    g = Math.min(Math.pow(10, (cat.lufs - parseFloat(m.input_i)) / 20), ceiling);
+  }
+
+  groupGains.set(group, g);
+  return g;
+}
+
 function bakeSlot(id, spec) {
   const cat = CATEGORIES[spec.cat];
   if (!cat) throw new Error(`slot ${id}: unknown category ${spec.cat}`);
@@ -193,7 +304,7 @@ function bakeSlot(id, spec) {
   const rendered = [];
   let groupPeak = 0;
   for (let i = 0; i < spec.n; i++) {
-    const sig = spec.make(spec.seed + i, i);
+    const sig = spec.file ? readAudio(spec.file, cat.ch) : spec.make(spec.seed + i, i);
     const chans = Array.isArray(sig) ? sig : [sig];
     for (const c of chans) for (let j = 0; j < c.length; j++) {
       const a = Math.abs(c[j]);
@@ -205,7 +316,15 @@ function bakeSlot(id, spec) {
   // Group normalisation. Level variation BETWEEN round robins is the point --
   // normalising each file to its own peak flattens it and is the classic way
   // to make a sample set sound dead.
-  const g = groupPeak > 0 ? 0.97 / groupPeak : 1;
+  //
+  // A `group` widens that from round robins to SIBLING SLOTS: stems split from
+  // one cue must keep their relative balance, so one gain measured on their sum
+  // is applied to all of them.
+  const g = spec.group
+    ? groupGain(spec.group, Object.values(SLOTS).filter((x) => x.group === spec.group), cat)
+    : groupPeak > 0
+      ? 0.97 / groupPeak
+      : 1;
 
   const variants = [];
   for (let i = 0; i < spec.n; i++) {
@@ -218,7 +337,10 @@ function bakeSlot(id, spec) {
     // Force the declared channel count: a mono category must not ship stereo.
     writeWav(wav, cat.ch === 2 && chans.length === 1 ? [chans[0], chans[0]] : chans.slice(0, cat.ch), SR);
 
-    const af = cat.lufs === null ? [] : ["-af", loudnormPass(wav, cat.lufs)];
+    // Grouped slots skip loudnorm entirely: it measures per file, which is the
+    // exact rebalancing the group gain exists to prevent.
+    const af =
+      cat.lufs === null || spec.group ? [] : ["-af", loudnormPass(wav, cat.lufs)];
     ffmpeg(["-i", wav, ...af, "-c:a", "aac", "-b:a", `${cat.kbps}k`, "-ac", String(cat.ch), m4a]);
     rmSync(wav, { force: true });
 
