@@ -9,6 +9,7 @@ import { buildBuses, type Buses } from "./buses";
 import { buildRooms, updateRooms } from "./rooms";
 import { loadBank } from "./bank";
 import { buildOneshot, stopOneshots } from "./oneshot";
+import { buildScore, updateScore, stopScore } from "./score";
 import { scoreTransitions, stopTransitions } from "./transitions";
 import { scoreMoments, beatMoment, stopMoments } from "./moments";
 import { wireUi, uiSound } from "./ui";
@@ -132,6 +133,7 @@ export function disableAudio(): void {
         stopTransitions();
         stopMoments();
         stopOneshots();
+        stopScore();
       } catch (e) {
         warn(e);
       }
@@ -147,6 +149,7 @@ function buildMaster(T: ToneModule): Master {
   // Sample layer. loadBank is fire-and-forget: every hit() falls through to
   // its synth voice until the buffer lands, so nothing waits on the network.
   buildOneshot(T, B, useScrollStore.getState().quality === "low");
+  buildScore(T, B);
   loadBank(T);
 
   const thump = new T.MembraneSynth({
@@ -269,6 +272,8 @@ function loop(now: number): void {
     scoreMoments(m.T, m.B.in.foley, t, dt, velocity);
     // per-scene room morph: pure f(t), crossfaded across each gutter
     updateRooms(t, now);
+    // adaptive score: wall-clock loop, layer gains as f(t, velocity)
+    updateScore(t, velocity, m.T.now());
     // music-bus envelope for the halftone breathe (consumers scale it down)
     const v = m.meter.getValue();
     fx.audioPulse = Math.min(1, Math.max(0, typeof v === "number" ? v : (v[0] ?? 0)));

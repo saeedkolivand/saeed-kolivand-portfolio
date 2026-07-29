@@ -1,0 +1,29 @@
+{
+  "note": "Score cues for the adaptive soundtrack. Committed so a regeneration is reproducible rather than a fishing trip: model, tags, seed and duration are the artifact, not just the prompt. Baked by scripts/bake-score.mjs; raw renders stay gitignored under assets/audio-src/raw/.",
+  "model": "ace_step_v1_3.5b.safetensors",
+  "license": "Apache-2.0",
+  "musical": {
+    "bpm": 90,
+    "key": "D minor",
+    "why": "One tempo and one key centre across the whole scroll, so the eleven gutters land musically instead of as twelve unrelated islands. D minor sits low enough for the sub layer to have room and dark enough for the noir and press scenes, and the phrygian colour on the neon ring scale already lives in moments.ts.",
+    "tempoIsAHint": "ACE-Step v1's text encoder has no bpm input -- that belongs to the 1.5 node, which needs a checkpoint we are not using. Tempo is requested in the tags and is a strong hint, not a lock. This is exactly why ONE cue is generated and split into stems, rather than several cues generated and hoped to agree."
+  },
+  "cues": [
+    {
+      "id": "main",
+      "seconds": 120,
+      "seed": 424242,
+      "steps": 60,
+      "cfg": 5,
+      "tags": "instrumental, cinematic hybrid score, 90 bpm, D minor, noir electronic, warm analog synth pads, deep sub bass pulse, brushed percussion, felt piano, tape saturation, restrained and patient, slow build, no vocals, no speech",
+      "lyrics": "",
+      "intent": "The single master cue. Demucs splits it into drums / bass / other / vocals; the first three become the vertical layers the scroll mixes. Generating ONE cue is what guarantees the layers share key, tempo and phase -- four separate cues would not line up."
+    }
+  ],
+  "stems": {
+    "splitter": "Demucs (audio-separation-nodes-comfyui)",
+    "layers": ["drums", "bass", "other"],
+    "vocalsExpected": "near-silent; the cue is instrumental. Dropped at bake time if its RMS is below the gate.",
+    "mixLaw": "Wall-clock locked, gain-mixed by t. NOT scrubbed: real music has rhythmic identity and scrubbing it by scroll position sounds like a turntable. The cue loops on its own clock; only the layer GAINS are a pure function of t, velocity and activeIssue, which is standard game vertical layering and scrub-safe by construction."
+  }
+}

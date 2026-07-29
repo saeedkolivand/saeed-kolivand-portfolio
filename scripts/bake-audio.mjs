@@ -85,6 +85,21 @@ const SLOTS = {
     cat: "imp", n: 4, seed: 7000, send: -7,
     make: (s) => R.impact(SR, s, { material: "steel", f0: 210, subF: 70, dur: 0.9, debris: 0.2 }),
   },
+  // The score. One ACE-Step cue split by Demucs, so the three layers share key,
+  // tempo and phase by construction. vocals is dropped: the cue is instrumental
+  // and that stem came out at -42 dBFS.
+  "mus.score-bass": {
+    cat: "mus", n: 1, seed: 20000, send: -18,
+    file: "assets/audio-src/raw/score-bass.wav",
+  },
+  "mus.score-drums": {
+    cat: "mus", n: 1, seed: 20100, send: -16,
+    file: "assets/audio-src/raw/score-drums.wav",
+  },
+  "mus.score-other": {
+    cat: "mus", n: 1, seed: 20200, send: -13,
+    file: "assets/audio-src/raw/score-other.wav",
+  },
   "amb.rain": {
     cat: "amb", n: 1, seed: 8000, send: -14,
     make: (s) => R.rain(SR, s, 10, 2400),
@@ -153,6 +168,25 @@ function loudnormPass(wav, targetI) {
     `:offset=${m.target_offset}:linear=true`;
 }
 
+/**
+ * Decode any file ffmpeg can read into planar Float32 channels. This is the
+ * bridge for the GENERATED half of the pipeline -- ComfyUI renders and Demucs
+ * stems come in as files, code recipes come in as arrays, and bakeSlot treats
+ * them identically from here on.
+ */
+function readAudio(path, ch) {
+  const raw = execFileSync(
+    "ffmpeg",
+    ["-v", "error", "-i", path, "-f", "f32le", "-ar", String(SR), "-ac", String(ch), "-"],
+    { encoding: "buffer", maxBuffer: 1 << 30 },
+  );
+  const inter = new Float32Array(raw.buffer, raw.byteOffset, raw.length / 4);
+  const n = Math.floor(inter.length / ch);
+  const out = Array.from({ length: ch }, () => new Float32Array(n));
+  for (let i = 0; i < n; i++) for (let c = 0; c < ch; c++) out[c][i] = inter[i * ch + c];
+  return out;
+}
+
 function ffmpeg(argv) {
   try {
     return execFileSync("ffmpeg", ["-y", "-v", "error", ...argv], { encoding: "utf8" });
@@ -193,7 +227,7 @@ function bakeSlot(id, spec) {
   const rendered = [];
   let groupPeak = 0;
   for (let i = 0; i < spec.n; i++) {
-    const sig = spec.make(spec.seed + i, i);
+    const sig = spec.file ? readAudio(spec.file, cat.ch) : spec.make(spec.seed + i, i);
     const chans = Array.isArray(sig) ? sig : [sig];
     for (const c of chans) for (let j = 0; j < c.length; j++) {
       const a = Math.abs(c[j]);
