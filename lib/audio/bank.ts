@@ -7,10 +7,10 @@ import type { ToneModule } from "./types";
  * Loads the whole manifest on first enable rather than windowing per scene --
  * with ONE exception, the score.
  *
- * The encoded payload is small (~9.9 MB), but the number that bites is DECODED:
- * 4 bytes * channels * length, held for the session. The three 120 s mono score
- * stems alone are ~69 MB of Float32 PCM at a 48 kHz context, which dwarfs
- * everything else in the manifest put together. So the score is skipped
+ * The encoded payload is small (~4.1 MB), but the number that bites is DECODED:
+ * 4 bytes * channels * length, held for the session. The 120 s stereo score cue
+ * alone is ~46 MB of Float32 PCM at a 48 kHz context, which dwarfs everything
+ * else in the manifest put together. So the score is skipped
  * entirely on the low tier, where a tablet is already carrying the WebGL scene
  * and mobile Safari will evict the tab rather than negotiate.
  *
@@ -69,10 +69,10 @@ export function loadBank(T: ToneModule, skipScore = false): void {
   if (started) return;
   started = true;
 
-  // The SCORE slots specifically, not the whole `mus` category: a future
-  // music slot should not silently vanish on the low tier because it shares
-  // a prefix with the one thing that was measured and deliberately dropped.
-  const queue = loadOrder().filter((q) => !(skipScore && q.name.startsWith("mus.score-")));
+  // The SCORE slot specifically, not the whole `mus` category: a future music
+  // slot should not silently vanish on the low tier because it shares a
+  // category with the one thing that was measured and deliberately dropped.
+  const queue = loadOrder().filter((q) => !(skipScore && q.name === "mus.score"));
   let next = 0;
 
   const worker = async (): Promise<void> => {

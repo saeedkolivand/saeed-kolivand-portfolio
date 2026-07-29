@@ -1,52 +1,31 @@
 {
-  "note": "Score cues for the adaptive soundtrack. Committed so a regeneration is reproducible rather than a fishing trip: model, tags, seed, steps and key are the artifact, not just the prompt. Baked by scripts/bake-audio.mjs; raw renders stay gitignored under assets/audio-src/raw/.",
-  "model": "acestep_v1.5_turbo.safetensors",
-  "license": "MIT (ACE-Step 1.5 code and weights); model card permits commercial use of generated music",
+  "note": "Score cue for the soundtrack. Committed so a regeneration is reproducible rather than a fishing trip: model, prompt, seed, steps and sampler are the artifact, not just the idea. Rendered by scripts/render-score.mjs, baked by scripts/bake-audio.mjs; raw renders stay gitignored under assets/audio-src/raw/.",
+  "model": "stable_audio_3_medium.safetensors (Stable Audio 3 Medium, distilled)",
+  "textEncoder": "t5gemma_b_b_ul2.safetensors",
+  "license": "Stability AI Community License -- free for research, personal and commercial use under 1M USD annual revenue.",
   "musical": {
     "bpm": 74,
     "key": "B flat major",
     "camelot": "6B",
-    "why": "Owner's direction: sparse, emotional, moving lo-fi instrumental -- not crowded, minimal effects. Camelot 6A is G MINOR, so the major at wheel position 6 is 6B, B flat major, which is 6A's relative major and stays compatible with it either way. 74 bpm is lo-fi tempo: unhurried enough that the quiet scenes breathe, steady enough to anchor a scroll. On 1.5 bpm and keyscale are REAL conditioning inputs rather than prompt hints, which is what retires the old tempoIsAHint caveat.",
-    "attack": "The percussion must carry ATTACK even though the genre is soft. The scroll has no other rhythmic anchor, and fx.audioPulse drives the halftone breathe off this bus, so a cue with smeared transients gives the visual nothing to move on either. Lo-fi is band-limited and warm AROUND its transients, not mushy through them.",
-    "consequence": "The quiet valleys (cover, origin, terminal are intensity 1) were designed around a restrained bed. arrangement() in lib/audio/score.ts plays only the 'other' layer at 0.22 gain there, with bass and drums fully out. Worth an ear on the cover and the terminal specifically."
+    "why": "Owner's direction: sparse, emotional, moving lo-fi instrumental -- not crowded, minimal effects. 74 bpm is lo-fi tempo: unhurried enough that the quiet scenes breathe, steady enough to anchor a scroll. On SA3 both bpm and key are PROSE, so they are requests rather than conditioning inputs -- which costs nothing here, because nothing has to phase-lock against anything any more.",
+    "attack": "The percussion must carry ATTACK even though the genre is soft. The scroll has no other rhythmic anchor, and fx.audioPulse drives the halftone breathe off the music bus, so a cue with smeared transients gives the visual nothing to move on either. Lo-fi is band-limited and warm AROUND its transients, not mushy through them.",
+    "consequence": "The quiet valleys (cover, origin, terminal are intensity 1) were designed around a restrained bed. arrangement() in lib/audio/score.ts holds the single cue down and under a lowpass there, so the mix darkens and recedes instead of merely turning down. Worth an ear on the cover and the terminal specifically."
   },
   "cues": [
     {
       "id": "main",
       "seconds": 120,
-      "seed": 330077,
+      "seed": 740074,
       "steps": 8,
       "cfg": 1,
-      "bpm": 74,
-      "keyscale": "B flat major",
-      "timesignature": "4",
-      "language": "en",
-      "tags": "[Instrumental] lo-fi instrumental, sparse minimal trio, felt piano, upright double bass, brushed drum kit, close-miked piano with audible hammer attack, dry rim click, brushed snare with a sharp leading edge, fingertip noise on the bass strings, long silences between phrases, melancholy and hopeful, patient emotional build, dry room, minimal processing, clean defined high end, no pads, no synths, no strings, no guitar, no vocals",
-      "lyrics": "",
-      "promptNotes": "The DELETIONS matter as much as the additions. The first cue's tag list carried 'tape saturation', 'warm analog synth pads', 'restrained and patient' and 'noir electronic' -- the first two are literal instructions to remove high frequencies and supply attackless texture, the last two crowd the arrangement. Every surviving descriptor either names an instrument or names an attack.",
-      "intent": "The single master cue. Demucs splits it into drums / bass / other / vocals; the first three become the vertical layers the scroll mixes. Generating ONE cue is what guarantees the layers share key, tempo and phase -- four separate cues would not line up."
+      "sampler": "lcm",
+      "scheduler": "simple",
+      "prompt": "Sparse lo-fi instrumental trio in B flat major with a close-miked felt piano lead, warm upright double bass, and a brushed drum kit, supported by faint dry room tone and audible fingertip noise on the bass strings, with crisp rim clicks and a brushed snare with a sharp leading edge, leaving long silences between phrases for a melancholy but hopeful patient build, dry room, minimal processing, clean defined high end, no vocals, no synth pads, no strings, no guitar. BPM: 74. Length: 120 seconds",
+      "negative": "",
+      "promptNotes": "Prose, not tags: SA3 is conditioned by t5gemma on one flowing sentence, and the shipped ComfyUI template's own reprompter targets exactly this shape -- style, lead instruments, supporting layers, percussion, mood, BPM, length. The DELETIONS still matter as much as the additions: no 'tape saturation' and no 'warm analog pads', because both are literal instructions to remove high frequencies and supply attackless texture. Every surviving descriptor either names an instrument or names an attack.",
+      "intent": "The single master cue, shipped whole. NOT split into stems -- owner's call, and it is the honest one too: a Demucs split of a three-piece trio bleeds piano into the drums stem and cymbals into the bass stem, and the runtime was paying three times the decoded memory for that."
     }
   ],
-  "stems": {
-    "splitter": "Demucs (torchaudio HDEMUCS_HIGH_MUSDB_PLUS) via scripts/audio/split-stems.py",
-    "layers": [
-      "drums",
-      "bass",
-      "other"
-    ],
-    "vocalsExpected": "near-silent; the cue is instrumental. It came out at -42 dBFS and is simply not listed as a slot -- there is no automatic gate.",
-    "mixLaw": "Wall-clock locked, gain-mixed by t. NOT scrubbed: real music has rhythmic identity and scrubbing it by scroll position sounds like a turntable. The cue loops on its own clock; only the layer GAINS are a pure function of t and velocity, which is standard game vertical layering and scrub-safe by construction."
-  },
-  "modelNotes": "ACE-Step 1.5, NON-XL turbo. Three deliberate choices, each measured:\n1.5 over v1: v1's own paper concedes the defect this project measured -- it 'relies on a mel-spectrogram-based DCAE and a 32kHz monophonic vocoder', a hard 16 kHz ceiling with phase discarded and resynthesised, which is the mechanism behind the 40-60 ms smeared transient columns in the first cue. 1.5 is waveform-domain: 48 kHz stereo, 64-channel latent at 25 Hz, so a 40 ms frame grid against v1's ~93 ms mel frames.\nNON-XL over XL: XL is 9.29 GB against non-XL's 4.46 GB, and on a 24 GB card that difference is the whole 120 s decode. Measured: XL renders 15 s and 40 s in 21 s wall, then falls off a cliff -- 80 s did not finish in 9 minutes and 120 s ran 140 minutes without writing a byte. Non-XL does the full 120 s in 71 s at 12 GB. Do not 'upgrade' to XL for this duration.\nTURBO over base: base at 50 steps measured 8-16 kHz at -33.5 dBFS against 1k-4k at -40.7 -- highs 7 dB LOUDER than the mids, which no acoustic kit does, and its spectrogram shows sustained horizontal bands at ~7 kHz and ~11-13 kHz. That is the GAN shimmer 1.5 is known for, and a sparse mix has nothing to mask it. Turbo at 8 steps has a natural downward slope and clean discrete transients.",
-  "measured": {
-    "vs_v1_shipped_dBFS": {
-      "1k-4k": "-38.2 -> -31.4 (+6.8)",
-      "4k-8k": "-56.9 -> -35.3 (+21.6)",
-      "8k-16k": "-55.5 -> -40.2 (+15.3)",
-      "20-60Hz": "-17.7 -> -28.4 (-10.7, less sub-dominant)"
-    },
-    "crest_2k_8k_dB": "38.6 -> 29.6 (band occupied rather than empty with rare bursts)",
-    "topOctaveDeficit": "sub sat 39.2 dB above the 4-8k band in v1; 6.9 dB now",
-    "format": "48 kHz stereo, exactly 120.000 s (v1 was 44.1 kHz, 119.908 s)"
-  }
+  "samplerNotes": "The distilled checkpoint fixes the sampler settings rather than offering them: 8 steps, cfg 1, lcm/simple, straight off the shipped ComfyUI template (audio_stable_audio_3_medium.json). cfg 1 means the negative branch is never evaluated, so a negative prompt would be inert -- steering lives entirely in the positive prose. The non-distilled sibling (stable_audio_3_medium_base.safetensors) is also on disk and does take cfg; it is not what this cue is rendered with.",
+  "mixLaw": "Wall-clock locked, gain-mixed by t. NOT scrubbed: real music has rhythmic identity and scrubbing it by scroll position sounds like a turntable. The cue loops on its own clock; only its GAIN and lowpass cutoff are a pure function of t and velocity, which stays scrub-safe by construction."
 }

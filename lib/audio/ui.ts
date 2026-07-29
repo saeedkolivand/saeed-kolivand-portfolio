@@ -271,17 +271,32 @@ export function uiSound(kind: UiKind, seed = 0): void {
 }
 
 /**
- * The shared ME-OW voice: one pooled FMSynth + the canonical ME-OW frequency
- * contour (dip up to base*1.32, settle to base*0.82). Exported so lib/audio/
- * moments.ts fires the SAME voice for the cat sfx -- a single synth + a single
- * contour, no duplicate. Gesture-gated + pool-lazy like every ui trigger
- * (no-op until wireUi + the first ensure()).
+ * The shared cat voice. Exported so lib/audio/moments.ts fires the SAME cat as
+ * the ui triggers -- one voice, no duplicate.
+ *
+ * SAMPLE FIRST, SYNTH AS THE FALLBACK. Harley is a real cat, so she is now four
+ * real meows (`fol.meow`, generated on Stable Audio 3) and the FMSynth below is
+ * what plays in the frames before the bank lands, or on the low tier where the
+ * bank is trimmed. That is the same contract every other hit in this engine
+ * has: `hit()` returns false and the call site falls through, so a cold bank is
+ * inaudible rather than silent.
+ *
+ * `base` is the seed, not a frequency, on the sample path: the caller's own
+ * pitch choice keeps picking the caller's own round robin, so the desk cat and
+ * the cover cat stay recognisably different animals without any new state.
+ *
+ * Gesture-gated + pool-lazy like every ui trigger (no-op until wireUi + the
+ * first ensure()).
  */
 export function fireMeowVoice(now: number, base: number, harm: number): void {
   const m = mod;
   if (!m) return;
   const p = ensure();
   if (!p) return;
+  if (hit("fol.meow", { seed: Math.round(base), at: now })) {
+    logFire("meow-sample");
+    return;
+  }
   now = meowGate.at(now, 0.55); // release scheduled at now+0.38; keep the next attack after it
   if (now < 0) return; // backlog past maxLag -> drop this meow
   const s = p.meowSynth;
@@ -306,6 +321,13 @@ export function meow(count: number): void {
     return;
   }
   const now = m.T.now();
+  // The sampled cat covers the three vocal families: four real meows already
+  // carry more contour variety than three synth envelopes did, and `count`
+  // walks the round robin. The families below stay as the fallback voice.
+  if (hit("fol.meow", { seed: count, at: now })) {
+    logFire("meow-sample");
+    return;
+  }
   const s = p.meowSynth;
   const base = 480 + (h % 200);
   if (fam === 2) {
