@@ -40,7 +40,7 @@ def write_audio(path, wav, sr):
     data = wav.T.contiguous().cpu().numpy().astype(np.float32).tobytes()
     subprocess.run(
         ["ffmpeg", "-y", "-v", "error", "-f", "f32le", "-ar", str(sr),
-         "-ac", "2", "-i", "-", str(path)],
+         "-ac", "2", "-i", "-", "-c:a", "pcm_f32le", str(path)],
         check=True, input=data,
     )
 
@@ -49,12 +49,16 @@ SOURCES = ("drums", "bass", "other", "vocals")
 
 
 def separate(model, mix, device, chunk_s=10.0, overlap_s=0.1, sr=44100):
-    """Chunked separation with crossfaded overlaps, so long cues fit in VRAM."""
+    """Chunked separation so long cues fit in VRAM.
+
+    Each chunk is separated with `overlap_s` of context on both sides, then the
+    context is TRIMMED and the chunks are butt-joined. No crossfade: the overlap
+    exists to give the model lookaround, not to blend outputs.
+    """
     chunk = int(chunk_s * sr)
     over = int(overlap_s * sr)
     total = mix.shape[-1]
     out = torch.zeros(len(SOURCES), mix.shape[0], total, device="cpu")
-    win = torch.hann_window(over * 2, device=device) if over > 0 else None
 
     start = 0
     while start < total:

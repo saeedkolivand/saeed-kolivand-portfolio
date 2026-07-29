@@ -1,5 +1,5 @@
 {
-  "note": "Score cues for the adaptive soundtrack. Committed so a regeneration is reproducible rather than a fishing trip: model, tags, seed and duration are the artifact, not just the prompt. Baked by scripts/bake-score.mjs; raw renders stay gitignored under assets/audio-src/raw/.",
+  "note": "Score cues for the adaptive soundtrack. Committed so a regeneration is reproducible rather than a fishing trip: model, tags, seed and duration are the artifact, not just the prompt. Baked by scripts/bake-audio.mjs; raw renders stay gitignored under assets/audio-src/raw/.",
   "model": "ace_step_v1_3.5b.safetensors",
   "license": "Apache-2.0",
   "musical": {
@@ -24,6 +24,6 @@
     "splitter": "Demucs (audio-separation-nodes-comfyui)",
     "layers": ["drums", "bass", "other"],
     "vocalsExpected": "near-silent; the cue is instrumental. Dropped at bake time if its RMS is below the gate.",
-    "mixLaw": "Wall-clock locked, gain-mixed by t. NOT scrubbed: real music has rhythmic identity and scrubbing it by scroll position sounds like a turntable. The cue loops on its own clock; only the layer GAINS are a pure function of t, velocity and activeIssue, which is standard game vertical layering and scrub-safe by construction."
+    "mixLaw": "Wall-clock locked, gain-mixed by t. NOT scrubbed: real music has rhythmic identity and scrubbing it by scroll position sounds like a turntable. The cue loops on its own clock; only the layer GAINS are a pure function of t and velocity, which is standard game vertical layering and scrub-safe by construction."
   }
 }

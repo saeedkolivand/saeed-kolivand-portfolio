@@ -2,7 +2,7 @@ import type { Gain, ToneBufferSource } from "tone";
 import { ISSUES } from "@/issues/registry";
 import type { Buses } from "./buses";
 import { sample } from "./bank";
-import { AUDIO, type AudioName } from "./manifest";
+import type { AudioName } from "./manifest";
 import { roomBlend } from "./rooms";
 import { moveTo } from "./util";
 import type { ToneModule } from "./types";
@@ -35,7 +35,12 @@ const LAYERS = [
   { slot: "mus.score-drums" as AudioName, key: "drums" },
 ] as const;
 
-/** Equal-power crossfade at the loop seam, so the cue never clicks or dips. */
+/**
+ * Crossfade at the loop seam, so the cue never clicks. Tone's "exponential" is
+ * an exponential-approach fade, not an equal-power cos/sin pair -- close
+ * enough for two copies of the SAME correlated material, where equal-power
+ * would actually over-sum.
+ */
 const XFADE_S = 2.5;
 /** How fast a layer follows the arrangement. Slow: this is mixing, not gating. */
 const RAMP_S = 1.2;
@@ -98,7 +103,9 @@ export function arrangement(t: number, velocity: number): [number, number, numbe
   // a fast-forward, not like the mix falling apart, and boosting everything
   // would just make scrubbing loud.
   const v = Math.min(1, Math.abs(velocity));
-  return [other, bass * (1 + 0.05 * v), drums * (1 + 0.18 * v)];
+  // Clamped: at intensity 5 with a fast scroll the boost would otherwise reach
+  // 1.18 and be paid for by the limiter rather than heard.
+  return [other, Math.min(1, bass * (1 + 0.05 * v)), Math.min(1, drums * (1 + 0.18 * v))];
 }
 
 /** Schedule one cycle of all three stems, locked together. */
@@ -107,14 +114,21 @@ function schedule(at: number): void {
   if (!T) return;
   for (const l of layers) {
     if (!l.buf) continue;
-    const src = new T.ToneBufferSource(l.buf).connect(l.gain);
-    src.start(at);
-    // Equal-power seam. The outgoing copy is still running under this one for
-    // XFADE_S, which is also why the encoder's priming padding never matters:
-    // the file boundary is never heard.
-    src.fadeIn = XFADE_S;
-    src.fadeOut = XFADE_S;
-    src.curve = "exponential";
+    // Fades MUST be constructor options. Tone reads fadeIn and curve inside
+    // start() -> OneShotSource._startGain, so assigning them afterwards is a
+    // no-op: the incoming copy would begin at full gain on a non-zero sample
+    // and the outgoing one would hard-cut at its buffer end. Both click, and
+    // two correlated copies would sum ~+3 dB across the overlap.
+    //
+    // The explicit duration is what schedules the fadeOut at all -- start(at)
+    // with no duration never does.
+    const src = new T.ToneBufferSource({
+      url: l.buf,
+      fadeIn: XFADE_S,
+      fadeOut: XFADE_S,
+      curve: "exponential",
+    }).connect(l.gain);
+    src.start(at, 0, l.buf.duration);
     if (useA) l.a = src;
     else l.b = src;
   }
@@ -135,7 +149,9 @@ export function updateScore(t: number, velocity: number, now: number): void {
       if (!l.buf) ready = false;
     }
     if (!ready) return;
-    dur = AUDIO[LAYERS[0]!.slot].v[0]!.dur;
+    // From the DECODED buffer: the AAC length is the declared duration plus
+    // priming/padding. All three share it, so the group stays locked.
+    dur = layers[0]!.buf!.duration;
     nextAt = now + 0.1;
     schedule(nextAt);
     nextAt += dur - XFADE_S;
@@ -144,6 +160,23 @@ export function updateScore(t: number, velocity: number, now: number): void {
 
   // One float compare per frame; scheduling happens once per cycle.
   if (now > nextAt - 0.5) {
+    // RESYNC, do not catch up. T.now() is the audio clock and keeps running
+    // while the tab is hidden; nextAt only advances on an rAF tick, which does
+    // not. Returning after a few minutes backgrounded would otherwise schedule
+    // one past-dated cycle per frame -- Tone clamps those to currentTime, so
+    // several full-level copies of all three stems would fire at once.
+    if (nextAt < now - 1) {
+      for (const l of layers) {
+        for (const src of [l.a, l.b]) {
+          try {
+            src?.stop();
+          } catch {
+            // already stopped
+          }
+        }
+      }
+      nextAt = now + 0.1;
+    }
     schedule(nextAt);
     nextAt += dur - XFADE_S;
   }

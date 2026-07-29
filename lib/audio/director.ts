@@ -148,9 +148,12 @@ function buildMaster(T: ToneModule): Master {
   buildRooms(B);
   // Sample layer. loadBank is fire-and-forget: every hit() falls through to
   // its synth voice until the buffer lands, so nothing waits on the network.
-  buildOneshot(T, B, useScrollStore.getState().quality === "low");
+  const low = useScrollStore.getState().quality === "low";
+  buildOneshot(T, B, low);
   buildScore(T, B);
-  loadBank(T);
+  // The score is ~69 MB decoded; the low tier does without it rather than
+  // risk a tab eviction on hardware already carrying the WebGL scene.
+  loadBank(T, low);
 
   const thump = new T.MembraneSynth({
     pitchDecay: 0.08,
