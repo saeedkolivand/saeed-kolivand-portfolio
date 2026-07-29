@@ -12,7 +12,9 @@ import { mix32, noise01 } from "./util";
  * Determinism: the noise is drawn from a seeded avalanche mixer, so a room is
  * identical across sessions ON A GIVEN MACHINE. Not byte-identical ACROSS
  * machines -- BiquadFilterNode and setValueCurveAtTime are implementation-
- * defined, and sampleRate is 44.1k or 48k by device. Do not hash this output
+ * defined, and the context is pinned to 48k in director.ts. It used to be
+ * whatever the device ran at, and a 96 kHz interface doubled every IR. Do
+ * not hash this output
  * in a gate. No Math.random either way (engine law).
  */
 

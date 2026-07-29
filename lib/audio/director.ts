@@ -134,22 +134,55 @@ export function enableAudio(): void {
   useScrollStore.getState().setAudioOn(true);
   void (async () => {
     const T = master ? master.T : await import("tone");
+    // PIN THE CONTEXT TO 48 kHz, the rate everything here is authored at.
+    //
+    // Without this Tone takes the DEVICE rate, and a 96 kHz interface is not
+    // exotic -- measured on the reporter's machine: sampleRate 96000. That is
+    // not a free upgrade, it doubles every cost in this engine:
+    //
+    //   - Runtime IRs are sized from the context rate (ir.ts), so the longest
+    //     room goes 314k -> 628k samples convolved, and convolution cost rises
+    //     faster than linearly. Two convolvers are live across every gutter.
+    //   - decodeAudioData resamples to the context rate, so the score's decoded
+    //     footprint goes 69 MB -> 138 MB. 69 MB is the figure bank.ts states as
+    //     measured, and the number the mono downmix existed to bring down.
+    //   - Every asset is baked at 48 kHz, so the device rate also forced a
+    //     resample of material that would otherwise decode 1:1.
+    //
+    // Nothing in the material justifies the rate: the recipes are band-limited
+    // well below 20 kHz and the IRs lower still. The browser resamples our
+    // output to the device in its own stage, which is cheap and outside our
+    // graph. If a browser refuses the rate we fall back to its default rather
+    // than losing audio entirely.
+    if (!master) {
+      try {
+        // A NATIVE context, wrapped. Tone's own ContextOptions has no
+        // sampleRate field -- the rate can only be requested of the real
+        // AudioContext constructor.
+        T.setContext(new T.Context(new AudioContext({ sampleRate: 48000, latencyHint: "interactive" })));
+      } catch {
+        // Older Safari rejects an explicit sampleRate. Device rate it is.
+      }
+    }
     await T.start(); // unlock -- initiated from the gesture's task
     if (session !== mySession) return; // disabled mid-flight
-    // Tone's DEFAULT lookAhead, deliberately restored.
+    // Tone's DEFAULT lookAhead, restored -- but NOT as the fix for the
+    // cross-browser distortion, because it is not the cause of it.
     //
-    // This was 0.02, cut from the default 0.1 so beat hits would not lag their
-    // visual flash. That is a 5x cut in the scheduling headroom every automation
-    // and every source start in this engine is resolved against -- and Tone's
-    // setter also halves updateInterval as a side effect, so the scheduling loop
-    // runs twice as often with a fifth of the margin. Any main-thread stall
-    // longer than 20 ms then lands events late, which is heard as continuous
-    // distortion rather than an occasional click. It survived only on whichever
-    // browser had the least main-thread jitter.
+    // This was 0.02. Every default-time ramp resolves through
+    // now() = currentTime + lookAhead, and Tone's setter also drops
+    // updateInterval to 0.01, so the loop ran twice as often with a fifth of
+    // the margin. A late ramp steps by slope x lateness: sparse clicks while
+    // scrolling, silent at rest because moveTo dead-bands. A real defect, worth
+    // removing on its own.
     //
-    // The flash/hit offset is real but it is the SMALLER problem, and shrinking
-    // the audio budget is the wrong side to fix it on: the correct fix is to
-    // delay the visual by the lookahead, not to starve the scheduler.
+    // What it is NOT is a source of CONTINUOUS distortion -- a main-thread
+    // scheduling number cannot make the render thread miss its deadline. That
+    // is DSP cost, which the 48 kHz pin above is the actual fix for.
+    //
+    // The beat hook takes immediate() so restoring the headroom costs no visual
+    // sync: a hit lands at the next render quantum instead of a lookahead
+    // later, and a fire-and-forget buffer has nothing to schedule ahead of it.
     T.getContext().lookAhead = 0.1;
     if (!master) master = buildMaster(T);
     wire();
@@ -250,7 +283,9 @@ function wire(): void {
     const m = master;
     if (!enabled || !m) return;
     try {
-      const now = m.T.now();
+      // immediate(), not now(): a beat has to land ON its visual flash, and a
+      // one-shot needs no scheduling headroom to do it.
+      const now = m.T.immediate();
       const stop = HITSTOP[id];
       // beatMoment FIRST, then the stop, then its early return: the moment is
       // what knows whether the authored cue actually played, and the stop's
