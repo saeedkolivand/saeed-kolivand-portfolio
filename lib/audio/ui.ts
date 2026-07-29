@@ -2,6 +2,7 @@ import type { Filter, FMSynth, Gain, MembraneSynth, Noise, NoiseSynth, Synth } f
 import { useScrollStore } from "@/lib/scrollStore";
 import { logFire } from "./debug";
 import type { ToneAudioNode } from "tone";
+import { hit } from "./oneshot";
 import type { ToneModule } from "./types";
 import { hash } from "./util";
 
@@ -230,6 +231,9 @@ export function uiSound(kind: UiKind, seed = 0): void {
       break;
     }
     case "key": {
+      // Sample first, synth as the fallback. hit() returns false until the bank
+      // lands, so typing is audible from the first frame and quietly improves.
+      if (hit("ui.key", { seed, at: now })) break;
       // organic mechanical click; deterministic per-position jitter
       p.uiTick.triggerAttackRelease(1400 + (hash(seed) % 120), 0.008, now, 0.6);
       break;
