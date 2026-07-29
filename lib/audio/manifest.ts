@@ -63,6 +63,13 @@ export const AUDIO = {
       { path: "/audio/cin/paper-tear_03.m4a", bytes: 14945, dur: 0.8, sha: "5641733bc1498c39" },
     ],
   },
+  "cin.spread-unfold": {
+    cat: "cin", bus: "hardfx", ch: 1,
+    gain: -1, send: -5, loop: false,
+    v: [
+      { path: "/audio/cin/spread-unfold_00.m4a", bytes: 38665, dur: 2.4, sha: "ff343f60a51c8288" },
+    ],
+  },
   "fol.paper-flip": {
     cat: "fol", bus: "foley", ch: 1,
     gain: -4, send: -8, loop: false,
@@ -137,18 +144,9 @@ export const AUDIO = {
       { path: "/audio/ui/key_09.m4a", bytes: 2751, dur: 0.18, sha: "e3aca09eb51dee0f" },
     ],
   },
-  "ui.key-space": {
-    cat: "ui", bus: "ui", ch: 1,
-    gain: -7, send: -12, loop: false,
-    v: [
-      { path: "/audio/ui/key-space_00.m4a", bytes: 2339, dur: 0.2, sha: "f14a0e9f8991d695" },
-      { path: "/audio/ui/key-space_01.m4a", bytes: 2483, dur: 0.2, sha: "ba7ace48af81068c" },
-      { path: "/audio/ui/key-space_02.m4a", bytes: 2499, dur: 0.2, sha: "80352a9081c8307c" },
-    ],
-  },
 } as const satisfies Record<string, AudioSlot>;
 
 export type AudioName = keyof typeof AUDIO;
 
-/** 36 files, 8111084 bytes total on disk */
-export const AUDIO_BYTES = 8111084;
+/** 34 files, 8142428 bytes total on disk */
+export const AUDIO_BYTES = 8142428;

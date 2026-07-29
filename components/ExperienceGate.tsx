@@ -6,6 +6,7 @@ import { readDeviceGate } from "@/lib/device";
 import { useScrollStore } from "@/lib/scrollStore";
 import { RANGES } from "@/issues/timeline";
 import AudioToggle from "./AudioToggle";
+import SoundInvite from "./SoundInvite";
 import Experience from "./Experience";
 import JumpCover from "./JumpCover";
 import Lettering from "./Lettering";
@@ -259,6 +260,9 @@ export default function ExperienceGate() {
        * the sound control could never be reached without a mouse.
        */}
       {effectiveShow ? <AudioToggle /> : null}
+      {/* Same DOM-order rule as AudioToggle above: this has buttons, so placing
+          it after the print doc would make it mouse-only. */}
+      {effectiveShow ? <SoundInvite /> : null}
 
       <div ref={printRef} className={effectiveShow ? styles.behind : undefined} onFocus={revealReader}>
         <PrintEdition />

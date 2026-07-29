@@ -343,6 +343,92 @@ export function impact(sr, seed, opts = {}) {
   return gain(out, velocity(r, 0.8));
 }
 
+/**
+ * The spread unfold -- the site biggest jaw-drop, and until now the only
+ * registered beat with no scored sound at all: it fell through to the
+ * director default membrane thump.
+ *
+ * A stack of pages cracks open into a double-page spread, so the order is
+ * crack, then fan, then the room. NO pre-roll swell, deliberately: the beat
+ * engine fires on a t crossing, so anything authored BEFORE the impact would
+ * have to be triggered from an earlier trigger whose lead time is measured in
+ * scroll distance, not seconds -- at a fast scrub the swell and the hit would
+ * collide, at a slow one they would drift apart. The approach is already
+ * carried by the scene bed, which is pure f(t) and therefore always in sync.
+ */
+export function spreadUnfold(sr, seed) {
+  const r = rng(seed);
+  const n = secs(2.4, sr);
+  const out = buf(n);
+
+  // 1. THE CRACK -- the stack letting go. Wood rather than steel: a bound
+  // block of paper is a stiff, lossy solid, and steel ratios here would read
+  // as a door slamming.
+  mixInto(out, impact(sr, seed + 11, {
+    material: "wood", f0: 74, subF: 42, dur: 2.2, debris: 0.55, subGain: 1.05,
+  }), 0, 1);
+
+  // 2. THE FAN -- ten sheets opening. Amplitude modulation whose rate falls
+  // 34 -> 9 Hz: the sheets are fastest as the stack releases and slow as they
+  // reach full extension. A constant rate reads as a machine.
+  const fn = secs(1.15, sr);
+  const fan = white(fn, r);
+  applyBiquad(fan, biquad("bandpass", 1900, 0.5, sr));
+  applyBiquad(fan, biquad("highpass", 520, 0.7, sr));
+  let ph = 0;
+  for (let i = 0; i < fn; i++) {
+    const u = i / fn;
+    ph += (2 * Math.PI * (34 - 25 * u)) / sr;
+    // sqrt-in, cubic-out: full amplitude within ~40 ms of the crack, then a
+    // long settle. A symmetric window would fade IN behind the impact and
+    // sound like a separate event arriving late.
+    const env = Math.pow(Math.min(1, u * 26), 0.5) * Math.pow(1 - u, 3);
+    fan[i] *= env * (0.4 + 0.6 * (0.5 - 0.5 * Math.cos(ph))) * 0.55;
+  }
+  mixInto(out, fan, secs(0.02, sr), 1);
+
+  // 3. SHEET EDGES -- discrete pages snapping past one another, decelerating
+  // with the fan. Each is a short ringing grain, not a click.
+  // Windowed to the fan, and the rate decays to nothing rather than to a
+  // floor. A floor of even 4 Hz keeps firing isolated grains for another
+  // second and a half after everything else has decayed, which does not read
+  // as paper -- it reads as a dripping tap in an empty room.
+  const sn = secs(1.25, sr);
+  const edges = scatter(sn, sr, (u) => 95 * Math.exp(-u * 5.2), (rr) => {
+    const gn = secs(rr.range(0.004, 0.011), sr);
+    const g = white(gn, rr);
+    applyBiquad(g, biquad("bandpass", rr.logRange(900, 4200), 5, sr));
+    const na = Math.max(2, Math.round(gn * 0.12));
+    for (let i = 0; i < gn; i++) {
+      const atk = i < na ? 0.5 - 0.5 * Math.cos((Math.PI * i) / na) : 1;
+      g[i] *= atk * Math.exp(-i / (gn * 0.34));
+    }
+    return g;
+  }, r);
+  // Taper the whole grain field, not just its rate. A decaying rate still
+  // lets ONE late grain land in the gap where the fan has gone, and a lone
+  // broadband tick in a decayed field is the most exposed thing in the cue.
+  for (let i = 0; i < sn; i++) edges[i] *= Math.pow(1 - i / sn, 1.2);
+  mixInto(out, edges, secs(0.03, sr), 0.55);
+
+  // 4. THE ROOM OPENING -- a low airy shimmer that outlives the paper. This is
+  // the cosmos behind the spread, and it is what turns an impact into a beat:
+  // the hit-stop drops the bed out from under it and this is what is left
+  // ringing in the hole.
+  const tail = pink(n, r);
+  applyBiquad(tail, biquad("bandpass", 340, 0.4, sr));
+  for (let i = 0; i < n; i++) {
+    const u = i / n;
+    tail[i] *= (1 - Math.exp(-u * 22)) * Math.pow(1 - u, 1.05) * 0.34;
+  }
+  mixInto(out, tail, 0, 1);
+
+  applyBiquad(out, biquad("lowpass", 13000, 0.7, sr));
+  dcRemove(out);
+  fade(out, sr, 0.0002, 0.2);
+  return gain(out, velocity(r, 0.86));
+}
+
 // ----------------------------------------------------------------------- rain
 
 /**
