@@ -76,6 +76,13 @@ export const lettering = {
     blurb: "The origin issue: one dev, three worlds, zero ghosting.",
     barcode: "saeedkolivand", // GitHub handle, set as the cover barcode digits
     attractPrompt: "SCROLL TO CRACK THE SPINE",
+    sound: {
+      kicker: "BEST READ",
+      headline: "WITH SOUND",
+      sub: "An original score, twelve rooms, and one cat.",
+      yes: "SOUND ON",
+      no: "NOT NOW",
+    },
     premise: "The career of a senior frontend engineer, told as a comic.",
   },
   titleDrop: {

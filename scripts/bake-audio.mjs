@@ -88,6 +88,12 @@ const SLOTS = {
     cat: "imp", n: 4, seed: 7000, send: -7,
     make: (s) => R.impact(SR, s, { material: "steel", f0: 210, subF: 70, dur: 0.9, debris: 0.2 }),
   },
+  // The site biggest jaw-drop. cin, not imp: this is a 2.6 s authored cue with
+  // its own fan and tail, not a hit, and it wants the cinematic bus level.
+  "cin.spread-unfold": {
+    cat: "cin", n: 1, seed: 12000, send: -5,
+    make: (s) => R.spreadUnfold(SR, s),
+  },
   // The score. One ACE-Step cue split by Demucs, so the three layers share key,
   // tempo and phase by construction. vocals is dropped: the cue is instrumental
   // and that stem came out at -42 dBFS.

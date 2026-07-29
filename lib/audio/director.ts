@@ -49,6 +49,31 @@ interface Channel {
   lastG: number;
 }
 
+/**
+ * CUT-SCENE HIT-STOP: the world drops out for a beat, then swells back.
+ *
+ * The most cinematic move available and the one that dies fastest if overused,
+ * so it is exactly three beats -- the slab slam, the spread unfolding, and the
+ * title landing -- and nothing else may join without one leaving.
+ *
+ * Value is depth 0..1, where 1 is near-silence.
+ */
+const HITSTOP: Readonly<Record<string, number>> = {
+  "press-stamp": 1,
+  "spread-unfold": 0.9,
+  "title-drop": 0.85,
+};
+
+/**
+ * Let the transient land at full level before the floor goes. Cutting the bed
+ * ON the hit robs the hit of the thing it is hitting; cutting it 70 ms later
+ * is what reads as the world falling away from underneath it.
+ */
+const STOP_LEAD = 0.07;
+const STOP_FALL = 0.035;
+const STOP_HOLD = 0.3;
+const STOP_SWELL = 0.75;
+
 const CROSSFADE_S = 0.15;
 /** t distance past an issue's range over which its bed fades to silence */
 const FALLOFF = 0.02;
@@ -185,6 +210,10 @@ function wire(): void {
     if (!enabled || !m) return;
     try {
       const now = m.T.now();
+      // ABOVE the beatMoment return: all three hit-stop beats are moment-owned,
+      // so a stop scheduled after it would never run.
+      const stop = HITSTOP[id];
+      if (stop !== undefined) hitStop(m, now, stop);
       if (beatMoment(id, flash)) return; // moment owns the hit (sound or silence)
       // monotonic gate: two beats can resolve in one frame on a deep jump, so
       // stagger the second start past the first. Consumed only for default hits
@@ -200,7 +229,7 @@ function wire(): void {
       // and cancel-from-now + setValueAtTime(g.value, now) is click-free. Only the
       // thump/chime SYNTH triggers below take `a` (starts must be strictly
       // increasing). Rebasing the ramps onto `a` popped when a is bumped ahead.
-      if (flash > 0.25) {
+      if (stop === undefined && flash > 0.25) {
         const g = m.duckGain.gain;
         g.cancelScheduledValues(now);
         g.setValueAtTime(g.value, now);
@@ -216,6 +245,29 @@ function wire(): void {
   // package C (ui) installs the meow-variety + jump-land subscriptions on the
   // sfx bus; both inherit the gesture gate (mod set here, post-enable).
   wireUi(m0.T, m0.B.in.ui);
+}
+
+/**
+ * The hit-stop automation. Rides duckGain, which carries ONLY the beds and the
+ * score -- so the hit itself and its room tail ring on into the hole, because
+ * the hardfx room send is tapped pre-duck while the bed's send is post-duck.
+ * That asymmetry is the entire effect: the world goes, the impact's reverb
+ * stays, and for a third of a second you are listening to one sound in a very
+ * large room.
+ *
+ * It also inherits the sidechain's contract for free: fx.audioPulse is metered
+ * pre-duck, so a hit-stop cannot move a visual.
+ */
+function hitStop(m: Master, now: number, depth: number): void {
+  const g = m.duckGain.gain;
+  const floor = 1 - 0.96 * depth;
+  const drop = now + STOP_LEAD;
+  g.cancelScheduledValues(now);
+  g.setValueAtTime(g.value, now);
+  g.setValueAtTime(g.value, drop);
+  g.linearRampToValueAtTime(floor, drop + STOP_FALL);
+  g.setValueAtTime(floor, drop + STOP_FALL + STOP_HOLD);
+  g.linearRampToValueAtTime(1, drop + STOP_FALL + STOP_HOLD + STOP_SWELL);
 }
 
 /** 1 inside the issue's range, linear falloff to 0 across FALLOFF outside. */

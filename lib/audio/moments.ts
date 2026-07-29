@@ -1265,9 +1265,29 @@ export function beatMoment(id: string, flash: number): boolean {
       return true;
     }
     case "title-drop": {
-      k.titleMembrane.triggerAttackRelease("A1", 0.3, now, v);
-      k.titleClang.triggerAttackRelease(660, 0.12, now, 0.5 * v);
-      k.titleCrack.triggerAttackRelease(0.03, now, 0.5 * v);
+      // imp.title-drop has been in the manifest, and shipped, since the bake
+      // landed -- and was never played. The baked slam carries the transient,
+      // the metal body and the debris; the membrane stays underneath it for
+      // the weight, and the two bright synth voices become the fallback for
+      // before the buffer lands.
+      const sampled = hit("imp.title-drop", { seed: 3, at: now, gain: v });
+      k.titleMembrane.triggerAttackRelease("A1", 0.3, now, sampled ? 0.5 * v : v);
+      if (!sampled) {
+        k.titleClang.triggerAttackRelease(660, 0.12, now, 0.5 * v);
+        k.titleCrack.triggerAttackRelease(0.03, now, 0.5 * v);
+      }
+      return true;
+    }
+    case "spread-unfold": {
+      // THE jaw-drop of the whole site, and until now the only registered beat
+      // with no scored sound: it fell through to the director's default
+      // membrane thump, the same one a minor beat gets. cin.spread-unfold is
+      // the authored cue -- crack, fan, then a tail long enough for the
+      // hit-stop to expose it. stampMembrane is shared with two other cases,
+      // so its start goes through the family gate.
+      const sampled = hit("cin.spread-unfold", { seed: 9, at: now, gain: v });
+      k.stampMembrane.triggerAttackRelease(
+        "D1", 0.7, stampGate.at(now, 0.8), sampled ? 0.4 * v : 0.75 * v);
       return true;
     }
     case "screentone-edge-run": {

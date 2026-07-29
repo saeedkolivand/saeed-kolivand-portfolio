@@ -63,6 +63,13 @@ export const AUDIO = {
       { path: "/audio/cin/paper-tear_03.m4a", bytes: 14945, dur: 0.8, sha: "5641733bc1498c39" },
     ],
   },
+  "cin.spread-unfold": {
+    cat: "cin", bus: "hardfx", ch: 1,
+    gain: -1, send: -5, loop: false,
+    v: [
+      { path: "/audio/cin/spread-unfold_00.m4a", bytes: 38665, dur: 2.4, sha: "ff343f60a51c8288" },
+    ],
+  },
   "fol.paper-flip": {
     cat: "fol", bus: "foley", ch: 1,
     gain: -4, send: -8, loop: false,
@@ -150,5 +157,5 @@ export const AUDIO = {
 
 export type AudioName = keyof typeof AUDIO;
 
-/** 36 files, 8111084 bytes total on disk */
-export const AUDIO_BYTES = 8111084;
+/** 37 files, 8149749 bytes total on disk */
+export const AUDIO_BYTES = 8149749;
