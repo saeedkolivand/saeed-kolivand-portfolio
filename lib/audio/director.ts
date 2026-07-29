@@ -7,6 +7,8 @@ import { RANGES } from "@/issues/timeline";
 import { audioRecipes, type AudioRecipe, type ToneModule } from "./types";
 import { buildBuses, type Buses } from "./buses";
 import { buildRooms, updateRooms } from "./rooms";
+import { loadBank } from "./bank";
+import { buildOneshot, stopOneshots } from "./oneshot";
 import { scoreTransitions, stopTransitions } from "./transitions";
 import { scoreMoments, beatMoment, stopMoments } from "./moments";
 import { wireUi, uiSound } from "./ui";
@@ -129,6 +131,7 @@ export function disableAudio(): void {
       try {
         stopTransitions();
         stopMoments();
+        stopOneshots();
       } catch (e) {
         warn(e);
       }
@@ -141,6 +144,10 @@ export function disableAudio(): void {
 function buildMaster(T: ToneModule): Master {
   const B = buildBuses(T);
   buildRooms(B);
+  // Sample layer. loadBank is fire-and-forget: every hit() falls through to
+  // its synth voice until the buffer lands, so nothing waits on the network.
+  buildOneshot(T, B, useScrollStore.getState().quality === "low");
+  loadBank(T);
 
   const thump = new T.MembraneSynth({
     pitchDecay: 0.08,
