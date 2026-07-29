@@ -168,3 +168,75 @@ export function aceStepGraph({ tags, lyrics = "", seconds = 90, seed, steps = 50
     "7": { class_type: "SaveAudio", inputs: { audio: ["6", 0], filename_prefix: "bake/ace" } },
   };
 }
+
+/**
+ * ACE-Step 1.5 XL. Split-file graph, because the XL checkpoints ship as
+ * separate diffusion / text-encoder / VAE files rather than an all-in-one.
+ *
+ * Why 1.5 rather than v1: v1's own paper names the defect this project
+ * measured. It "relies on a mel-spectrogram-based DCAE and a 32kHz monophonic
+ * vocoder, rather than a direct end-to-end audio-to-audio pipeline" -- a hard
+ * 16 kHz ceiling with phase discarded and resynthesised, which is the mechanism
+ * behind the 40-60 ms smeared transient columns in the first cue. 1.5 is
+ * waveform-domain: 48 kHz stereo, 64-channel latent at 25 Hz, so a 40 ms frame
+ * grid against v1's ~93 ms mel frames, with phase preserved.
+ *
+ * TWO text encoders, not one. CLIPType.ACE takes a pair: the 0.6B base always,
+ * plus a planner LM (1.7B detected as qwen3_2b, or the 4B). Passing one file
+ * silently falls through to v1's T5 path in comfy/sd.py.
+ *
+ * bpm / duration / keyscale are REAL inputs here, not prompt hints -- which is
+ * what retires the tempoIsAHint caveat in score.json. keyscale is a strict
+ * dropdown with no auto option, so it must always be passed explicitly.
+ */
+export function aceStep15Graph({
+  tags, lyrics = "", seconds = 120, seed, steps = 50, cfg = 7,
+  bpm = 74, keyscale = "Bb major", timesignature = "4", language = "en",
+  model = "acestep_v1.5_xl_sft_bf16.safetensors", prefix = "bake/ace15",
+}) {
+  return {
+    "1": {
+      class_type: "UNETLoader",
+      inputs: { unet_name: model, weight_dtype: "default" },
+    },
+    "2": {
+      class_type: "DualCLIPLoader",
+      inputs: {
+        clip_name1: "qwen_0.6b_ace15.safetensors",
+        clip_name2: "qwen_1.7b_ace15.safetensors",
+        type: "ace",
+      },
+    },
+    "3": { class_type: "VAELoader", inputs: { vae_name: "ace_1.5_vae.safetensors" } },
+    "4": {
+      class_type: "TextEncodeAceStepAudio1.5",
+      inputs: {
+        clip: ["2", 0], tags, lyrics, seed, bpm, duration: seconds,
+        timesignature, language, keyscale,
+        generate_audio_codes: true,
+        cfg_scale: 2, temperature: 0.85, top_p: 0.9, top_k: 0, min_p: 0,
+      },
+    },
+    "5": {
+      class_type: "TextEncodeAceStepAudio1.5",
+      inputs: {
+        clip: ["2", 0], tags: "", lyrics: "", seed, bpm, duration: seconds,
+        timesignature, language, keyscale,
+        // The negative branch must not run the audio-code LM: it doubles the
+        // slowest stage of the render to condition on an empty prompt.
+        generate_audio_codes: false,
+        cfg_scale: 2, temperature: 0.85, top_p: 0.9, top_k: 0, min_p: 0,
+      },
+    },
+    "6": { class_type: "EmptyAceStep1.5LatentAudio", inputs: { seconds, batch_size: 1 } },
+    "7": {
+      class_type: "KSampler",
+      inputs: {
+        seed, steps, cfg, sampler_name: "euler", scheduler: "simple", denoise: 1,
+        model: ["1", 0], positive: ["4", 0], negative: ["5", 0], latent_image: ["6", 0],
+      },
+    },
+    "8": { class_type: "VAEDecodeAudio", inputs: { samples: ["7", 0], vae: ["3", 0] } },
+    "9": { class_type: "SaveAudio", inputs: { audio: ["8", 0], filename_prefix: prefix } },
+  };
+}

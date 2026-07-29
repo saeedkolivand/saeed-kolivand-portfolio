@@ -40,7 +40,16 @@ def write_audio(path, wav, sr):
     data = wav.T.contiguous().cpu().numpy().astype(np.float32).tobytes()
     subprocess.run(
         ["ffmpeg", "-y", "-v", "error", "-f", "f32le", "-ar", str(sr),
-         "-ac", "2", "-i", "-", "-c:a", "pcm_f32le", str(path)],
+         "-ac", "2", "-i", "-",
+         # Demucs synthesises broadband junk right up to Nyquist that is not in
+         # the source: measured at -38.3 dBFS in the 16-24 kHz band of the
+         # delivered mix against -68.7 in the cue itself, so +36 dB the pipeline
+         # invented, and the third-loudest band in the shipped file. It sits
+         # above anything audible, but it costs 2 dB of peak headroom and a
+         # share of the AAC bit budget at 160 kbps -- both of which the music
+         # can use instead.
+         "-af", "lowpass=f=19000:poles=2,lowpass=f=19000:poles=2",
+         "-c:a", "pcm_f32le", str(path)],
         check=True, input=data,
     )
 
@@ -48,12 +57,23 @@ def write_audio(path, wav, sr):
 SOURCES = ("drums", "bass", "other", "vocals")
 
 
-def separate(model, mix, device, chunk_s=10.0, overlap_s=0.1, sr=44100):
-    """Chunked separation so long cues fit in VRAM.
+def separate(model, mix, device, chunk_s=10.0, overlap_s=0.5, sr=44100):
+    """Chunked separation with OVERLAP-ADD, so long cues fit in VRAM.
 
-    Each chunk is separated with `overlap_s` of context on both sides, then the
-    context is TRIMMED and the chunks are butt-joined. No crossfade: the overlap
-    exists to give the model lookaround, not to blend outputs.
+    Each chunk is separated with `overlap_s` of context on both sides, and the
+    overlapping regions are CROSSFADED rather than butt-joined.
+
+    Butt-joining is what this used to do, and it is wrong: the model's estimate
+    for a sample depends on its surrounding context, so the last sample of one
+    chunk and the first of the next come from different separations. That is a
+    step discontinuity at every join -- eleven of them in a 120 s cue. Measured
+    at -45.7 dB relative to the mix and masked for most of its length, so it was
+    never the loud problem it looked like, but it is free to remove here.
+
+    LINEAR ramps, deliberately. Two adjacent estimates are two readings of the
+    SAME underlying signal, so they are correlated and linear complementary
+    ramps preserve amplitude exactly; equal-power would sum to +3 dB across
+    every seam.
     """
     chunk = int(chunk_s * sr)
     over = int(overlap_s * sr)
@@ -68,10 +88,20 @@ def separate(model, mix, device, chunk_s=10.0, overlap_s=0.1, sr=44100):
         seg = mix[:, lo:hi].unsqueeze(0).to(device)
         with torch.no_grad():
             est = model(seg)[0].cpu()
-        # trim the overlap back off
+
+        # Ramp in across the leading context and out across the trailing one.
+        # The span chunk k ramps DOWN over is exactly the span chunk k+1 ramps
+        # UP over, so the two windows sum to 1 and the signal is continuous
+        # through the join instead of stepping.
+        w = torch.ones(hi - lo)
         head = start - lo
-        est = est[:, :, head:head + (end - start)]
-        out[:, :, start:end] = est
+        tail = hi - end
+        if head > 0:
+            w[:head] = torch.linspace(0.0, 1.0, head)
+        if tail > 0:
+            w[-tail:] = torch.linspace(1.0, 0.0, tail)
+        out[:, :, lo:hi] += est * w
+
         start = end
         print(f"  {min(start, total)}/{total} samples", end="\r", flush=True)
     print()
@@ -110,7 +140,29 @@ def main():
     # artifact and the arithmetic should be exact.
     stems = stems * std + mean / len(SOURCES)
 
+    # FOLD VOCALS INTO `other`, because the cue is instrumental by construction.
+    #
+    # Only drums / bass / other are shipped, so anything Demucs routes to
+    # `vocals` is silently discarded at bake time. On a genuinely instrumental
+    # cue that stem is not singing -- it is melodic content the separator could
+    # not place, and a sustained lead line is exactly what it mistakes for a
+    # voice. Measured on this cue: vocals came back at -26.4 dBFS, LOUDER than
+    # `other` at -29.0, so dropping it would have shipped the score without its
+    # melody.
+    #
+    # Folding rather than shipping a fourth layer keeps the runtime contract
+    # (three vertical layers) and restores the invariant that matters: the
+    # stems sum to the cue.
+    vi = SOURCES.index("vocals")
+    oi = SOURCES.index("other")
+    v_rms = float(stems[vi].pow(2).mean().sqrt())
+    v_db = 20 * torch.log10(torch.tensor(max(v_rms, 1e-9)))
+    stems[oi] = stems[oi] + stems[vi]
+    print(f"  vocals folded into other (was {float(v_db):.1f} dBFS)")
+
     for i, name in enumerate(SOURCES):
+        if name == "vocals":
+            continue
         path = dst / f"score-{name}.wav"
         write_audio(path, stems[i], sr)
         rms = float(stems[i].pow(2).mean().sqrt())

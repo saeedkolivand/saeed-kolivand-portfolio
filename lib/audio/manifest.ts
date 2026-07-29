@@ -111,21 +111,21 @@ export const AUDIO = {
     cat: "mus", bus: "music", ch: 1,
     gain: 0, send: -18, loop: true,
     v: [
-      { path: "/audio/mus/score-bass_00.m4a", bytes: 2251214, dur: 119.908, sha: "069baf8ca9623b2b" },
+      { path: "/audio/mus/score-bass_00.m4a", bytes: 2228886, dur: 120, sha: "a3c3f77352113cdb" },
     ],
   },
   "mus.score-drums": {
     cat: "mus", bus: "music", ch: 1,
     gain: 0, send: -16, loop: true,
     v: [
-      { path: "/audio/mus/score-drums_00.m4a", bytes: 2348808, dur: 119.908, sha: "a05fa0ad6119315f" },
+      { path: "/audio/mus/score-drums_00.m4a", bytes: 2392799, dur: 120, sha: "dbea6ed4a35bbd83" },
     ],
   },
   "mus.score-other": {
     cat: "mus", bus: "music", ch: 1,
     gain: 0, send: -13, loop: true,
     v: [
-      { path: "/audio/mus/score-other_00.m4a", bytes: 2394885, dur: 119.908, sha: "a2d7eb9b78261a27" },
+      { path: "/audio/mus/score-other_00.m4a", bytes: 2364390, dur: 120, sha: "77d601d64bd21cfe" },
     ],
   },
   "ui.key": {
@@ -148,5 +148,5 @@ export const AUDIO = {
 
 export type AudioName = keyof typeof AUDIO;
 
-/** 34 files, 8142428 bytes total on disk */
-export const AUDIO_BYTES = 8142428;
+/** 34 files, 8133596 bytes total on disk */
+export const AUDIO_BYTES = 8133596;
