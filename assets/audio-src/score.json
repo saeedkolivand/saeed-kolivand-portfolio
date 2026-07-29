@@ -23,7 +23,7 @@
   "stems": {
     "splitter": "Demucs (audio-separation-nodes-comfyui)",
     "layers": ["drums", "bass", "other"],
-    "vocalsExpected": "near-silent; the cue is instrumental. Dropped at bake time if its RMS is below the gate.",
+    "vocalsExpected": "near-silent; the cue is instrumental. It came out at -42 dBFS and is simply not listed as a slot -- there is no automatic gate.",
     "mixLaw": "Wall-clock locked, gain-mixed by t. NOT scrubbed: real music has rhythmic identity and scrubbing it by scroll position sounds like a turntable. The cue loops on its own clock; only the layer GAINS are a pure function of t and velocity, which is standard game vertical layering and scrub-safe by construction."
   }
 }

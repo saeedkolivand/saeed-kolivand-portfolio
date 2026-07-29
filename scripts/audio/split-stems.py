@@ -103,7 +103,12 @@ def main():
     wav = (wav - mean) / (std + 1e-8)
 
     stems = separate(model, wav, device, sr=sr)
-    stems = stems * std + mean
+    # mean / len: the forward transform subtracted `mean` ONCE, so adding it
+    # back to every stem would break the invariant that makes 'one cue split
+    # into layers' true -- the stems would no longer sum to the input. Audio
+    # DC is ~0 so this is inaudible, but this file is the reproducibility
+    # artifact and the arithmetic should be exact.
+    stems = stems * std + mean / len(SOURCES)
 
     for i, name in enumerate(SOURCES):
         path = dst / f"score-{name}.wav"

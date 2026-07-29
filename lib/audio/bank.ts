@@ -65,11 +65,14 @@ function loadOrder(): { name: string; variant: number; path: string }[] {
 }
 
 /** Idempotent; safe to call on every enable. */
-export function loadBank(T: ToneModule, skipMusic = false): void {
+export function loadBank(T: ToneModule, skipScore = false): void {
   if (started) return;
   started = true;
 
-  const queue = loadOrder().filter((q) => !(skipMusic && q.name.startsWith("mus.")));
+  // The SCORE slots specifically, not the whole `mus` category: a future
+  // music slot should not silently vanish on the low tier because it shares
+  // a prefix with the one thing that was measured and deliberately dropped.
+  const queue = loadOrder().filter((q) => !(skipScore && q.name.startsWith("mus.score-")));
   let next = 0;
 
   const worker = async (): Promise<void> => {

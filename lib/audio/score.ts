@@ -23,6 +23,10 @@ import type { ToneModule } from "./types";
  * (the director's sidechain already rides B.duckGain, which both bed buses pass
  * through). Stingers are separate one-shots, never part of the loop.
  *
+ * The manifest's per-slot `send` is deliberately NOT read here: layers go
+ * straight to B.in.music and reach the rooms through the bed send (SEND.bed),
+ * as a bed should. Only oneshot.ts has a per-hit send.
+ *
  * All three stems came from ONE ACE-Step cue split by Demucs, so they share key,
  * tempo and phase. They are therefore scheduled as a GROUP on a single clock --
  * if they ever drift apart the illusion collapses, so nothing here is allowed to
@@ -99,9 +103,10 @@ export function arrangement(t: number, velocity: number): [number, number, numbe
   const bass = clamp01((i - 0.12) / 0.45);
   const drums = clamp01((i - 0.38) / 0.45);
 
-  // Velocity nudges the drums only, and gently. A fast scroll should feel like
-  // a fast-forward, not like the mix falling apart, and boosting everything
-  // would just make scrubbing loud.
+  // Velocity nudges the driving layers, and gently -- drums most, bass a
+  // quarter as much, the harmonic bed not at all. A fast scroll should feel
+  // like a fast-forward, not like the mix falling apart, and boosting
+  // everything would just make scrubbing loud.
   const v = Math.min(1, Math.abs(velocity));
   // Clamped: at intensity 5 with a fast scroll the boost would otherwise reach
   // 1.18 and be paid for by the limiter rather than heard.
@@ -127,8 +132,27 @@ function schedule(at: number): void {
       fadeIn: XFADE_S,
       fadeOut: XFADE_S,
       curve: "exponential",
+      // Tone only runs its dispose-on-ended path when onended is not its
+      // internal noOp, so this one line is what stops three sources (each with
+      // an internal Gain) leaking per cycle. Same idiom as oneshot.ts.
+      onended: () => {},
     }).connect(l.gain);
-    src.start(at, 0, l.buf.duration);
+    // duration = dur - XFADE_S, NOT buf.duration.
+    //
+    // start(t, 0, d) schedules stop(t + d), and _stopGain ramps down STARTING
+    // at that instant (targetRampTo takes it as the ramp's start). With
+    // d = buf.duration the whole fade-out window sits past the last sample and
+    // ramps silence: the outgoing copy would still hard-cut at full gain while
+    // the incoming one was already at 1.0, summing correlated material to
+    // ~+6 dB and then stepping back down. Stopping one fade early puts the
+    // ramp over real tail, across exactly the window the incoming copy fades
+    // in over -- and Tone keeps the node playing through fadeOut, so nothing
+    // is truncated. This is also what makes the AAC priming padding harmless
+    // rather than merely claimed to be.
+    //
+    // dur is the GROUP duration. Using l.buf.duration here would be the one
+    // way a re-bake could drift the layers apart, which this module forbids.
+    src.start(at, 0, dur - XFADE_S);
     if (useA) l.a = src;
     else l.b = src;
   }
@@ -165,7 +189,11 @@ export function updateScore(t: number, velocity: number, now: number): void {
     // not. Returning after a few minutes backgrounded would otherwise schedule
     // one past-dated cycle per frame -- Tone clamps those to currentTime, so
     // several full-level copies of all three stems would fire at once.
-    if (nextAt < now - 1) {
+    // Threshold is one crossfade, not one second: inside that window the late
+    // seam is the cheaper artifact, while a restart crosses two out-of-phase
+    // copies of the same cue and flams. Restarting is for the genuinely
+    // backgrounded tab this branch exists for.
+    if (nextAt < now - XFADE_S) {
       for (const l of layers) {
         for (const src of [l.a, l.b]) {
           try {

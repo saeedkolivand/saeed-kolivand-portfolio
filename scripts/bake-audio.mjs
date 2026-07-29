@@ -91,6 +91,10 @@ const SLOTS = {
   // The score. One ACE-Step cue split by Demucs, so the three layers share key,
   // tempo and phase by construction. vocals is dropped: the cue is instrumental
   // and that stem came out at -42 dBFS.
+  //
+  // `send` is inert for these three: score.ts connects them to the music bus
+  // and they reach the rooms through the bed send, as a bed should. The values
+  // are kept only so every slot in the manifest has the same shape.
   "mus.score-bass": {
     group: "score",
     cat: "mus", n: 1, seed: 20000, send: -18,
@@ -156,7 +160,7 @@ const isReport = args.includes("--report");
  * non-reproducible and breaks --check. Measuring first and then applying a
  * fixed correction gives a deterministic, static gain.
  */
-function loudnormPass(wav, targetI) {
+function measureLoudness(wav, targetI) {
   const base = `loudnorm=I=${targetI}:TP=-1.5:LRA=11`;
   // ffmpeg prints the measurement JSON to STDERR, not stdout, and exits 0 --
   // so this has to read stderr explicitly rather than rely on a thrown error.
@@ -168,7 +172,11 @@ function loudnormPass(wav, targetI) {
   const text = (res.stderr || "") + (res.stdout || "");
   const j = text.match(/\{[\s\S]*?\}/g);
   if (!j || !j.length) throw new Error("loudnorm measurement failed: " + text.slice(-500));
-  const m = JSON.parse(j[j.length - 1]);
+  return { base, m: JSON.parse(j[j.length - 1]) };
+}
+
+function loudnormPass(wav, targetI) {
+  const { base, m } = measureLoudness(wav, targetI);
   return `${base}:measured_I=${m.input_i}:measured_TP=${m.input_tp}` +
     `:measured_LRA=${m.input_lra}:measured_thresh=${m.input_thresh}` +
     `:offset=${m.target_offset}:linear=true`;
@@ -241,19 +249,45 @@ const groupGains = new Map();
 function groupGain(group, members, cat) {
   const cached = groupGains.get(group);
   if (cached !== undefined) return cached;
-  let peak = 0;
-  let sum = null;
-  for (const spec of members) {
-    const chans = readAudio(spec.file, cat.ch);
-    if (!sum) sum = chans.map((c) => new Float32Array(c.length));
-    for (let c = 0; c < chans.length; c++) {
-      const src = chans[c];
+
+  // Read every member first so the sum can be sized to the LONGEST of them.
+  // Sizing it from member 0 would silently measure a truncated sum, and
+  // mis-gain the whole group, the moment a group holds unequal lengths.
+  const all = members.map((spec) => readAudio(spec.file, cat.ch));
+  const n = Math.max(0, ...all.map((chans) => chans[0].length));
+  const sum = Array.from({ length: cat.ch }, () => new Float32Array(n));
+  for (const chans of all) {
+    for (let c = 0; c < cat.ch; c++) {
+      const src = chans[c] || chans[0];
       const dst = sum[c];
-      for (let i = 0; i < src.length && i < dst.length; i++) dst[i] += src[i];
+      for (let i = 0; i < src.length; i++) dst[i] += src[i];
     }
   }
-  if (sum) for (const c of sum) for (let i = 0; i < c.length; i++) peak = Math.max(peak, Math.abs(c[i]));
-  const g = peak > 0 ? 0.97 / peak : 1;
+
+  let peak = 0;
+  for (const c of sum) for (let i = 0; i < n; i++) peak = Math.max(peak, Math.abs(c[i]));
+  const ceiling = peak > 0 ? 0.97 / peak : 1;
+
+  // LOUDNESS ANCHOR. Skipping per-file loudnorm was right -- it is exactly the
+  // rebalancing this group exists to prevent -- but peak-only normalisation
+  // leaves the score's absolute level set by the cue's crest factor, so a
+  // re-rolled seed would land at a different perceived level against the -31
+  // LUFS beds with nothing to notice it. Measuring ONCE on the sum and applying
+  // that single linear correction to every member keeps the balance intact and
+  // the category's declared target live: a linear gain moves integrated
+  // loudness by exactly its own dB, so the sum lands on target by construction.
+  let g = ceiling;
+  if (cat.lufs !== null) {
+    mkdirSync(TMP, { recursive: true });
+    const wav = join(TMP, `group-${group}.wav`);
+    writeWav(wav, sum, SR);
+    const { m } = measureLoudness(wav, cat.lufs);
+    rmSync(wav, { force: true });
+    // Peak still wins if the anchor would clip -- a limiter here would undo
+    // the balance the group was built to protect.
+    g = Math.min(Math.pow(10, (cat.lufs - parseFloat(m.input_i)) / 20), ceiling);
+  }
+
   groupGains.set(group, g);
   return g;
 }
