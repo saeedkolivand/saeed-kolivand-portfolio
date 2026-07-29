@@ -61,7 +61,10 @@ export const useScrollStore = create<ScrollState>()((set) => ({
   setPointer: (pointerX, pointerY) => set({ pointerX, pointerY }),
   setQuality: (quality) =>
     set((s) => ({ quality, audioTier: quality === "low" ? 1 : s.audioTier })),
-  // No call sites yet -- perf-profiler owns the S0.6 ladder and drives this.
+  // Driven by ?audio=0|1|2 (ExperienceGate) and by setQuality's low tier.
+  // There is deliberately NO auto-detector: Web Audio exposes no reliable
+  // glitch counter, and inferring load from rAF dt conflates audio cost with
+  // GPU cost. The rungs are exposed; the S0.6 ladder owns when to drop.
   setAudioTier: (audioTier) => set({ audioTier }),
   setReducedMotion: (reducedMotion) => set({ reducedMotion }),
   setAudioOn: (audioOn) => set({ audioOn }),

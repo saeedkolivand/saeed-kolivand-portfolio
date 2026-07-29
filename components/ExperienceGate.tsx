@@ -135,6 +135,20 @@ export default function ExperienceGate() {
       const gate = readDeviceGate();
       store.setReducedMotion(gate.reduced);
       if (gate.low) store.setQuality("low");
+      // ?audio=0|1|2 forces an audio rung, for profiling and for answering
+      // "is it convolution cost?" without a local build.
+      //
+      // This exists because ?low alone could not answer it. ?low sets tier 1,
+      // which only stops the room MORPHING -- both convolvers still run, so it
+      // sheds almost none of the DSP that a struggling machine is struggling
+      // with. Tier 0 is the rung that detaches them for a single shared
+      // algorithmic reverb, and until now nothing could reach it:
+      // setAudioTier had no call sites, so rung A2 of the S0.6 ladder was
+      // unreachable in a shipped build.
+      const forcedTier = new URLSearchParams(location.search).get("audio");
+      if (forcedTier === "0" || forcedTier === "1" || forcedTier === "2") {
+        store.setAudioTier(Number(forcedTier) as 0 | 1 | 2);
+      }
       setReduced(gate.reduced);
       setNarrow(gate.narrow);
       // && short-circuits, so the print path still never creates a WebGL context.
