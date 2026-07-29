@@ -15,6 +15,7 @@ import { clamp01 } from "@/lib/shots";
 import { useScrollStore } from "@/lib/scrollStore";
 import { RANGES } from "@/issues/timeline";
 import type { ToneAudioNode } from "tone";
+import { hit } from "./oneshot";
 import type { ToneModule } from "./types";
 import { h01, hash, moveTo } from "./util";
 import { fireMeowVoice } from "./ui";
@@ -1229,15 +1230,22 @@ export function beatMoment(id: string, flash: number): boolean {
       return true;
     }
     case "press-stamp": {
+      // The money moment. Layered sample plus the synth sub underneath it: the
+      // baked slam carries transient, body and debris, the membrane still
+      // supplies weight below where a small speaker gives up.
+      const sampled = hit("imp.press-slam", { seed: 5, at: now, gain: v });
       // stampMembrane is shared with terminal-back-cover -> gate its start
-      k.stampMembrane.triggerAttackRelease("G0", 0.5, stampGate.at(now, 0.5), v);
-      k.stampMetal.triggerAttackRelease(0.12, now, 0.8 * v);
-      k.stampPaperLp.frequency.rampTo(1200, 0.02, now);
-      k.stampPaper.triggerAttackRelease(0.12, now, 0.6);
-      k.stampMetal.triggerAttackRelease(0.1, now + 0.07, 0.4); // rebound tick
+      k.stampMembrane.triggerAttackRelease("G0", 0.5, stampGate.at(now, 0.5), sampled ? v * 0.55 : v);
+      if (!sampled) {
+        k.stampMetal.triggerAttackRelease(0.12, now, 0.8 * v);
+        k.stampPaperLp.frequency.rampTo(1200, 0.02, now);
+        k.stampPaper.triggerAttackRelease(0.12, now, 0.6);
+        k.stampMetal.triggerAttackRelease(0.1, now + 0.07, 0.4); // rebound tick
+      }
       return true;
     }
     case "press-clank": {
+      if (hit("imp.press-clank", { seed: Math.round(now * 97), at: now })) return true;
       k.clankNoise.triggerAttackRelease(0.12, now, 0.7);
       k.clankThock.triggerAttackRelease(90, 0.15, now, 0.7);
       return true;
