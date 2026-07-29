@@ -3,6 +3,7 @@ import { clamp01 } from "@/lib/shots";
 import { RANGES } from "@/issues/timeline";
 import type { ToneAudioNode } from "tone";
 import type { ToneModule } from "./types";
+import { hit } from "./oneshot";
 import { moveTo } from "./util";
 
 /**
@@ -23,6 +24,19 @@ import { moveTo } from "./util";
  * tear flap, dot-match resolve) fire once on a forward gutter-progress
  * crossing with hysteresis re-arm (BeatRunner idiom) -- idempotent both
  * directions and deep-jump safe (a single fire, never a catch-up burst).
+ *
+ * SAMPLE LAYER: the two paper gutters take their discrete accent from the baked
+ * bank. Only the ACCENT is sampled -- a gutter's sustained texture is f(t) and
+ * has to stretch with the scroll, which a fixed-length buffer cannot do.
+ *
+ * And it is the one place where the "scrub-safe both directions" claim above
+ * genuinely stops applying, so read that sentence as being about the CONTINUOUS
+ * layers. A one-shot is not f(t) by definition, and these are long: the tear is
+ * 0.8 s fired at p=0.85 of a 0.010-wide gutter, so most of it rings out inside
+ * the next issue, and on a fling essentially all of it does. Nothing cancels it
+ * on a back-scrub either -- stopOneshots() runs only on disable. imp.press-clank
+ * set that precedent at 0.9 s; this is the same trade, six times longer than the
+ * 0.14 s synth flap it sits with.
  */
 
 const DOT_ZOOM: readonly [number, number] = [RANGES[2]![1], RANGES[3]![0]];
@@ -30,6 +44,26 @@ const WHIPS: readonly (readonly [number, number])[] = [
   [RANGES[1]![1], RANGES[2]![0]], // noir -> desk title whip
   [RANGES[8]![1], RANGES[9]![0]], // pop -> sketchbook whip
 ];
+
+/**
+ * Round-robin seeds for the two sampled gutter accents. CONSTANT, like the
+ * seed: 5 / seed: 3 / seed: 9 call sites in moments.ts.
+ *
+ * A t-derived seed was tried and does not work. hash() is Knuth multiplicative
+ * and therefore LINEAR in its input, so `hash(seed) % n` advances one variant
+ * per unit of seed -- the choice is maximally sensitive to the seed's last
+ * digit. Reproducing it across a scrub would need t stable to 1e-5, a thousandth
+ * of the tear gutter's width, while a single 60 fps frame moves t by ~1.7e-4
+ * during a one-second traversal. crossFwd fires on whichever frame first lands
+ * past the threshold and that landing point moves with scroll speed, so the
+ * variant was not reproduced, it was randomised.
+ *
+ * There is no free lunch here: a seed quantised coarsely enough to be
+ * frame-independent is constant across the whole gutter. Determinism is the
+ * engine law, so determinism wins and the variation goes.
+ */
+const TEAR_SEED = 21;
+const FLIP_SEED = 22;
 
 /** Sources idle this long at zero gain before they are stopped. */
 const QUIET_STOP_S = 0.3;
@@ -332,7 +366,9 @@ function buildStamp(T: ToneModule, sfx: ToneAudioNode): Voice {
   };
 }
 
-/** 6->7 paper-tear: rising bandpass tear line (ripple texture) + late flap. */
+/** 6->7 paper-tear: rising bandpass tear line (ripple texture) + a late
+ *  accent -- the baked cin.paper-tear layered over the synth flap, or the
+ *  flap alone at full level until the buffer lands. */
 function buildTear(T: ToneModule, sfx: ToneAudioNode): Voice {
   const w = TEAR;
   const noise = new T.Noise("pink");
@@ -366,8 +402,20 @@ function buildTear(T: ToneModule, sfx: ToneAudioNode): Voice {
       moveTo(bp.frequency, fC, 1200 + 2300 * p, 0.05, 25);
       moveTo(bp.Q, fQ, 1 + 2 * p, 0.08, 0.05);
       moveTo(gain.gain, gC, target, 0.04, 0.008);
-      if (crossFwd(cx, p, 0.85, 0.08) && av > 0.05)
-        flap.triggerAttackRelease(0.14, flapGate.at(T.now(), 0.15), 0.4 * av);
+      if (crossFwd(cx, p, 0.85, 0.08) && av > 0.05) {
+        // ONE start time for both halves. The flap has to go through the gate
+        // (it is a mono NoiseSynth and its starts must strictly increase), and
+        // the gate returns a bumped time when the voice is still busy -- so
+        // scheduling the sample at a bare now() would let an oscillating scrub
+        // slide the two halves of one layered hit up to ~160 ms apart. They are
+        // meant to be a single event, so they take a single time.
+        const at = flapGate.at(T.now(), 0.15);
+        const sampled = hit("cin.paper-tear", { seed: TEAR_SEED, at, gain: 0.55 * av });
+        // The synth flap stays underneath at reduced level rather than being
+        // replaced: the baked tear carries the fibre detail, the brown-noise
+        // flap carries the low sheet movement the sample is band-limited above.
+        flap.triggerAttackRelease(0.14, at, (sampled ? 0.18 : 0.4) * av);
+      }
     },
     stop() {
       gC.v = 0;
@@ -381,7 +429,10 @@ function buildTear(T: ToneModule, sfx: ToneAudioNode): Voice {
   };
 }
 
-/** 7->8 page-flip: early flutter flap (page catching air) + late whoosh tail. */
+/** 7->8 page-flip: early flutter flap (page catching air) + late whoosh tail,
+ *  plus the baked fol.paper-flip at the flutter peak for the moment of
+ *  contact this voice never had. No synth fallback: silence until the
+ *  buffer lands is what shipped before. */
 function buildFlip(T: ToneModule, sfx: ToneAudioNode): Voice {
   const w = FLIP;
   const noise = new T.Noise("pink");
@@ -395,6 +446,7 @@ function buildFlip(T: ToneModule, sfx: ToneAudioNode): Voice {
   whGain.connect(sfx);
   const g: Gate = { on: false, quiet: 0 };
   const srcs: Src[] = [noise];
+  const cx: Cross = { init: false, armed: true, last: 0 };
   const gF = { v: 0 };
   const gW = { v: 0 };
   const fW = { v: 400 };
@@ -409,6 +461,19 @@ function buildFlip(T: ToneModule, sfx: ToneAudioNode): Voice {
       moveTo(whBp.frequency, fW, 400 + 2000 * p, 0.05, 25);
       moveTo(flapGain.gain, gF, flapT, 0.04, 0.008);
       moveTo(whGain.gain, gW, whT, 0.04, 0.008);
+      // The one gutter with no discrete accent: the whole voice was two
+      // continuous bands, so the sheet never actually CAUGHT anything. The
+      // baked flip has the grip, the flutter and the landing slap in it, and
+      // it fires at the flutter peak (tri's centre, 0.28). No synth fallback
+      // here -- there was no accent before, so silence until the buffer lands
+      // is exactly the shipped behaviour.
+      // (0.4 + 0.6 * av), not a bare av: this accent has no synth underneath it,
+      // so a bare velocity term makes it silent on exactly the slow crawl where
+      // a reader is most likely to be listening for the page to catch -- while
+      // still consuming the crossFwd arm, which cannot re-fire until p retreats
+      // below 0.20. Same floor shape as buildCrash and buildDotMatch.
+      if (crossFwd(cx, p, 0.28, 0.08) && av > 0.05)
+        hit("fol.paper-flip", { seed: FLIP_SEED, at: T.now(), gain: 0.7 * (0.4 + 0.6 * av) });
     },
     stop() {
       gF.v = 0;
