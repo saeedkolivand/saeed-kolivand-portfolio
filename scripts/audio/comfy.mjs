@@ -99,21 +99,41 @@ export async function download(file, destDir, name) {
 // ------------------------------------------------------------------ graphs
 
 /**
- * Stable Audio Open 1.0 -- text to audio, up to 47 s.
- * Used for the long textural material code synthesis is worst at: rain wash,
- * city hum, crowd babble, machinery, steam, and the TAIL of impacts.
+ * Stable Audio 3 Medium (distilled) -- every generated asset in the project:
+ * the score cue, the one-shots and the ambience beds.
  *
- * Node ids verified against comfy_extras/nodes_audio.py in ComfyUI 0.28.0.
+ * All-in-one checkpoint (DiT + 256-channel VAE) plus ONE external text encoder,
+ * t5gemma. No stem model, no planner LM, no split files: this is the whole
+ * score pipeline now.
+ *
+ * DISTILLED, so the sampler settings are not free parameters -- cfg 1 and 8
+ * steps on lcm/simple, straight off the shipped ComfyUI template
+ * (comfyui_workflow_templates_json/audio_stable_audio_3_medium.json). At cfg 1
+ * the negative branch is not evaluated at all, which is why `negative` defaults
+ * to empty and steering happens entirely in the positive prose.
+ *
+ * PROMPT SHAPE: SA3 wants one flowing English sentence -- style, lead
+ * instruments, supporting layers, percussion, mood, then "BPM: n. Length: n
+ * seconds" -- not ACE's bracketed tag list. bpm and length are prose here and
+ * therefore hints again, but nothing needs to phase-lock against anything, so
+ * a few bpm of drift costs nothing.
+ *
+ * DURATION: EmptyLatentAudio is hardcoded to SA1's shape (64 ch, 2048
+ * downscale). That is correct and deliberate -- comfy.sample
+ * .fix_empty_latent_channels rewrites an all-zero latent to the loaded model's
+ * latent_format, so the 4096-ratio, 256-channel SA3 latent is derived from the
+ * same node. `seconds` is honoured; the ceiling is the seconds_total
+ * conditioner's max_val of 384.
  */
-export function stableAudioGraph({ prompt, negative = "", seconds = 20, seed, steps = 60, cfg = 5.5 }) {
+export function stableAudio3Graph({
+  prompt, negative = "", seconds = 120, seed, steps = 8, cfg = 1,
+  model = "stable_audio_3_medium.safetensors", prefix = "bake/sa3",
+}) {
   return {
-    "1": {
-      class_type: "CheckpointLoaderSimple",
-      inputs: { ckpt_name: "stable_audio_open_1.0.safetensors" },
-    },
+    "1": { class_type: "CheckpointLoaderSimple", inputs: { ckpt_name: model } },
     "2": {
       class_type: "CLIPLoader",
-      inputs: { clip_name: "t5_base.safetensors", type: "stable_audio" },
+      inputs: { clip_name: "t5gemma_b_b_ul2.safetensors", type: "stable_audio" },
     },
     "3": { class_type: "CLIPTextEncode", inputs: { text: prompt, clip: ["2", 0] } },
     "4": { class_type: "CLIPTextEncode", inputs: { text: negative, clip: ["2", 0] } },
@@ -121,122 +141,11 @@ export function stableAudioGraph({ prompt, negative = "", seconds = 20, seed, st
     "6": {
       class_type: "KSampler",
       inputs: {
-        seed, steps, cfg, sampler_name: "dpmpp_3m_sde_gpu", scheduler: "exponential",
-        denoise: 1, model: ["1", 0], positive: ["3", 0], negative: ["4", 0], latent_image: ["5", 0],
+        seed, steps, cfg, sampler_name: "lcm", scheduler: "simple", denoise: 1,
+        model: ["1", 0], positive: ["3", 0], negative: ["4", 0], latent_image: ["5", 0],
       },
     },
     "7": { class_type: "VAEDecodeAudio", inputs: { samples: ["6", 0], vae: ["1", 2] } },
-    "8": { class_type: "SaveAudio", inputs: { audio: ["7", 0], filename_prefix: "bake/sao" } },
-  };
-}
-
-/**
- * ACE-Step v1 3.5B -- the musical score.
- *
- * NOTE ON TEMPO: the v1 text encoder (TextEncodeAceStepAudio) takes only
- * tags/lyrics -- it has no bpm input. That belongs to
- * TextEncodeAceStepAudio1.5, which needs the 1.5 checkpoint we are not using.
- * So tempo is requested in the TAGS string ("84 bpm") and is a strong hint,
- * not a lock. Cues intended to layer must therefore be verified against each
- * other after generation rather than assumed to line up -- which is exactly
- * why the score plan generates ONE cue and splits it into stems, instead of
- * generating several and hoping they agree.
- */
-export function aceStepGraph({ tags, lyrics = "", seconds = 90, seed, steps = 50, cfg = 5 }) {
-  return {
-    "1": {
-      class_type: "CheckpointLoaderSimple",
-      inputs: { ckpt_name: "ace_step_v1_3.5b.safetensors" },
-    },
-    "2": {
-      class_type: "TextEncodeAceStepAudio",
-      inputs: { clip: ["1", 1], tags, lyrics, lyrics_strength: 1 },
-    },
-    "3": {
-      class_type: "TextEncodeAceStepAudio",
-      inputs: { clip: ["1", 1], tags: "", lyrics: "", lyrics_strength: 1 },
-    },
-    "4": { class_type: "EmptyAceStepLatentAudio", inputs: { seconds, batch_size: 1 } },
-    "5": {
-      class_type: "KSampler",
-      inputs: {
-        seed, steps, cfg, sampler_name: "euler", scheduler: "simple", denoise: 1,
-        model: ["1", 0], positive: ["2", 0], negative: ["3", 0], latent_image: ["4", 0],
-      },
-    },
-    "6": { class_type: "VAEDecodeAudio", inputs: { samples: ["5", 0], vae: ["1", 2] } },
-    "7": { class_type: "SaveAudio", inputs: { audio: ["6", 0], filename_prefix: "bake/ace" } },
-  };
-}
-
-/**
- * ACE-Step 1.5 XL. Split-file graph, because the XL checkpoints ship as
- * separate diffusion / text-encoder / VAE files rather than an all-in-one.
- *
- * Why 1.5 rather than v1: v1's own paper names the defect this project
- * measured. It "relies on a mel-spectrogram-based DCAE and a 32kHz monophonic
- * vocoder, rather than a direct end-to-end audio-to-audio pipeline" -- a hard
- * 16 kHz ceiling with phase discarded and resynthesised, which is the mechanism
- * behind the 40-60 ms smeared transient columns in the first cue. 1.5 is
- * waveform-domain: 48 kHz stereo, 64-channel latent at 25 Hz, so a 40 ms frame
- * grid against v1's ~93 ms mel frames, with phase preserved.
- *
- * TWO text encoders, not one. CLIPType.ACE takes a pair: the 0.6B base always,
- * plus a planner LM (1.7B detected as qwen3_2b, or the 4B). Passing one file
- * silently falls through to v1's T5 path in comfy/sd.py.
- *
- * bpm / duration / keyscale are REAL inputs here, not prompt hints -- which is
- * what retires the tempoIsAHint caveat in score.json. keyscale is a strict
- * dropdown with no auto option, so it must always be passed explicitly.
- */
-export function aceStep15Graph({
-  tags, lyrics = "", seconds = 120, seed, steps = 50, cfg = 7,
-  bpm = 74, keyscale = "Bb major", timesignature = "4", language = "en",
-  model = "acestep_v1.5_xl_sft_bf16.safetensors", prefix = "bake/ace15",
-}) {
-  return {
-    "1": {
-      class_type: "UNETLoader",
-      inputs: { unet_name: model, weight_dtype: "default" },
-    },
-    "2": {
-      class_type: "DualCLIPLoader",
-      inputs: {
-        clip_name1: "qwen_0.6b_ace15.safetensors",
-        clip_name2: "qwen_1.7b_ace15.safetensors",
-        type: "ace",
-      },
-    },
-    "3": { class_type: "VAELoader", inputs: { vae_name: "ace_1.5_vae.safetensors" } },
-    "4": {
-      class_type: "TextEncodeAceStepAudio1.5",
-      inputs: {
-        clip: ["2", 0], tags, lyrics, seed, bpm, duration: seconds,
-        timesignature, language, keyscale,
-        generate_audio_codes: true,
-        cfg_scale: 2, temperature: 0.85, top_p: 0.9, top_k: 0, min_p: 0,
-      },
-    },
-    "5": {
-      class_type: "TextEncodeAceStepAudio1.5",
-      inputs: {
-        clip: ["2", 0], tags: "", lyrics: "", seed, bpm, duration: seconds,
-        timesignature, language, keyscale,
-        // The negative branch must not run the audio-code LM: it doubles the
-        // slowest stage of the render to condition on an empty prompt.
-        generate_audio_codes: false,
-        cfg_scale: 2, temperature: 0.85, top_p: 0.9, top_k: 0, min_p: 0,
-      },
-    },
-    "6": { class_type: "EmptyAceStep1.5LatentAudio", inputs: { seconds, batch_size: 1 } },
-    "7": {
-      class_type: "KSampler",
-      inputs: {
-        seed, steps, cfg, sampler_name: "euler", scheduler: "simple", denoise: 1,
-        model: ["1", 0], positive: ["4", 0], negative: ["5", 0], latent_image: ["6", 0],
-      },
-    },
-    "8": { class_type: "VAEDecodeAudio", inputs: { samples: ["7", 0], vae: ["3", 0] } },
-    "9": { class_type: "SaveAudio", inputs: { audio: ["8", 0], filename_prefix: prefix } },
+    "8": { class_type: "SaveAudio", inputs: { audio: ["7", 0], filename_prefix: prefix } },
   };
 }

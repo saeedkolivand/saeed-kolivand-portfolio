@@ -146,8 +146,8 @@ export function enableAudio(): void {
     //     room goes 314k -> 628k samples convolved, and convolution cost rises
     //     faster than linearly. Two convolvers are live across every gutter.
     //   - decodeAudioData resamples to the context rate, so the score's decoded
-    //     footprint goes 69 MB -> 138 MB. 69 MB is the figure bank.ts states as
-    //     measured, and the number the mono downmix existed to bring down.
+    //     footprint goes 46 MB -> 92 MB. 46 MB is the figure bank.ts states as
+    //     measured, for the one stereo cue the score now is.
     //   - Every asset is baked at 48 kHz, so the device rate also forced a
     //     resample of material that would otherwise decode 1:1.
     //
@@ -272,7 +272,7 @@ function buildMaster(T: ToneModule): Master {
   const low = useScrollStore.getState().quality === "low";
   buildOneshot(T, B, low);
   buildScore(T, B);
-  // The score is ~69 MB decoded; the low tier does without it rather than
+  // The score is ~46 MB decoded; the low tier does without it rather than
   // risk a tab eviction on hardware already carrying the WebGL scene.
   loadBank(T, low);
 
@@ -437,7 +437,7 @@ function loop(now: number): void {
     scoreMoments(m.T, m.B.in.foley, t, dt, velocity);
     // per-scene room morph: pure f(t), crossfaded across each gutter
     updateRooms(t, now);
-    // adaptive score: wall-clock loop, layer gains as f(t, velocity)
+    // adaptive score: wall-clock loop, gain and cutoff as f(t, velocity)
     updateScore(t, velocity, m.T.now());
     // music-bus envelope for the halftone breathe (consumers scale it down)
     const v = m.meter.getValue();

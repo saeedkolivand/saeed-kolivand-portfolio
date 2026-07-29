@@ -25,7 +25,7 @@ The comic framing is not decoration; it is where the hard constraints come from.
 - **Authored-time beats** ([`lib/beats.ts`](lib/beats.ts)) fire when `t` crosses a trigger — idempotent by id (HMR/StrictMode safe), re-armed with hysteresis (default `0.006`) once `t` retreats, skipped entirely under reduced motion. Travel stays `f(t)`; only the slam is timed. The split is enforced: on the title drop, the card's *visibility* is a pure scroll window in [`components/Lettering.tsx`](components/Lettering.tsx), so an unfired beat (deep jump, reduced motion) still shows the card resting — the beat only owns the oversized impact frame.
 - **The music clock** (below), which is wall-clock locked with `f(t)` layer gains.
 
-**2. No `Math.random` on any scroll-driven path.** Every jitter, variant pick and noise draw is a seeded hash. [`lib/onomatopoeia.ts`](lib/onomatopoeia.ts) uses an FNV-style string hash after the `Math.random` default "burned two issues' scrub-determinism gates". [`lib/audio/util.ts`](lib/audio/util.ts) ships *two* hashes and documents why: the Knuth multiplicative hash is linear in `n`, so over consecutive indices it produces a sawtooth (autocorrelation 0.98 at lag 144) — fill an audio buffer with it and you get a near-ultrasonic whistle, not noise. Dense indices get a murmur3 avalanche mixer instead. [`scripts/audio/dsp.mjs`](scripts/audio/dsp.mjs) restates the same rule for the offline bake, so a re-bake with an unchanged recipe reproduces the same bytes.
+**2. No `Math.random` on any scroll-driven path.** Every jitter, variant pick and noise draw is a seeded hash. [`lib/onomatopoeia.ts`](lib/onomatopoeia.ts) uses an FNV-style string hash after the `Math.random` default "burned two issues' scrub-determinism gates". [`lib/audio/util.ts`](lib/audio/util.ts) ships *two* hashes and documents why: the Knuth multiplicative hash is linear in `n`, so over consecutive indices it produces a sawtooth (autocorrelation 0.98 at lag 144) — fill an audio buffer with it and you get a near-ultrasonic whistle, not noise. Dense indices get a murmur3 avalanche mixer instead. The offline bake keeps the same rule from the other end: every generated asset is a pure function of a committed seed, so a re-render of an unchanged prompt reproduces the same audio.
 
 **3. Rest frames must be bit-identical.** [`components/PostPipeline.tsx`](components/PostPipeline.tsx) snaps the asymptotically-decaying velocity to hard `0` below `1e-3`; [`components/ScrollProxy.tsx`](components/ScrollProxy.tsx) zeroes the store velocity after a 200 ms quiet window, because ScrollTrigger's `getVelocity` otherwise latches its last fling value forever at rest.
 
@@ -56,7 +56,7 @@ The comic framing is not decoration; it is where the hard constraints come from.
 
 There is a cat. Harley is a real, fluffy golden tabby, and she is the through-line — she walks you scene to scene and hides in every issue ([`components/CatModel.tsx`](components/CatModel.tsx)).
 
-`intensity` (1-5) is the beat chart. It is not a comment — the adaptive score reads it directly to decide which musical layers are audible.
+`intensity` (1-5) is the beat chart. It is not a comment — the adaptive score reads it directly to decide how loud and how bright the music is.
 
 ---
 
@@ -102,15 +102,27 @@ Lenis -> one ScrollTrigger -> normalized `t` in a Zustand store. Base spacer 240
 
 ## Audio
 
-**This is a hybrid system, not pure synthesis.** The repo ships 34 committed `.m4a` files across six categories in `public/audio/` (`AUDIO_BYTES = 8142428` in [`lib/audio/manifest.ts`](lib/audio/manifest.ts)), and Tone.js 15 is still the runtime engine for everything else — twelve per-issue ambience beds, eleven scored gutter voices, the diegetic scene moments, the six-bus mix, sample playback, and the convolution rooms.
+**This is a hybrid system, not pure synthesis.** The repo ships 36 committed `.m4a` files across six categories in `public/audio/` (`AUDIO_BYTES = 4388056` in [`lib/audio/manifest.ts`](lib/audio/manifest.ts)), and Tone.js 15 is still the runtime engine for everything else — twelve per-issue ambience beds, eleven scored gutter voices, the diegetic scene moments, the six-bus mix, sample playback, and the convolution rooms.
 
-Thirteen slots ship as files: the three score stems, the press slam and clank, the title drop, the spread unfold, the paper tear, the page flip, three room beds and the terminal keystrokes. Round robins are normalised as a group, never individually, so variation between variants survives. The three score stems alone are 6,994,907 of the 8,142,428 bytes — about 86% of the payload. The three ambience beds are baked and shipped ahead of their call sites; the manifest is generated from the bake, not from usage.
+Twelve slots ship as files, and **every one of them is generated**: the score, the press slam and clank, the title drop, the spread unfold, the paper tear, the page flip, the cat, three room beds and the terminal keystrokes. Round robins are normalised as a group, never individually, so variation between variants survives. The score alone is 2,997,702 of the 4,388,056 bytes — about 68% of the payload. The three ambience beds are baked and shipped ahead of their call sites; the manifest is generated from the bake, not from usage.
+
+### The effects
+
+Every sampled effect is a Stable Audio 3 render, declared in [`assets/audio-src/sfx.json`](assets/audio-src/sfx.json) — prompt, seed, round-robin count and trim length per slot — and produced by `node scripts/render-audio.mjs`. That file is the input, not a description of one: `bake-audio.mjs` reads `n` and `seed` straight out of it and finds the renders by convention, so the slot table cannot describe a different bake than the renderer produced.
+
+This replaced a hand-written offline DSP layer — modal impact banks, filtered-noise page flips, a granular tear. They were good, and they were unmistakably synthetic: a modal bank gives you a plausible ring, but never the fibrous, uneven mess a real sheet of paper makes.
+
+**One-shots have to be trimmed, and that is not cosmetic.** The model's minimum render is 1 s, and a diffusion model asked for one second of keystroke returns one second of *room* with a keystroke somewhere in it. Untrimmed, every hit would fire late by however much silence the model left, the one-shot pool would hold voices busy for the full render, and each variant would carry a second of encoded nothing. The bake trims both ends at −50 dBFS — not at zero, since the renders have a real noise floor — keeps 5 ms of pre-roll so the attack survives, and fades the cut edge over 30 ms. Ambience beds are never trimmed: their quiet parts *are* the room, and the bed player loops them.
+
+**Harley meows for herself.** `fol.meow` is four real meows; the FMSynth contour that used to be the cat is now the fallback voice for the frames before the bank lands and for the low tier. Same contract as every other hit: `hit()` returns `false` and the call site falls through.
 
 ### The score
 
-One 120 s cue, generated locally with **ACE-Step v1 (3.5B, Apache-2.0)** through ComfyUI — seed 424242, 60 steps, cfg 5, 90 bpm, D minor, instrumental — then split into `drums` / `bass` / `other` by **Demucs**. The full provenance is committed at [`assets/audio-src/score.json`](assets/audio-src/score.json) so a regeneration is reproducible rather than a fishing trip. Generating one cue and splitting it is what guarantees the three layers share key, tempo and phase; four separate cues would not line up.
+One 120 s stereo cue, generated locally with **Stable Audio 3 Medium (distilled)** through ComfyUI — seed 740074, 8 steps, cfg 1, `lcm`/`simple`, a sparse felt-piano/upright-bass/brushed-kit trio at 74 bpm. The distilled checkpoint fixes those sampler settings rather than offering them, and at cfg 1 the negative branch is never evaluated, so all steering lives in the positive prose. Full provenance is committed at [`assets/audio-src/score.json`](assets/audio-src/score.json) so a regeneration is reproducible rather than a fishing trip: `node scripts/render-score.mjs` re-renders it from that file.
 
-At runtime ([`lib/audio/score.ts`](lib/audio/score.ts)) the cue is **wall-clock locked and gain-mixed**, not scrubbed. Real music has rhythmic identity, and scrubbing it by scroll position sounds like a turntable. So the clock runs independently and only the layer gains are `f(t, velocity)` — standard game vertical layering, scrub-safe by construction. `arrangement()` maps each issue's `intensity` (1-5) to gains, interpolated across gutters by `roomBlend`, the project's existing pure `f(t)` "where am I between two scenes" function: the harmonic bed is always present but drops in the quiet valleys, bass enters second, drums last. The accepted consequence: a hit at a given `t` lands wherever the music happens to be. The visual frame wins and the music ducks.
+**The cue ships whole — no stem separation.** An earlier version split it into `drums`/`bass`/`other` with Demucs and mixed them as vertical layers; a source separator's idea of "bass" in a felt-piano trio is mostly piano left hand, and the runtime was paying three times the decoded memory for that bleed. One file, one clock, and the balance the model actually mastered.
+
+At runtime ([`lib/audio/score.ts`](lib/audio/score.ts)) the cue is **wall-clock locked and gain-mixed**, not scrubbed. Real music has rhythmic identity, and scrubbing it by scroll position sounds like a turntable. So the clock runs independently and only the gain and the lowpass cutoff are `f(t, velocity)` — scrub-safe by construction, since both are pure functions of `t`. `arrangement()` maps each issue's `intensity` (1-5) onto both, interpolated across gutters by `roomBlend`, the project's existing pure `f(t)` "where am I between two scenes" function: in the quiet valleys the score sits at 0.28 gain under a 900 Hz lowpass, so it reads as distant and dark rather than merely turned down, and it opens to full level and 18 kHz at intensity 5. Velocity opens the filter rather than raising the level — a fast scroll should feel like a fast-forward, not like the mix falling apart. The accepted consequence: a hit at a given `t` lands wherever the music happens to be. The visual frame wins and the music ducks.
 
 ### The runtime graph
 
@@ -164,7 +176,7 @@ The Print Edition ([`components/PrintEdition.tsx`](components/PrintEdition.tsx))
 
 Next.js 16 (App Router, `output: "export"`) · React 19 · TypeScript 6 (strict) · React Three Fiber 9 + drei · `postprocessing` 6 · Three.js 0.185 with hand-written GLSL · Tone.js 15 (synthesis, sample playback, convolution) · GSAP + ScrollTrigger · Lenis · Zustand · Tailwind CSS 4.
 
-Offline audio toolchain (not required to build or run): ffmpeg/ffprobe, ComfyUI + ACE-Step v1, Demucs.
+Offline audio toolchain (not required to build or run): ffmpeg/ffprobe, ComfyUI + Stable Audio 3 Medium.
 
 Fonts are loaded twice on purpose: `next/font/google` for DOM text, and self-hosted TTFs in `public/fonts/` for troika SDF lettering inside the canvas.
 
@@ -210,4 +222,4 @@ Built with **Claude Code**: an orchestrator coordinating six specialised subagen
 
 ---
 
-<sub>© Saeed Kolivand. Style borrows the generic technique vocabulary of comic printing; no third-party characters, logos, or IP. Fonts are OFL (Bangers, Caveat, JetBrains Mono). The soundtrack is machine-generated with ACE-Step v1 (Apache-2.0); model, seed and generation parameters are committed at `assets/audio-src/score.json`. Harley is real and was not consulted.</sub>
+<sub>© Saeed Kolivand. Style borrows the generic technique vocabulary of comic printing; no third-party characters, logos, or IP. Fonts are OFL (Bangers, Caveat, JetBrains Mono). The soundtrack is machine-generated with Stable Audio 3 Medium (Stability AI Community License); model, seed and generation parameters are committed at `assets/audio-src/score.json`. Harley is real and was not consulted.</sub>

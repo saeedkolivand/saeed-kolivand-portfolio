@@ -1,0 +1,85 @@
+{
+  "note": "Every sampled sound effect and ambience bed, as prompts. Committed so a regeneration is reproducible rather than a fishing trip: this file IS the input to scripts/render-audio.mjs, and scripts/bake-audio.mjs reads `n` and `seed` straight out of it, so the slot table and the provenance can never disagree. Raw renders stay gitignored under assets/audio-src/raw/sfx/.",
+  "model": "stable_audio_3_medium.safetensors (Stable Audio 3 Medium, distilled)",
+  "textEncoder": "t5gemma_b_b_ul2.safetensors",
+  "license": "Stability AI Community License -- free for research, personal and commercial use under 1M USD annual revenue.",
+  "history": "This replaces the offline DSP half of the pipeline. Every one-shot here used to be a hand-written synthesis recipe in scripts/audio/recipes.mjs -- modal impact banks, filtered noise page flips, a granular tear. They were good, and they were unmistakably synthetic: a modal bank gives you a plausible ring but never the fibrous, uneven mess a real sheet of paper makes.",
+  "promptShape": "One or two dense sentences: source, material, spatial character, temporal evolution, then 'Length: n seconds'. That is the shape the shipped ComfyUI template's own SFX reprompter targets, so it is the shape t5gemma has seen most of. Round robins are the same prompt at seed+i -- variation between takes is the point, so they are normalised as a group and never individually.",
+  "trim": "One-shots come back with leading silence and a long tail: the model is filling the requested duration, and the requested duration cannot go below 1 s. bake-audio.mjs trims both ends at -50 dBFS with a 5 ms pre-roll and a 30 ms fade-out, which is what turns a 2 s render into a 300 ms hit that fires on time. Beds are never trimmed -- their silence is room tone.",
+  "slots": {
+    "ui.key": {
+      "n": 10,
+      "seed": 1000,
+      "seconds": 1,
+      "maxS": 0.5,
+      "prompt": "Single keystroke on a tactile mechanical keyboard, close-miked in a dead room, sharp plastic click with a hollow keycap thock and a fast bottom-out, no reverb tail. Length: 1 seconds"
+    },
+    "fol.paper-flip": {
+      "n": 5,
+      "seed": 3000,
+      "seconds": 2,
+      "maxS": 1.2,
+      "prompt": "A single page of a comic book turning, dry crisp paper flutter with a light snap as the sheet lands, close perspective, dead room, no reverb. Length: 2 seconds"
+    },
+    "cin.paper-tear": {
+      "n": 4,
+      "seed": 4000,
+      "seconds": 2,
+      "maxS": 1.6,
+      "prompt": "A sheet of thick paper torn steadily in half, fibrous ripping texture building to a crisp finishing snap, close-miked, dry room. Length: 2 seconds"
+    },
+    "imp.press-slam": {
+      "n": 2,
+      "seed": 5000,
+      "seconds": 3,
+      "maxS": 2.6,
+      "prompt": "Heavy steel printing press platen slamming shut, deep bass thud with a metallic body ring and a short scatter of debris settling, large industrial hall, cinematic weight. Length: 3 seconds"
+    },
+    "imp.title-drop": {
+      "n": 2,
+      "seed": 6000,
+      "seconds": 2,
+      "maxS": 1.8,
+      "prompt": "A massive concrete block dropping onto a hard floor, deep cinematic impact with sub-bass and scattering dust and grit, short reverberant tail. Length: 2 seconds"
+    },
+    "imp.press-clank": {
+      "n": 4,
+      "seed": 7000,
+      "seconds": 1,
+      "maxS": 0.9,
+      "prompt": "Short metallic clank of a steel machine part striking another, bright ringing attack with fast decay, factory floor, close perspective. Length: 1 seconds"
+    },
+    "cin.spread-unfold": {
+      "n": 1,
+      "seed": 12000,
+      "seconds": 3,
+      "maxS": 2.4,
+      "prompt": "A large folded newspaper spread opening in one continuous motion, broad papery whoosh with fluttering sheets and a soft settling snap at the end, dry room, close perspective. Length: 3 seconds"
+    },
+    "fol.meow": {
+      "n": 4,
+      "seed": 15000,
+      "seconds": 2,
+      "maxS": 1.4,
+      "prompt": "A single realistic domestic cat meow, close-miked in a dry room, natural feline vocal with a clear rising and falling pitch bend, no music, no reverb. Length: 2 seconds"
+    },
+    "amb.rain": {
+      "n": 1,
+      "seed": 8000,
+      "seconds": 12,
+      "prompt": "Steady rain falling on a city street at night, dense hissing water with occasional heavier drips and a faint gutter trickle, no thunder, no music, continuous stereo ambience. Length: 12 seconds"
+    },
+    "amb.room-crt": {
+      "n": 1,
+      "seed": 9000,
+      "seconds": 12,
+      "prompt": "Quiet empty room tone with a faint CRT television flyback whine and a low electrical mains hum, no music, no voices, no footsteps, continuous stereo ambience. Length: 12 seconds"
+    },
+    "amb.room-desk": {
+      "n": 1,
+      "seed": 9100,
+      "seconds": 12,
+      "prompt": "Quiet home office room tone late at night, faint air movement and a distant low hum from another room, no music, no voices, no typing, continuous stereo ambience. Length: 12 seconds"
+    }
+  }
+}
