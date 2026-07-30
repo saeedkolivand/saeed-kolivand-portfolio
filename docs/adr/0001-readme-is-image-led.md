@@ -23,6 +23,16 @@ old 26 KB because twelve plates break up every wall of text.
 - The autoplaying scroll GIF cannot honour `prefers-reduced-motion` — GitHub
   supports `<picture>` with `prefers-color-scheme` only. Accepted knowingly,
   and it is the one place in the project where motion is not opt-in.
+- **It loops indefinitely, and the relevant criterion is WCAG 2.2.2 (Pause,
+  Stop, Hide), not 2.3.1.** The 8 s figure is one pass, not the duration of the
+  motion: no `-loop` is passed and ffmpeg's GIF default is infinite. The flash
+  budget is satisfied either way (~1.5 transition frames per second against the
+  3/s cap), but a flash analysis is the wrong test for perpetual motion with no
+  pause control, and this consequence originally claimed a time-boxed exception
+  it did not have. Visible looping motion was chosen over a `<details>` gate
+  because the motion is what the portfolio is selling; `-loop -1` in
+  [`../readme/CAPTURE.md`](../readme/CAPTURE.md) reverses it in one line if that
+  trade stops being worth it.
 - `t range` stays in the README table but `Exit gutter` moves out, so the
   "ranges and gutters chain exactly to 1.000" claim is no longer verifiable from
   the front page alone.

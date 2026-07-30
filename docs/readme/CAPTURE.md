@@ -45,8 +45,22 @@ mid-range framed nothing:
 | `04-origin` | 0.334 | 0.346 is mostly dark; 0.334 makes the panels legible |
 | `05-press` … `11-letters` | 0.433, 0.527, 0.616, 0.711, 0.800, 0.889, 0.970 | — |
 
-The hero is `t = 0.022` (the cover, mid crash-dolly), also cropped to 1200x630
-for `app/opengraph-image.png`. GIF frames are `t = i/95`, `i` in `[0, 95]`.
+The hero is `t = 0.022` (the cover, mid crash-dolly). `app/opengraph-image.png`
+is cropped from that same 1600x800 capture, not from `hero.png` — the shipped
+hero is only 1100 wide, so it cannot be the source of a 1200x630 image. GIF
+frames are `t = i/95`, `i` in `[0, 95]`.
+
+Committed sizes, so the commands below can be checked against the tree: plates
+600x300, `hero.png` 1100x550, `app/opengraph-image.png` 1200x630,
+`scroll.gif` 640x320.
+
+**The twelve table thumbnails carry `alt=""` on purpose.** Every row's `On the
+page` cell already describes that scene in a sentence, so descriptive alt text
+would make a screen reader announce the same content twice per row; an empty alt
+marks the image as decorative and lets the prose do the work. The hero and the
+GIF, which have no adjacent description, carry real alt text. This is not the
+same claim as the README's "`alt` on every image" — that is a property of the
+Print Edition's content images, where the image *is* the content.
 
 **Gotcha:** the CDP eval context persists between calls, so every injected
 snippet must be an IIFE. A bare `const t = ...` throws
@@ -61,13 +75,27 @@ ffmpeg only (already required by `npm run bake:audio`); no `sharp`, no
 badly under JPEG.
 
 ```bash
-# plates: quantize in place
-ffmpeg -i in.png -vf "scale=900:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=128[p];[b][p]paletteuse=dither=bayer:bayer_scale=3" -y out.png
+# the twelve plates: 1600x800 capture -> 600x300 PNG-8
+ffmpeg -i raw/NN-name.png -vf "scale=600:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=128[p];[b][p]paletteuse=dither=bayer:bayer_scale=3" -y plates/NN-name.png
 
-# gif: two-pass palette, 96 frames -> 640x320, 12 fps, 8 s
+# hero: same capture at t=0.022 -> 1100x550
+ffmpeg -i raw/hero.png -vf "scale=1100:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=128[p];[b][p]paletteuse=dither=bayer:bayer_scale=3" -y hero.png
+
+# social preview: crop the 1600x800 capture to 1200:630 aspect FIRST, then scale.
+# 800 * (1200/630) = 1524, so take 1524 of the 1600 columns; scaling a 1600x630
+# crop straight to 1200x630 would squash it horizontally by 1.11x.
+ffmpeg -i raw/hero.png -vf "crop=1524:800:38:0,scale=1200:630:flags=lanczos,split[a][b];[a]palettegen=max_colors=128[p];[b][p]paletteuse=dither=bayer:bayer_scale=3" -y ../../app/opengraph-image.png
+
+# gif: two-pass palette, 96 frames -> 640x320, 12 fps, 8 s per loop
 ffmpeg -framerate 12 -i frames/%03d.png -vf "fps=12,scale=640:-1:flags=lanczos,palettegen=max_colors=64" -y pal.png
 ffmpeg -framerate 12 -i frames/%03d.png -i pal.png -lavfi "fps=12,scale=640:-1:flags=lanczos,paletteuse=dither=none" -y scroll.gif
 ```
+
+**The GIF loops forever.** No `-loop` is passed and ffmpeg's GIF default is
+infinite (`NETSCAPE2.0`, loop count 0), so "8 s" is the length of one pass, not
+the length of the motion. That is deliberate — see
+[the ADR](../adr/0001-readme-is-image-led.md) — and `-loop -1` on the second
+pass is the one-line change that makes it play once and stop.
 
 Budget: GIF under 5 MB, plates under ~200 KB each. The frame directory is
 deleted after encoding; only `scroll.gif` is committed.

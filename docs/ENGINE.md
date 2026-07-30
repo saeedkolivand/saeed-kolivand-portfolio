@@ -10,6 +10,7 @@ five constraints in the README: the engine is a pure function of scroll position
 [Scene lifecycle](#scene-lifecycle) ·
 [Scroll](#scroll) ·
 [Stepped time](#stepped-time) ·
+[The Print Edition switch](#the-print-edition-switch) ·
 [Audio](#audio)
 
 ---
