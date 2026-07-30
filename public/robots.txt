@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+
+# The site is one page. The full text lives in the Print Edition, which is
+# server-rendered on first paint -- no JS or WebGL needed to read it.
+# Curated summary for language models: /llms.txt
