@@ -20,6 +20,9 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  // metadataBase is required for the opengraph-image file convention to emit an
+  // absolute URL; most unfurlers drop a relative one.
+  metadataBase: new URL("https://iamsaeed.dev"),
   title: "Saeed Kolivand -- Portfolio",
   description:
     "Saeed Kolivand -- Senior Frontend Developer. A scroll-driven comic-book portfolio.",
