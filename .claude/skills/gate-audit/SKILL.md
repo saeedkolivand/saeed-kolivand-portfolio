@@ -9,8 +9,20 @@ description: Procedures for auditing saeed-kolivand-portfolio phase gates - driv
 Dev server: `npm run dev` (http://localhost:3000). The scene is canvas-only:
 DOM/accessibility snapshots see nothing - use screenshots, console, traces.
 
-Scroll to a global t:
-`window.scrollTo(0, (document.documentElement.scrollHeight - innerHeight) * T)`
+Scroll to a global t. scroll -> t is NOT linear: `progressToT` doubles scroll
+distance inside t in [0.028, 0.082], so a plain `scrollHeight * t` lands up to
+0.054 early for any t > 0.028 - wider than any gutter in the timeline, i.e. the
+wrong issue. Use the exact inverse of `tToProgress`
+(components/ScrollProxy.tsx):
+
+```js
+(() => {                              // IIFE: the eval context persists between
+  const t = T, a = 0.028, b = 0.082;  // calls, so a bare `const t` throws on the
+  const u = t <= a ? t : t <= b ? a + (t - a) * 2 : t + 0.054;  // second call and
+  window.scrollTo(0, (u / 1.054) * (document.documentElement.scrollHeight - innerHeight));
+})();                                 // the scroll silently never happens
+```
+
 then wait ~2s for Lenis to settle before screenshotting. t ranges per issue
 are in issues/registry.ts (S0.3). Mid-shot samples avoid intra-issue whip
 gutters: use t = start + 0.2*(end-start), not the middle of the range.
@@ -21,6 +33,13 @@ console with stack traces, screenshots). Fallback (logged 2026-07-02):
 agent-browser CLI - `agent-browser open <url>`, `eval "<js>"`,
 `screenshot <path>`, `console`. Screenshots stay in the audit context;
 report only pass/fail + evidence lines.
+agent-browser gotchas: viewport is `set viewport <w> <h>`; `wait --load
+networkidle` NEVER returns against the dev server (the HMR socket keeps the
+network live) - use `wait <ms>`; never pipe its output through tail/head, this
+shell wrapper drops piped stdout and it looks like a hang. The sound invite
+covers the cover: `find text "NOT NOW" click` once. For anything committed,
+capture the production export, not dev - dev bakes the Next "N" badge into every
+frame (see docs/readme/CAPTURE.md).
 
 ## FPS
 DevTools MCP: record a trace while scrolling a segment; read the FPS track.

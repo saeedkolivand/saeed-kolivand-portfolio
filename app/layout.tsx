@@ -19,10 +19,26 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
+const TITLE = "Saeed Kolivand -- Portfolio";
+const DESCRIPTION =
+  "Saeed Kolivand -- Senior Frontend Developer. A scroll-driven comic-book portfolio.";
+
 export const metadata: Metadata = {
-  title: "Saeed Kolivand -- Portfolio",
-  description:
-    "Saeed Kolivand -- Senior Frontend Developer. A scroll-driven comic-book portfolio.",
+  // metadataBase is required for the opengraph-image file convention to emit an
+  // absolute URL; most unfurlers drop a relative one.
+  metadataBase: new URL("https://iamsaeed.dev"),
+  title: TITLE,
+  description: DESCRIPTION,
+  // The opengraph-image file convention supplies og:image on its own; this block
+  // is only here for the fields it cannot infer.
+  openGraph: {
+    title: TITLE,
+    description: DESCRIPTION,
+    url: "https://iamsaeed.dev",
+    siteName: TITLE,
+    type: "website",
+  },
+  twitter: { card: "summary_large_image", title: TITLE, description: DESCRIPTION },
 };
 
 export default function RootLayout({
