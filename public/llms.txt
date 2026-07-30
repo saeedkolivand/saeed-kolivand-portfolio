@@ -1,0 +1,45 @@
+# Saeed Kolivand
+
+> Senior Frontend Developer based in Germany, building AI-powered and agentic
+> tools. Portfolio at https://iamsaeed.dev, presented as a scroll-driven comic
+> book (WebGL) with a complete server-rendered text edition underneath.
+
+Stack: React, TypeScript, Next.js, Tauri, Node.js, GraphQL, AI.
+
+The site renders two ways from one source. The animated version is a WebGL
+comic: twelve issues, an original score, a cat. The Print Edition is the same
+run set flat as semantic HTML -- it ships in the initial server response, so
+the full content is readable without JavaScript, WebGL, or motion.
+
+## Work
+
+- [AI Job Hunter](https://aijobhunter.app): Local-first desktop app. Covers 16
+  job boards, writes the cover letters, does everything but hit submit. AI
+  agents, semantic search, local models via Ollama, Tauri backend, React
+  frontend. [Repo](https://github.com/saeedkolivand/ai-job-hunter-app)
+- [AI Engineering Hub](https://github.com/saeedkolivand/ai-engineering-hub):
+  Local-first ops room for the AI toolchain. Swallows metrics from every tool,
+  serves the local API the desktop app and Stream Deck plugins read.
+- [Claude Usage Stream Deck Plugin](https://github.com/saeedkolivand/claude-usage-streamdeck-plugin):
+  Claude session and weekly burn, lit up on a Stream Deck key. JavaScript.
+- [TokenSaver Stream Deck Plugin](https://github.com/saeedkolivand/tokensaver-streamdeck-plugin):
+  Tallies the AI tokens you didn't spend, measured and estimated. JavaScript.
+- [Vocal Remover](https://github.com/saeedkolivand/vocal-remover): Splits the
+  vocals out of a track from the backing instrumental. Python.
+
+## Background
+
+Started on a hand-me-down machine, studied CS, took a first job, then moved to
+Germany. Now Senior Frontend Engineer working on AI and agentic tooling, with
+open source on the side and occasional streaming on Twitch and YouTube.
+
+## Links
+
+- [GitHub](https://github.com/saeedkolivand)
+- [LinkedIn](https://www.linkedin.com/in/saeedkolivand/)
+
+## Optional
+
+- Contact: the email address is assembled at runtime on the site rather than
+  written into any static file, including this one. Use the contact affordance
+  on https://iamsaeed.dev or reach out via LinkedIn.
