@@ -309,3 +309,28 @@ export const printEdition = {
     ],
   },
 } as const;
+
+// The 404 page (app/not-found.tsx -- emitted as out/404.html by the static
+// export, which GitHub Pages serves for any unknown path). Styled from the
+// Print Edition sheet: same paper, same lettering, no WebGL. The barcode line
+// answers lettersPage.backCover.barcode ("this issue never 404s") with the one
+// page that does. PURE ASCII (Turbopack rope bug); same dry, first-person tone.
+export const notFound = {
+  kicker: "Issue 404 -- panel not printed",
+  title: "MISSING PANEL",
+  dek: "This page fell out of the binding.",
+  intro: "The address is real; the art is not. Somewhere between the plate and the press this panel came out blank -- so here is the gutter where it should have been.",
+  gutterKicker: "the gutter -- nothing printed here",
+  gutterNote: "art was supposed to go here",
+  terminal: {
+    request: "GET /this-page",
+    response: "404 -- not in this printing.\nNothing was lost. It was never drawn.",
+    suggestion: "cover",
+    suggestionBody: "Go back to the front page and start the run from panel one.",
+  },
+  cta: "BACK TO THE COVER",
+  ctaProjects: "THE PROJECTS",
+  ctaContact: "THE DESK",
+  nextIssue: "NEXT PANEL: THE COVER",
+  barcode: "404 | the one page that does | still no refunds",
+} as const;
