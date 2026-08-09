@@ -1,4 +1,5 @@
-import { lettering, notFound } from "@/lib/content";
+import type { Metadata } from "next";
+import { notFound } from "@/lib/content";
 import styles from "@/components/PrintEdition.module.css";
 
 /*
@@ -17,6 +18,15 @@ import styles from "@/components/PrintEdition.module.css";
  * URL -- reading it needs "use client" + an effect to dodge the hydration
  * mismatch. Swap in usePathname() if the exact path ever has to be shown.
  */
+// Verified against the emitted out/404.html: `not-found.tsx` DOES honour a
+// metadata export under `output: export` (PR #76 review, finding 3). No robots
+// field -- Next already injects `<meta name="robots" content="noindex">` here,
+// and setting it again only emits a second, duplicate tag.
+export const metadata: Metadata = {
+  title: notFound.metaTitle,
+  description: notFound.dek,
+};
+
 export default function NotFound() {
   return (
     <div className={styles.root}>
@@ -37,31 +47,29 @@ export default function NotFound() {
             where the caption would be, and the sound of it hitting the floor. */}
         <div className={styles.donationAlert}>
           <span className={styles.hand}>{notFound.gutterNote}</span>
-          <p className={styles.boom}>{lettering.onomatopoeia.impact[2]}</p>
+          <p className={styles.boom}>{notFound.boom}</p>
         </div>
 
+        {/* One exchange, not two: the letters page prints bare commands, so a
+            request line and a command line stacked as sibling prompts read as
+            an inconsistency rather than a joke (PR #76 review, finding 4). */}
         <dl className={styles.terminal}>
           <div>
             <dt>{notFound.terminal.request}</dt>
             <dd>{notFound.terminal.response}</dd>
           </div>
-          <div>
-            <dt>{notFound.terminal.suggestion}</dt>
-            <dd>{notFound.terminal.suggestionBody}</dd>
-          </div>
         </dl>
 
+        {/*
+         * One exit, deliberately. Deep links like /#projects are dead on the
+         * experience path: when ExperienceGate mounts the 3D stack it puts the
+         * Print Edition in `.behind` (1px, clipped) and nothing in the app reads
+         * location.hash, so the reader would land on the cover at t=0 anyway
+         * (PR #76 review, finding 1). The cover is where they were going.
+         */}
         <a className={styles.ctaLink} href="/">
           {notFound.cta}
         </a>
-        <div className={styles.newsBtns}>
-          <a className={styles.newsBtn} href="/#projects">
-            {notFound.ctaProjects}
-          </a>
-          <a className={styles.newsBtn} href="/#contact">
-            {notFound.ctaContact}
-          </a>
-        </div>
       </main>
 
       {/* ponytail: no Harley cameo here -- the mascot PNGs are 1.5-4 MB each,
