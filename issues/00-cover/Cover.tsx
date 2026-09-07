@@ -32,7 +32,11 @@ const PAPER = "#F2EAD9";
 const INK = "#201D18";
 const RED = "#E2574C";
 const TEAL = "#2BB3A3";
-const AMBER = "#FFB347"; // hero-panel stand-in while its texture loads
+
+// Not a cover-row color: this is the hero plate's own field amber (the same
+// value Noir lights its window with), used ONLY as the stand-in fill while
+// that plate decodes, so the swap is a content change and not a color step.
+const AMBER = "#FFB347";
 
 const BANGERS = "/fonts/Bangers-Regular.ttf";
 const COVER_END = RANGES[0]![1];
@@ -171,8 +175,9 @@ export default function Cover({ index }: { index: number }) {
             replacing the pounce cat). Same baked plate the Noir window
             prints, tipped onto the sunburst as a cover photo: ink border,
             slight tilt for the comic-cover energy, centered on the disc so
-            the paper ring reads all the way round. Click still meows --
-            Harley is off-panel now, but the S5b.5 gag stays. */}
+            the paper ring reads all the way round. The click still meows:
+            an unsignposted gag now that the cat it sat on is gone, which is
+            what the rest of the S5b.5 cats are too. */}
         <group
           ref={hero}
           position={[0, -0.4, 0.03]}
@@ -188,12 +193,14 @@ export default function Cover({ index }: { index: number }) {
             <meshToonMaterial color={INK} gradientMap={ramp} />
           </mesh>
           {/* amber fill stands in while the texture loads -- LOCAL Suspense,
-              the rest of the cover never unmounts */}
+              the rest of the cover never unmounts. Unlit basic material to
+              match the ArtPanel it hands off to (a toon+ramp fill would make
+              the swap a luminance step, not just a content change). */}
           <Suspense
             fallback={
               <mesh>
                 <planeGeometry args={[HERO.w, HERO.h]} />
-                <meshToonMaterial color={AMBER} gradientMap={ramp} />
+                <meshBasicMaterial color={AMBER} />
               </mesh>
             }
           >

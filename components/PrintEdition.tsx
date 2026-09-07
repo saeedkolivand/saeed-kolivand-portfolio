@@ -110,10 +110,12 @@ export default function PrintEdition() {
       <main id="print-main" className={styles.main}>
         {/* 0 -- Cover */}
         <Panel index={0} pal={PAL[0]} dark={DARK[0]} title={T[0].title} kicker={T[0].kicker}>
+          {/* the same plate the animated cover prints as its hero, so both
+              editions agree on what Issue #0 depicts */}
           <img
-            className={styles.catMotif}
-            src="/images/backcover-harley.png"
-            alt={printEdition.altText.mascot}
+            className={styles.motif}
+            src="/images/noir-window-figure.png"
+            alt={printEdition.altText.coverDesk}
             loading="lazy"
             decoding="async"
           />
@@ -181,7 +183,7 @@ export default function PrintEdition() {
         {/* 4 -- Origin */}
         <Panel index={4} pal={PAL[4]} dark={DARK[4]} title={T[4].title} kicker={T[4].kicker}>
           <img
-            className={styles.catMotif}
+            className={styles.motif}
             src="/images/backcover-harley.png"
             alt={printEdition.altText.mascot}
             loading="lazy"
@@ -327,7 +329,7 @@ export default function PrintEdition() {
         {/* 10 -- Spread */}
         <Panel index={10} pal={PAL[10]} dark={DARK[10]} title={T[10].title} kicker={T[10].kicker}>
           <img
-            className={styles.catMotif}
+            className={styles.motif}
             src="/images/backcover-harley.png"
             alt={printEdition.altText.mascot}
             loading="lazy"
