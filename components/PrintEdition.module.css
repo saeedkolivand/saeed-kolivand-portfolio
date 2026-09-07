@@ -297,7 +297,9 @@
   font-size: 0.8rem;
   opacity: 0.75;
 }
-.catMotif {
+/* Small floated portrait beside a section lead. Cover uses the desk plate,
+   the other two use Harley -- hence the neutral name. */
+.motif {
   float: right;
   width: clamp(64px, 14vw, 110px);
   margin: 0 0 0.75rem 1rem;

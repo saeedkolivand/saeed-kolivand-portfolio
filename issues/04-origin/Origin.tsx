@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import { useFrame, useLoader } from "@react-three/fiber";
 import { Text } from "@react-three/drei";
 import {
@@ -248,7 +248,13 @@ function PanelFrame({ p, children }: { p: PanelDef; children?: ReactNode }) {
  * Mount under a LOCAL Suspense: while loading, the PanelFrame's PAPER_DIM
  * interior fill (z 0.03) is the placeholder, and the rest of the page
  * never unmounts.
+ *
+ * ONE url can have several live consumers -- SceneManager keeps three issues
+ * mounted, and the cover hero and the noir window print the same plate -- so
+ * neither the UV transform nor the teardown may be shared. See ART_USERS.
  */
+const ART_USERS = new Map<string, number>();
+
 export function ArtPanel({
   url,
   w,
@@ -262,7 +268,19 @@ export function ArtPanel({
   trim?: number;
   z?: number;
 }) {
-  const tex = useLoader(TextureLoader, url);
+  const src = useLoader(TextureLoader, url);
+  // Own Texture per consumer over the SHARED Source. useLoader caches by url,
+  // so without this the live consumers write repeat/offset onto ONE object and
+  // the last effect to run wins for every mesh -- a crop that depends on
+  // scroll history. Verified against the pinned three 0.185.1: copy() assigns
+  // `this.source = source.source` (image never duplicated) while offset/repeat
+  // land in the clone's own vectors, and WebGLTextures keys uploads by
+  // source + cacheKey with a usedTimes count, so N clones are still ONE
+  // upload and one dispose cannot delete a live texture. offset/repeat are
+  // NOT part of that cacheKey -- but colorSpace is, so every consumer of a
+  // url must keep setting the same one (they all set SRGBColorSpace below) or
+  // the upload forks in two.
+  const tex = useMemo(() => src.clone(), [src]);
 
   useLayoutEffect(() => {
     const img = tex.image as { width: number; height: number };
@@ -275,16 +293,26 @@ export function ArtPanel({
     tex.needsUpdate = true;
   }, [tex, w, h, trim]);
 
-  // useLoader caches by url: clear the cache entry AND free the GPU copy on
-  // unmount (SceneManager remount reloads clean); the JSX material is
-  // auto-disposed by fiber like the scene's other resources
-  useEffect(
-    () => () => {
-      useLoader.clear(TextureLoader, url);
+  // Free THIS consumer's GPU copy on unmount (three drops the shared upload
+  // only when the last texture over that source goes), but clear the loader
+  // cache -- and with it the decoded image -- only when the last consumer
+  // leaves. Disposing unconditionally would yank the plate out from under an
+  // issue still drawing it: a re-upload hitch on the gutter, then the amber
+  // stand-in again on the next remount. SceneManager remount still reloads
+  // clean, because by then the count is zero.
+  useEffect(() => {
+    ART_USERS.set(url, (ART_USERS.get(url) ?? 0) + 1);
+    return () => {
       tex.dispose();
-    },
-    [tex, url],
-  );
+      const left = (ART_USERS.get(url) ?? 1) - 1;
+      if (left > 0) {
+        ART_USERS.set(url, left);
+        return;
+      }
+      ART_USERS.delete(url);
+      useLoader.clear(TextureLoader, url);
+    };
+  }, [tex, url]);
 
   return (
     <mesh position={[0, 0, z]}>

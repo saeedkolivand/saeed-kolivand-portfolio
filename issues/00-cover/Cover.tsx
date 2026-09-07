@@ -3,13 +3,12 @@
 import { Suspense, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Text } from "@react-three/drei";
-import type { Group, Mesh } from "three";
+import type { Group } from "three";
 import IssueShell from "../_IssueShell";
 import { ISSUES } from "../registry";
 import { RANGES } from "../timeline";
-import CatModel, { HARLEY, type CatPalette } from "@/components/CatModel";
+import { ArtPanel } from "../04-origin/Origin";
 import { toonRamp } from "@/lib/toon";
-import { stepTime } from "@/lib/steppedClock";
 import { useScrollStore } from "@/lib/scrollStore";
 import { lettering } from "@/lib/content";
 import { clamp01, easeOutCubic } from "@/lib/shots";
@@ -20,8 +19,8 @@ import { clamp01, easeOutCubic } from "@/lib/shots";
  * whole thing reads as a flat print; as t moves 0->0.030 the layers
  * separate in z (pure f(t)) while the camera crash-dollies in, feeding the
  * crash-through tear in the 0.030-0.040 gutter. Attract mode (before
- * scroll) breathes the layers and flicks the cat tail on 12fps stepTime;
- * the DOM attract prompt lives in components/Lettering.tsx -- not here.
+ * scroll) breathes the layers; the DOM attract prompt lives in
+ * components/Lettering.tsx -- not here.
  *
  * All copy comes from lettering.cover (lib/content.ts). In-scene cover
  * type is drei Text INSIDE the post pipeline deliberately: the print
@@ -34,14 +33,18 @@ const INK = "#201D18";
 const RED = "#E2574C";
 const TEAL = "#2BB3A3";
 
+// Not a cover-row color: this is the hero plate's own field amber (the same
+// value Noir lights its window with), used ONLY as the stand-in fill while
+// that plate decodes, so the swap is a content change and not a color step.
+const AMBER = "#FFB347";
+
 const BANGERS = "/fonts/Bangers-Regular.ttf";
 const COVER_END = RANGES[0]![1];
 
-// The hero cat sits ON the teal sunburst disc, and the default Harley collar
-// is that exact teal -- the band reads as a hole punched through the neck
-// (audit 2026-07-27). Same teal family, two steps darker: identity mark kept,
-// separation gained. Cover-local; every other issue keeps HARLEY as-is.
-const COVER_CAT: CatPalette = { ...HARLEY, collar: "#12695F" };
+// Hero panel = the desk-figure art (same plate the Noir window prints), sized
+// to the source 4:5 so ArtPanel's aspect crop is a no-op, and small enough
+// that the framed corners stay inside the sunburst's paper ring (r 2.28).
+const HERO = { w: 2.5, h: 3.125, border: 0.08 };
 
 // Masthead splits into a small kicker line + a big main line so long names
 // ("SAEED KOLIVAND", 14 chars) never clip or collide with the price box.
@@ -68,8 +71,6 @@ export default function Cover({ index }: { index: number }) {
   const art = useRef<Group>(null);
   const hero = useRef<Group>(null);
   const letter = useRef<Group>(null);
-  const tail = useRef<Group>(null);
-  const shadow = useRef<Mesh>(null);
 
   // barcode bars derived deterministically from the GitHub handle
   const barcode = useMemo(() => {
@@ -98,27 +99,14 @@ export default function Cover({ index }: { index: number }) {
     // paper board (z < 0) and flat shapes vanish for half of every cycle.
     // ONE shared phase for all layers: with per-layer phases the art sine
     // can overtake the hero sine and the burst disc plane rises INTO the
-    // cat's intra-group z span, slicing the cat (flat torso/head circles
-    // hide behind the disc while capsule legs / torus tail bulge through).
-    // Shared phase + amplitudes that grow with the layer keep
-    // art < hero < letter invariant for every t and every breath.
+    // hero panel's z span, clipping it. Shared phase + amplitudes that grow
+    // with the layer keep art < hero < letter invariant for every t and
+    // every breath.
     const z = (l: { base: number; depth: number }, amp: number) =>
       l.base + l.depth * sep + breathe * amp * (0.5 + 0.5 * Math.sin(el * 0.85));
     if (art.current) art.current.position.z = z(LAYER.art, 0.05);
     if (hero.current) hero.current.position.z = z(LAYER.hero, 0.09);
     if (letter.current) letter.current.position.z = z(LAYER.letter, 0.13);
-    if (shadow.current) {
-      // pounce shadow shrinks away as the print separates (stays attached
-      // to the composition -- no orphaned ink blob during the crash push)
-      const k = 1 - sep;
-      shadow.current.scale.set(1.3 * k + 0.001, 0.22 * k + 0.001, 1);
-    }
-    if (tail.current) {
-      const s = stepTime(el, 12); // S2.8 -- 12fps tail flick, camera stays smooth
-      tail.current.rotation.z = reducedMotion
-        ? 0
-        : Math.sin(s * 2.6) * 0.28 + Math.sin(s * 0.6) * 0.1;
-    }
   });
 
   return (
@@ -183,48 +171,49 @@ export default function Cover({ index }: { index: number }) {
           </mesh>
         </group>
 
-        {/* L2 -- hero art: the cat, mid-pounce toward the masthead (S1
-            through-line; clickable meow, S5b.5). Flat-print silhouette:
-            overlapping ink shapes stay connected, paper face details, teal
-            collar + red tag (identity marks shared with the Desk cat),
-            torus-arc tail that flicks on stepped time. */}
+        {/* L2 -- hero art: the dev at the desk (user directive 2026-09-07,
+            replacing the pounce cat). Same baked plate the Noir window
+            prints, tipped onto the sunburst as a cover photo: ink border,
+            slight tilt for the comic-cover energy, centered on the disc so
+            the paper ring reads all the way round. The click still meows:
+            an unsignposted gag now that the cat it sat on is gone, which is
+            what the rest of the S5b.5 cats are too. */}
         <group
           ref={hero}
-          position={[0, -0.75, 0.03]}
+          position={[0, -0.4, 0.03]}
+          rotation={[0, 0, -0.035]}
           onClick={(e) => {
             e.stopPropagation();
             useScrollStore.getState().meow();
           }}
         >
-          {/* pounce shadow -- rides the SAME layer as the cat (never
-              spatially detaches under parallax); just behind the body ink
-              yet always in front of the burst (hero-art base gap 0.015).
-              Shrinks with separation, pure f(t). */}
-          <mesh ref={shadow} position={[-0.15, -1.3, -0.008]} scale={[1.3, 0.22, 1]}>
-            <circleGeometry args={[1, 32]} />
+          {/* printed ink border, one plane behind the art */}
+          <mesh position={[0, 0, -0.004]}>
+            <planeGeometry args={[HERO.w + HERO.border * 2, HERO.h + HERO.border * 2]} />
             <meshToonMaterial color={INK} gradientMap={ramp} />
           </mesh>
-          <group scale={1.3} rotation={[0, 0, 0.42]}>
-            {/* shared mascot (components/CatModel): flat-print pounce build,
-                Harley default palette (golden tabby, user directive
-                2026-07-03); tail rig ref is flicked on stepped time in the
-                useFrame above, its pivot sits INSIDE the haunch */}
-            <CatModel mode="flat" pose="leaping" palette={COVER_CAT} rig={{ tail }} />
-
-            {/* speed dashes trailing the pounce (technique vocabulary, S1) */}
-            <mesh position={[-1.8, -0.55, 0.001]}>
-              <planeGeometry args={[0.8, 0.06]} />
-              <meshToonMaterial color={RED} gradientMap={ramp} />
-            </mesh>
-            <mesh position={[-2.0, -0.2, 0.001]}>
-              <planeGeometry args={[0.6, 0.05]} />
-              <meshToonMaterial color={RED} gradientMap={ramp} />
-            </mesh>
-            <mesh position={[-1.7, -0.9, 0.001]}>
-              <planeGeometry args={[0.5, 0.045]} />
-              <meshToonMaterial color={RED} gradientMap={ramp} />
-            </mesh>
-          </group>
+          {/* amber fill stands in while the texture loads -- LOCAL Suspense,
+              the rest of the cover never unmounts. Unlit basic material to
+              match the ArtPanel it hands off to (a toon+ramp fill would make
+              the swap a luminance step, not just a content change). */}
+          <Suspense
+            fallback={
+              <mesh>
+                <planeGeometry args={[HERO.w, HERO.h]} />
+                <meshBasicMaterial color={AMBER} />
+              </mesh>
+            }
+          >
+            {/* trim eats the plate's own baked canvas-edge ink so it cannot
+                double the border plane behind it */}
+            <ArtPanel
+              url="/images/noir-window-figure.png"
+              w={HERO.w}
+              h={HERO.h}
+              z={0}
+              trim={0.012}
+            />
+          </Suspense>
         </group>
 
         {/* L3 -- lettering plate: masthead, issue line, price box, blurb, barcode */}

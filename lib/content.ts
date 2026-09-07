@@ -290,6 +290,7 @@ export const printEdition = {
   toReaderLabel: "Read the Print Edition",
   toExperienceLabel: "Watch the animated version",
   altText: {
+    coverDesk: "Cover art: a developer at a desk in headphones, silhouetted against a lit monitor.",
     mascot: "Harley, the fluffy golden-brown tabby cat mascot, seated and watching the desk.",
     noirWindow: "A lone figure at a single lit window on a dark, rain-streaked block.",
     originKid: "A child at a hand-me-down computer, one cursor blinking in the dark.",
