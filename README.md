@@ -7,7 +7,7 @@
 [![next](https://img.shields.io/github/package-json/dependency-version/saeedkolivand/saeed-kolivand-portfolio/next?label=next&style=flat-square)](https://nextjs.org)
 
 <p align="center">
-  <a href="https://iamsaeed.dev/"><img src="docs/readme/hero.png" width="900" alt="The comic cover: Harley the tabby printed in halftone on a teal starburst under the KOLIVAND masthead"></a>
+  <a href="https://iamsaeed.dev/"><img src="docs/readme/hero.png" width="900" alt="The comic cover: a developer at a desk in headphones, printed in halftone on a teal starburst under the KOLIVAND masthead"></a>
 </p>
 
 <p align="center">
