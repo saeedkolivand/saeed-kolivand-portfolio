@@ -13,6 +13,15 @@ updates:
       # ponytail: TS 7 (native compiler) lacks the JS API next build needs; drop when Next supports it
       - dependency-name: typescript
         update-types: ["version-update:semver-major"]
+      # ponytail: @react-three/fiber 9.7 peers react ">=19 <19.3"; drop when fiber widens it
+      - dependency-name: "react"
+        update-types: ["version-update:semver-minor"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-minor"]
+      - dependency-name: "@types/react"
+        update-types: ["version-update:semver-minor"]
+      - dependency-name: "@types/react-dom"
+        update-types: ["version-update:semver-minor"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
